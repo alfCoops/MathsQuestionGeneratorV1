@@ -117,17 +117,26 @@
   .vid-row .vr-head .vic{color:var(--blue);font-size:14px}
   .vid-row .vr-body{display:none;padding:13px;border-top:1px solid var(--line);background:#fbfcfe}
   .vid-row.open .vr-body{display:block}
-  .notes-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:11px}
-  .notes-col h5{font-size:11.5px;font-weight:700;margin-bottom:6px}
-  .notes-col.kn h5{color:var(--green)} .notes-col.cs h5{color:var(--blue)} .notes-col.qt h5{color:var(--purple)}
-  .notes-col ul{list-style:none;display:flex;flex-direction:column;gap:5px}
-  .notes-col li{font-size:11.5px;color:#334155;display:flex;gap:6px}
-  .notes-col li::before{content:"•";color:#94a3b8;font-weight:700}
   .ex{color:var(--muted);font-style:italic}
-  .yourturn{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:12px}
-  .yourturn h5{font-size:12px;font-weight:700;margin-bottom:8px}
-  .yourturn ol{padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#334155}
-  .yt-ans{display:none;margin-top:9px;background:var(--green-bg);border:1px solid var(--green-line);border-radius:9px;padding:10px 12px;font-size:12px;color:#14532d}
+  /* two-column video notes: Key Facts | Quick Fire Questions */
+  .vnotes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;align-items:start}
+  .vn-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+  .vn-card.facts{background:#f8fafc}
+  .vn-card h5{font-size:12.5px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:7px;margin:0}
+  .vn-card .vn-ico{font-size:14px}
+  .fact-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:11px}
+  .fact-list>li{font-size:12px;color:#334155;display:flex;gap:8px;line-height:1.45}
+  .fact-list>li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+  .fact-list ul{list-style:none;margin-top:5px;padding-left:2px;display:flex;flex-direction:column;gap:4px}
+  .fact-list ul li{font-size:11.5px;color:var(--muted)}
+  .fact-list ul li::before{content:"•";color:#94a3b8;font-weight:700;margin-right:7px}
+  .qfq-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .ans-toggle{font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-soft);border:1px solid #bfdbfe;border-radius:999px;padding:4px 11px;cursor:pointer;flex-shrink:0}
+  .ans-toggle:hover{background:#dbeafe}
+  .qfq-list{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:#334155;margin-top:11px}
+  .qfq-list li{padding-left:3px;line-height:1.4}
+  .qfq-list li::marker{font-weight:700;color:var(--muted)}
+  .yt-ans{display:none;margin-top:11px;background:var(--green-bg);border:1px solid var(--green-line);border-radius:9px;padding:10px 12px;font-size:11.5px;color:#14532d;line-height:1.85}
   .yt-ans.show{display:block}
 
   /* quiz */
@@ -214,7 +223,7 @@
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;font-weight:600;font-size:13px;padding:11px 20px;border-radius:11px;transition:.3s;opacity:0;z-index:99}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
-  @media(max-width:1000px){.grid{grid-template-columns:1fr}.gen-grid{grid-template-columns:1fr}.notes-grid{grid-template-columns:1fr}.ws-qs{grid-template-columns:1fr}}
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}.gen-grid{grid-template-columns:1fr}.vnotes{grid-template-columns:1fr}.ws-qs{grid-template-columns:1fr}}
   @media(max-width:760px){.sidebar{display:none}.main{padding:16px}}
   :focus-visible{outline:2.5px solid var(--blue);outline-offset:2px}
   @media print{
@@ -604,22 +613,21 @@ function buildVideos(){
     const row=document.createElement('div'); row.className='vid-row'+(vi===0?' open':'');
     let notesHtml='';
     if(v.notes){
+      const facts = (v.notes.key||[]).concat(v.notes.symbols||[], v.notes.tips||[]);
       notesHtml=`
-        <div class="notes-grid">
-          <div class="notes-col kn"><h5>Key Notes</h5><ul>${v.notes.key.slice(0,5).map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
-          <div class="notes-col kn"><h5>&nbsp;</h5><ul>${v.notes.key.slice(5).map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
-          <div class="notes-col">
-            <div class="notes-col cs"><h5>Comparison Symbols</h5><ul>${v.notes.symbols.map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
-            <div class="notes-col qt" style="margin-top:10px"><h5>Quick Tips</h5><ul>${v.notes.tips.map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
+        <div class="vnotes">
+          <div class="vn-card facts">
+            <h5><span class="vn-ico">💡</span> Key Facts to Remember</h5>
+            <ul class="fact-list">${facts.map(k=>`<li><span>${k}</span></li>`).join('')}</ul>
           </div>
-        </div>
-        <div class="yourturn">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-            <div><h5>Your Turn — answer the following:</h5>
-            <ol>${v.notes.yourTurn.questions.map(q=>`<li>${q}</li>`).join('')}</ol></div>
-            <button class="btn o-blue" data-yt="${vi}">Check Answers</button>
+          <div class="vn-card qfq">
+            <div class="qfq-head">
+              <h5><span class="vn-ico">🔥</span> Quick Fire Questions</h5>
+              <button class="ans-toggle" data-yt="${vi}">Answers 👁</button>
+            </div>
+            <ol class="qfq-list">${v.notes.yourTurn.questions.map(q=>`<li>${q}</li>`).join('')}</ol>
+            <div class="yt-ans" id="ytAns${vi}"><b>Answers:</b><br>${v.notes.yourTurn.answers}</div>
           </div>
-          <div class="yt-ans" id="ytAns${vi}"><b>Answers:</b> ${v.notes.yourTurn.answers}</div>
         </div>`;
     }
     row.innerHTML=`
@@ -649,7 +657,7 @@ $('videoList').addEventListener('click', e=>{
     setBtn('learnBtn', true, '✓ Started', 'Start ⊕', 'solid');
   }
   const yt=e.target.closest('[data-yt]');
-  if(yt) $('ytAns'+yt.dataset.yt).classList.toggle('show');
+  if(yt){ const open=$('ytAns'+yt.dataset.yt).classList.toggle('show'); yt.textContent=open?'Hide 👁':'Answers 👁'; }
 });
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{
   $(b.dataset.close).classList.remove('show');

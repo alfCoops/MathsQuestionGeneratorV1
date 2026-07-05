@@ -24,12 +24,13 @@ const LESSONS = {
   code:'1a', title:'1a. Integers and Place Value', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:'1b',
   success:[
-    'Use and order positive and negative integers and decimals.',
-    'Add, subtract, multiply and divide integers accurately.',
-    'Multiply or divide by powers of 10.',
-    'Use brackets and the order of operations (BIDMAS) correctly.',
-    'Round numbers to the nearest 10, 100 or 1000.',
-    'Check answers using inverse operations.'
+    'Use and order positive and negative numbers (integers) and decimals; use the symbols &lt;, &gt; and understand the ≠ symbol.',
+    'Add, subtract, multiply and divide positive and negative numbers (integers).',
+    'Recall all multiplication facts to 10 × 10, and use them to derive quickly the corresponding division facts.',
+    'Multiply or divide any number by powers of 10.',
+    'Use brackets and the hierarchy of operations (not including powers).',
+    'Round numbers to a given power of 10.',
+    'Check answers by rounding and using inverse operations.'
   ],
   prior:[
     'I can order positive and negative numbers.',
@@ -47,41 +48,101 @@ const LESSONS = {
     'Many students round incorrectly when estimating.'
   ],
   videos:[
-    { title:'Video 1: Positive and Negative Integers and Decimals', url:'',
+    { title:'Video 1: Ordering Positive and Negative Numbers, Decimals and Rounding', url:'',
       notes:{
         key:[
-          '<b>Positive numbers</b> are greater than 0.',
-          '<b>Negative numbers</b> are less than 0.',
-          'On a number line, numbers further to the right are always greater.',
-          'When comparing negative numbers, the number closer to 0 is greater. <span class="ex">Example: −3 &gt; −7</span>',
-          'Remember: every positive number is greater than every negative number.',
-          'When comparing decimals, compare the digits from left to right (tenths, hundredths, thousandths). <span class="ex">Example: 3.45 &gt; 3.405</span>',
-          'You can add zeros to the end of decimals without changing their value. <span class="ex">Example: 2.5 = 2.50</span>',
-          'Arrange numbers in ascending order (smallest to largest) or descending order (largest to smallest).'
+          'Positive numbers are greater than negative numbers.',
+          'Numbers further to the right on a number line have the greater value.',
+          'Use &lt;, &gt; and ≠ correctly when comparing numbers.',
+          'When rounding, look at the digit immediately to the right:<ul><li>0–4 → round down</li><li>5–9 → round up</li></ul>'
         ],
-        symbols:[
-          '&gt; means "greater than." <span class="ex">Example: 8 &gt; 5</span>',
-          '&lt; means "less than." <span class="ex">Example: −6 &lt; −2</span>',
-          '= means "equal to." <span class="ex">Example: 4.2 = 4.20</span>',
-          '≠ means "not equal to." <span class="ex">Example: 7 ≠ 9</span>'
-        ],
-        tips:[
-          'Always think about the position of the number on a number line.',
-          'For negative numbers, a larger absolute value means a smaller number. <span class="ex">Example: −10 &lt; −4</span>',
-          'Check place value carefully when comparing decimals.'
-        ],
+        symbols:[], tips:[],
         yourTurn:{
           questions:[
-            'Which is greater: −5 or −2?',
-            'Compare 3.07 and 3.7 using &lt;, &gt; or =.',
-            'Put the following numbers in ascending order: −4, 2, −1, 0, 3.',
-            'Write the correct symbol (&lt;, &gt;, = or ≠): 6.8 __ 6.80'
+            'Write &lt;, &gt; or ≠ :&nbsp; −7 __ −2',
+            'Order these numbers from smallest to largest:&nbsp; −5, 3, −1, 0, 2.5',
+            'Compare:&nbsp; −3.4 ___ −3.40',
+            'Round 642 to the nearest 10.',
+            'Round 2,378 to the nearest 100.',
+            'Round 54,261 to the nearest 1,000.',
+            'Between which two multiples of 100 does 7,842 lie?',
+            'A temperature of −3°C rises by 8 degrees. What is the new temperature?'
           ],
-          answers:'1) −2 is greater (closer to zero). &nbsp; 2) 3.07 &lt; 3.7 (0 tenths vs 7 tenths). &nbsp; 3) −4, −1, 0, 2, 3. &nbsp; 4) 6.8 = 6.80 (adding a zero doesn\u2019t change the value).'
+          answers:'<b>1.</b> −7 &lt; −2 &nbsp; <b>2.</b> −5, −1, 0, 2.5, 3 &nbsp; <b>3.</b> −3.4 = −3.40 &nbsp; <b>4.</b> 640 &nbsp; <b>5.</b> 2,400 &nbsp; <b>6.</b> 54,000 &nbsp; <b>7.</b> 7,800 and 7,900 &nbsp; <b>8.</b> 5°C'
         }
       }},
-    { title:'Video 2: Ordering Integers and Decimals', url:'', notes:null },
-    { title:'Video 3: Comparing and Estimating', url:'', notes:null }
+    { title:'Video 2: Adding, Subtracting, Multiplying and Dividing Positive and Negative Numbers', url:'',
+      notes:{
+        key:[
+          'Adding a negative is the same as subtracting.',
+          'Subtracting a negative is the same as adding.',
+          'Same signs give a positive answer when multiplying or dividing.',
+          'Different signs give a negative answer when multiplying or dividing.',
+          'Every multiplication fact has two related division facts.'
+        ],
+        symbols:[], tips:[],
+        yourTurn:{
+          questions:[
+            'Calculate:&nbsp; −9 + 15',
+            'Calculate:&nbsp; −6 − (−11)',
+            'Calculate:&nbsp; 7 × (−3)',
+            'Calculate:&nbsp; (−8) ÷ (−2)',
+            'If 9 × 7 = 63, what are the two division facts?',
+            'Calculate:&nbsp; −15 − (−18)',
+            'Calculate:&nbsp; −4 × (−7) − 12',
+            'A lift goes up 6 floors, down 11 floors, then up 9 floors. What floor is it on now if it started on the ground floor (0)?'
+          ],
+          answers:'<b>1.</b> 6 &nbsp; <b>2.</b> 5 (−6 + 11) &nbsp; <b>3.</b> −21 &nbsp; <b>4.</b> 4 &nbsp; <b>5.</b> 63 ÷ 9 = 7 and 63 ÷ 7 = 9 &nbsp; <b>6.</b> 3 (−15 + 18) &nbsp; <b>7.</b> 28 − 12 = 16 &nbsp; <b>8.</b> Floor 4 (0 + 6 − 11 + 9)'
+        }
+      }},
+    { title:'Video 3: Multiplying and Dividing by Powers of 10 and Using the Order of Operations', url:'',
+      notes:{
+        key:[
+          'Multiplying by 10, 100 or 1000 moves digits to the left.',
+          'Dividing by 10, 100 or 1000 moves digits to the right.',
+          'Always work inside brackets first.',
+          'Multiplication and division come before addition and subtraction.',
+          'Work from left to right when operations have the same priority.'
+        ],
+        symbols:[], tips:[],
+        yourTurn:{
+          questions:[
+            'Calculate:&nbsp; 36 × 10',
+            'Calculate:&nbsp; 8.4 × 100',
+            'Calculate:&nbsp; 5,700 ÷ 10',
+            'Calculate:&nbsp; 3.45 ÷ 100',
+            'Calculate:&nbsp; 12 + 5 × 3 − 7',
+            'Calculate:&nbsp; 18 − (6 + 4 × 2)',
+            'Calculate:&nbsp; 2.5 × 1000 + 3.4 × 10',
+            'Calculate:&nbsp; (15 − 6 × 2) ÷ 3 + 7'
+          ],
+          answers:'<b>1.</b> 360 &nbsp; <b>2.</b> 840 &nbsp; <b>3.</b> 570 &nbsp; <b>4.</b> 0.0345 &nbsp; <b>5.</b> 12 + 15 − 7 = 20 &nbsp; <b>6.</b> 18 − 14 = 4 &nbsp; <b>7.</b> 2500 + 34 = 2534 &nbsp; <b>8.</b> (15 − 12) ÷ 3 + 7 = 1 + 7 = 8'
+        }
+      }},
+    { title:'Video 4: Checking Answers Using Rounding and Inverse Operations', url:'',
+      notes:{
+        key:[
+          'Round numbers to estimate before calculating.',
+          'Use estimates to check whether your answer is reasonable.',
+          'Use inverse operations to check your calculations.',
+          'If your estimate and exact answer are very different, check your working.'
+        ],
+        symbols:[], tips:[],
+        yourTurn:{
+          questions:[
+            'Estimate 498 + 217 by rounding to the nearest 10, then calculate it exactly.',
+            'Calculate 641 − 298. Check your answer using addition.',
+            'Calculate 36 × 25. Check your answer using division.',
+            'Estimate 203 × 49 by rounding, then calculate it exactly.',
+            'Calculate 884 ÷ 26. Check your answer using multiplication.',
+            'A shopkeeper buys an item for £12.60 and sells it for £18.99. Estimate the profit, then calculate it exactly.',
+            'Estimate (598 − 203) × 7 by rounding, then calculate it exactly.',
+            'A train travelled 127 km in 2.5 hours. Estimate the average speed, then calculate it exactly.'
+          ],
+          answers:'<b>1.</b> Estimate 500 + 220 = 720; exact 715. &nbsp; <b>2.</b> 343; check 343 + 298 = 641 ✓ &nbsp; <b>3.</b> 900; check 900 ÷ 25 = 36 ✓ &nbsp; <b>4.</b> Estimate 200 × 50 = 10,000; exact 9,947. &nbsp; <b>5.</b> 34; check 34 × 26 = 884 ✓ &nbsp; <b>6.</b> Estimate £19 − £13 = £6; exact £6.39. &nbsp; <b>7.</b> Estimate 400 × 7 = 2,800; exact 395 × 7 = 2,765. &nbsp; <b>8.</b> Estimate 130 ÷ 2.5 ≈ 52 km/h; exact 50.8 km/h.'
+        }
+      }},
+    { title:'Video 5: Comparing and Estimating', url:'', notes:null }
   ],
   quizPass:80,
   quiz:[
@@ -128,18 +189,22 @@ const LESSONS = {
       '<b>3.</b> When will the following be true? |a| &lt; |b|<br>Explain your answer.' ]}
   ],
   genBank:[
-    { grade:'Grade 1', marks:2, q:'Write the correct symbol (< or >): −7 ___ −3, and 0.6 ___ 0.09.',
-      ms:'−7 < −3 (1 mark). 0.6 > 0.09 — compare tenths: 6 > 0 (1 mark).' },
-    { grade:'Grade 2–3', marks:3, q:'Order the following numbers from smallest to largest: −3.7, 0, −1.25, 2.08, −2, 1.5',
-      ms:'Negatives first, furthest from zero smallest: −3.7, −2, −1.25 (2 marks). Then 0, 1.5, 2.08 (1 mark). (Total 3 marks)' },
-    { grade:'Grade 2', marks:2, q:'The temperature in Inverness at 6am was −4°C. By midday it had risen by 9°C. What was the midday temperature?',
-      ms:'−4 + 9 (1 mark) = 5°C (1 mark).' },
-    { grade:'Grade 3', marks:3, q:'A diver is at −12 m. She rises 5 m, then descends 8 m. (a) Where is she now? (b) How far is she from the surface?',
-      ms:'(a) −12 + 5 = −7, then −7 − 8 = −15 m (2 marks). (b) 15 m from the surface (1 mark).' },
-    { grade:'Grade 2', marks:2, q:'Work out 18 − 3 × (2 + 2).',
-      ms:'Brackets: 2 + 2 = 4. Multiply: 3 × 4 = 12 (1 mark). 18 − 12 = 6 (1 mark).' },
-    { grade:'Grade 3', marks:3, q:'A stadium holds 42,850 people. (a) Round the capacity to the nearest 1,000. (b) Write 42,850 ÷ 100. (c) Use estimation to check whether 42,850 × 9 is closer to 380,000 or 430,000.',
-      ms:'(a) 43,000 (1 mark). (b) 428.5 (1 mark). (c) 43,000 × 9 = 387,000 → closer to 380,000 (1 mark).' }
+    { grade:'Grade 1', marks:3, q:'<b>(a)</b> Write these numbers in order of size. Start with the smallest number.<br>52&nbsp;&nbsp;&nbsp;102&nbsp;&nbsp;&nbsp;25&nbsp;&nbsp;&nbsp;120&nbsp;&nbsp;&nbsp;55&nbsp;&nbsp;&nbsp;<b>(1)</b><br><br><b>(b)</b> Write these numbers in order of size. Start with the smallest number.<br>6&nbsp;&nbsp;&nbsp;−2&nbsp;&nbsp;&nbsp;0&nbsp;&nbsp;&nbsp;−5&nbsp;&nbsp;&nbsp;3&nbsp;&nbsp;&nbsp;<b>(1)</b><br><br><b>(c)</b> Write these numbers in order of size. Start with the smallest number.<br>0.63&nbsp;&nbsp;&nbsp;0.633&nbsp;&nbsp;&nbsp;0.603&nbsp;&nbsp;&nbsp;0.6&nbsp;&nbsp;&nbsp;0.06&nbsp;&nbsp;&nbsp;<b>(1)</b>',
+      ms:'(a) 25, 52, 55, 102, 120 <b>(B1)</b>. (b) −5, −2, 0, 3, 6 <b>(B1)</b> — a negative number with a larger digit is smaller, so −5 &lt; −2. (c) 0.06, 0.6, 0.603, 0.63, 0.633 <b>(B1)</b> — writing each to 3 decimal places (0.060, 0.600, 0.603, 0.630, 0.633) then comparing is the most reliable method.' },
+    { grade:'Grade 1', marks:4, q:'<b>(a)</b> Write the number seven thousand and twenty-five in figures. <b>(1)</b><br><br><b>(b)</b> Write the number 9450 in words. <b>(1)</b><br><br><b>(c)</b> Write the number 28.75 to the nearest whole number. <b>(1)</b><br><br><b>(d)</b> Write the number 7380 to the nearest thousand. <b>(1)</b>',
+      ms:'(a) 7025 <b>(B1)</b>. (b) Nine thousand four hundred and fifty <b>(B1)</b> — do not accept &ldquo;nine thousand and fifty&rdquo;. (c) 29 <b>(B1)</b> — round using the 7 in the tenths column; rounding to the nearest 10 (giving 30) is a common error. (d) 7000 <b>(B1)</b>.' },
+    { grade:'Grade 2', marks:3, q:'28 569 people watch a football match.<br><br><b>(a)</b> Write 28 569 to the nearest hundred. <b>(1)</b><br><br><b>(b)</b> Write down the value of the 2 in the number 28 569 <b>(1)</b><br><br>5619 of the 28 569 people are female.<br><b>(c)</b> Work out the number of males. <b>(1)</b>',
+      ms:'(a) 28 600 <b>(B1)</b> — not 600. (b) 20 000 (twenty thousand) <b>(B1)</b> — the 2 is in the ten-thousands column; &ldquo;thousand&rdquo; is a common wrong answer. (c) 28 569 − 5619 = 22 950 <b>(B1)</b>.' },
+    { grade:'Grade 2', marks:4, q:'The table shows the temperature in a city at four times on one day in December.<br><table style="border-collapse:collapse;margin:8px 0;font-size:12.5px"><tr><td style="border:1px solid #94a3b8;padding:4px 12px">6 am</td><td style="border:1px solid #94a3b8;padding:4px 12px">2 pm</td><td style="border:1px solid #94a3b8;padding:4px 12px">6 pm</td><td style="border:1px solid #94a3b8;padding:4px 12px">10 pm</td></tr><tr><td style="border:1px solid #94a3b8;padding:4px 12px">−4 °C</td><td style="border:1px solid #94a3b8;padding:4px 12px">7 °C</td><td style="border:1px solid #94a3b8;padding:4px 12px">2 °C</td><td style="border:1px solid #94a3b8;padding:4px 12px">−1 °C</td></tr></table><b>(a)</b> Write down the time with the lowest temperature. <b>(1)</b><br><br><b>(b)</b> Work out the difference between the temperature at 2 pm and the temperature at 6 pm. <b>(1)</b><br><br>Between 10 pm and midnight the temperature goes down 5 °C.<br><b>(c)</b> Work out the temperature at midnight. <b>(2)</b>',
+      ms:'(a) 6 am <b>(B1)</b>. (b) 7 − 2 = 5 °C <b>(B1)</b>. (c) −1 − 5 <b>(M1)</b> = −6 °C <b>(A1)</b> — an answer of −6 must be supported by working; watch the sign as the answer is below zero.' },
+    { grade:'Grade 3', marks:3, q:'Sally uses her van to deliver boxes to shops.<br>She can put a maximum weight of 450 kg in the van.<br>Sally has to deliver 50 boxes to a shop.<br>Each box has a weight of 30 kg.<br><br>Work out the least number of times Sally has to drive to the shop to deliver all 50 boxes.<br>You must show all your working. <b>(3)</b>',
+      ms:'450 ÷ 30 = 15 boxes per trip <b>(M1)</b>. 50 ÷ 15 = 3.33… <b>(M1)</b>. 4 trips <b>(A1)</b> — you must round up; 3 trips carry only 45 boxes, so a 4th trip is needed. Stating &ldquo;3 trips&rdquo; scores M1 M1 only.' },
+    { grade:'Grade 3', marks:5, q:'Alex has driving lessons with Stan’s Driving School.<br>The first 2 lessons cost £12.75 each. Every lesson after that costs £20.<br><br><b>(a)</b> Work out the total cost of 5 lessons. <b>(2)</b><br><br>Leah has some lessons with Stan’s Driving School.<br>The total cost of her lessons is £305.50<br><b>(b)</b> Work out how many lessons Leah has. <b>(3)</b>',
+      ms:'(a) 2 × 12.75 = 25.50 and 3 × 20 = 60 <b>(M1)</b>; total = £85.50 <b>(A1)</b> — write money to 2 decimal places (£85.5 is condoned but not correct notation). (b) 305.50 − 25.50 = 280 <b>(M1)</b>; 280 ÷ 20 = 14 <b>(M1)</b>; 14 + 2 = 16 lessons <b>(A1)</b> — a common error is forgetting to add the first 2 lessons and answering 14.' },
+    { grade:'Grade 3', marks:4, q:'A stadium holds 42 850 people.<br><br><b>(a)</b> Write 42 850 to the nearest thousand. <b>(1)</b><br><br><b>(b)</b> Write down the value of the 8 in 42 850 <b>(1)</b><br><br>There are 9 home matches in a season and the stadium is full for every match.<br><b>(c)</b> Use estimation to work out approximately how many tickets are sold in the season. You must show your working. <b>(2)</b>',
+      ms:'(a) 43 000 <b>(B1)</b>. (b) 800 (eight hundred) <b>(B1)</b> — the 8 is in the hundreds column. (c) 43 000 × 9 <b>(M1)</b> = 387 000, so approximately 390 000 tickets <b>(A1)</b>. Accept 42 850 × 9 ≈ 385 650.' },
+    { grade:'Grade 2', marks:1, q:'Work out the number that is halfway between −6 and 10 <b>(1)</b>',
+      ms:'(−6 + 10) ÷ 2 = 4 ÷ 2 = 2 <b>(B1)</b> — the midpoint is 2. Finding the difference (16) and adding half of it to −6 also gives 2.' }
   ]
 },
 
@@ -250,14 +315,22 @@ const LESSONS = {
       '<b>3.</b> When does writing an extra zero on a number change its value, and when does it not? Explain.' ]}
   ],
   genBank:[
-    { grade:'Grade 1', marks:2, q:'Write down the value of the 8 in 2.485, and write 0.3 as a fraction.',
-      ms:'8 hundredths = 0.08 (1 mark). 0.3 = 3/10 (1 mark).' },
-    { grade:'Grade 2', marks:2, q:'Petrol costs £1.479 per litre. Round the price to 2 decimal places, then to 1 decimal place.',
-      ms:'£1.48 — the thousandths digit 9 rounds the hundredths up (1 mark). £1.5 (1 mark).' },
-    { grade:'Grade 2–3', marks:3, q:'Order these masses from lightest to heaviest: 0.45 kg, 0.405 kg, 0.5 kg, 0.045 kg.',
-      ms:'Pad to three places: 0.450, 0.405, 0.500, 0.045 (1 mark). Order: 0.045, 0.405, 0.45, 0.5 kg (2 marks).' },
-    { grade:'Grade 3', marks:3, q:'A machine fills 1000 bottles from a 745.5 litre tank. (a) How much does each bottle hold? (b) The label says 0.75 litres — is the label correct? Explain.',
-      ms:'(a) 745.5 ÷ 1000 = 0.7455 litres (2 marks). (b) No — 0.7455 < 0.75; compare hundredths: 4 < 5 (1 mark).' }
+    { grade:'Grade 1', marks:3, q:'<b>(a)</b> Write these numbers in order of size. Start with the smallest number.<br>0.63&nbsp;&nbsp;&nbsp;0.633&nbsp;&nbsp;&nbsp;0.603&nbsp;&nbsp;&nbsp;0.6&nbsp;&nbsp;&nbsp;0.06&nbsp;&nbsp;&nbsp;<b>(1)</b><br><br><b>(b)</b> Write down the value of the 8 in 2.485 <b>(1)</b><br><br><b>(c)</b> Write 4.4354 correct to 2 decimal places. <b>(1)</b>',
+      ms:'(a) 0.06, 0.6, 0.603, 0.63, 0.633 <b>(B1)</b> — write each to 3 decimal places then compare; do not put 0.63 before 0.603. (b) 8 hundredths = 0.08 <b>(B1)</b>. (c) 4.44 <b>(B1)</b> — the third decimal place is 5, so the second rounds up.' },
+    { grade:'Grade 2', marks:2, q:'Petrol costs £1.479 per litre.<br><br><b>(a)</b> Write the price of the petrol correct to 2 decimal places. <b>(1)</b><br><br><b>(b)</b> Write the price of the petrol correct to 1 decimal place. <b>(1)</b>',
+      ms:'(a) £1.48 <b>(B1)</b> — the thousandths digit 9 rounds the hundredths up. (b) £1.5 <b>(B1)</b> — round 1.48 (or 1.479); accept £1.50.' },
+    { grade:'Grade 2', marks:1, q:'Work out the number that is halfway between 2.9 and 3.6 <b>(1)</b>',
+      ms:'(2.9 + 3.6) ÷ 2 = 6.5 ÷ 2 = 3.25 <b>(B1)</b> — common wrong answers are 3.2, 3.3 and 3½.' },
+    { grade:'Grade 2', marks:2, q:'Jayne writes down the following.<br><br><b>3.4 × 5.3 = 180.2</b><br><br>Without doing the exact calculation, explain why Jayne’s answer cannot be correct. <b>(2)</b>',
+      ms:'Estimate by rounding: 3.4 × 5.3 ≈ 3 × 5 = 15 (accept 4 × 5 = 20 or similar) <b>(M1)</b>. So the answer should be about 15–20, but 180.2 is roughly ten times too big <b>(A1)</b> — a valid reason must compare to a sensible estimate.' },
+    { grade:'Grade 3', marks:3, q:'A machine fills 1000 identical bottles from a tank containing 745.5 litres of water.<br><br><b>(a)</b> Work out how much water is in each bottle. <b>(2)</b><br><br>The label on a bottle says 0.75 litres.<br><b>(b)</b> Is the label correct? You must explain your answer. <b>(1)</b>',
+      ms:'(a) 745.5 ÷ 1000 <b>(M1)</b> = 0.7455 litres <b>(A1)</b> — dividing by 1000 moves the digits 3 places right. (b) No, with a reason <b>(B1)</b> — 0.7455 &lt; 0.75 because in the hundredths column 4 &lt; 5.' },
+    { grade:'Grade 3', marks:3, q:'Order these masses from lightest to heaviest.<br><br>0.45 kg&nbsp;&nbsp;&nbsp;0.405 kg&nbsp;&nbsp;&nbsp;0.5 kg&nbsp;&nbsp;&nbsp;0.045 kg <b>(3)</b>',
+      ms:'Pad to three decimal places: 0.450, 0.405, 0.500, 0.045 <b>(M1)</b>. Order: 0.045, 0.405, 0.45, 0.5 kg <b>(A2)</b> — award A1 if exactly one pair is reversed. A longer decimal is not automatically larger.' },
+    { grade:'Grade 2', marks:4, q:'Rob buys 3 pens costing £0.65 each and one notebook costing £2.49<br><br><b>(a)</b> Work out the total cost. <b>(2)</b><br><br>Rob pays with a £10 note.<br><b>(b)</b> Work out how much change Rob should get. <b>(2)</b>',
+      ms:'(a) 3 × 0.65 = 1.95 <b>(M1)</b>; 1.95 + 2.49 = £4.44 <b>(A1)</b>. (b) 10 − 4.44 <b>(M1)</b> = £5.56 <b>(A1)</b> — use correct money notation to 2 decimal places.' },
+    { grade:'Grade 1', marks:2, q:'<b>(a)</b> Work out 3.45 × 100 <b>(1)</b><br><br><b>(b)</b> Work out 6.2 ÷ 100 <b>(1)</b>',
+      ms:'(a) 345 <b>(B1)</b> — multiplying by 100 moves every digit 2 places left. (b) 0.062 <b>(B1)</b> — dividing by 100 moves every digit 2 places right.' }
   ]
 },
 
