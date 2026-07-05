@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MasterMaths Learning Platform — GCSE Foundation Pathway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#14263c; --blue:#2e7d32; --blue-soft:#eaf4ec;
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+    --bg:#ffffff; --card:#fff;
+    --green:#16a34a; --green-bg:#f0fdf4; --green-line:#bbf7d0;
+    --purple:#7c3aed; --purple-bg:#faf5ff; --purple-line:#e9d5ff;
+    --orange:#ea580c; --orange-bg:#fff7ed; --orange-line:#fed7aa;
+    --red:#dc2626; --red-bg:#fef2f2; --red-line:#fecaca;
+    --pink:#db2777; --gold:#f59e0b;
+    /* MasterMaths logo colours */
+    --mm-green:#2e7d32; --mm-red:#c62828; --mm-gold:#d9a521;
+    --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+  .app{display:flex;min-height:100vh}
+  button{font-family:inherit}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{width:240px;background:var(--navy);color:#cbd5e1;padding:18px 13px;flex-shrink:0;display:flex;flex-direction:column;gap:3px}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 6px 16px}
+  .mm-logo{width:44px;height:44px;border-radius:50%;background:#fff;flex-shrink:0;display:grid;place-items:center;position:relative;font-weight:800}
+  .mm-logo .sym{position:absolute;font-size:9px;font-weight:800}
+  .mm-logo .core{font-size:7.5px;font-weight:800;color:var(--navy);text-align:center;line-height:1.15}
+  .brand h1{font-size:15px;color:#fff;line-height:1.2;font-weight:800}
+  .brand h1 span{display:block;font-size:10.5px;font-weight:500;color:#94a3b8}
+  .week-label{font-size:11px;font-weight:700;color:#e2e8f0;padding:8px 7px 6px}
+  .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-weight:600;font-size:12.5px;color:#c7d2e8;cursor:pointer;border:none;background:none;width:100%;text-align:left}
+  .nav-item:hover{background:rgba(255,255,255,.06)}
+  .nav-item.active{background:var(--blue);color:#fff}
+  .nav-item .tag{width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0;color:#fff}
+  .nav-item .lock{margin-left:auto;opacity:.55;font-size:11px}
+  .nav-item .tick{margin-left:auto;color:#4ade80;font-weight:800;display:none}
+  .ext{margin-top:auto;border:1.5px solid var(--gold);border-radius:11px;padding:10px 12px;color:var(--gold)}
+  .ext b{display:flex;align-items:center;gap:7px;font-size:12.5px}
+  .ext span{font-size:10.5px;color:#cbb27a;font-weight:500}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;padding:24px 28px 60px;max-width:1150px}
+  .crumb{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px}
+  .crumb .sep{color:#94a3b8;margin:0 5px}
+  .crumb .here{color:var(--muted)}
+  .title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  h2.title{font-size:25px;font-weight:800;letter-spacing:-.02em}
+  .chip{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px}
+  .chip.grade{background:#dcfce7;color:#15803d}
+  .chip.time{background:#eef2f7;color:#14263c}
+  .grid{display:grid;grid-template-columns:1.65fr 1fr;gap:16px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .card h3{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .card h3 .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:13px;flex-shrink:0}
+  ul.ticks{list-style:none;display:flex;flex-direction:column;gap:7px}
+  ul.ticks li{display:flex;gap:9px;font-size:13px;color:#334155}
+  ul.ticks li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+  .card.green{background:var(--green-bg);border-color:var(--green-line)} .card.green h3{color:var(--green)} .card.green h3 .ic{background:#dcfce7}
+  .card.purple{background:var(--purple-bg);border-color:var(--purple-line)} .card.purple h3{color:var(--purple)} .card.purple h3 .ic{background:#f3e8ff}
+  .card.orange{background:var(--orange-bg);border-color:var(--orange-line)} .card.orange h3{color:var(--orange)} .card.orange h3 .ic{background:#ffedd5}
+  .card.red{background:var(--red-bg);border-color:var(--red-line)} .card.red h3{color:var(--red)} .card.red h3 .ic{background:#fee2e2}
+  label.pk{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:#334155;padding:3px 0;cursor:pointer}
+  label.pk input{margin-top:2px;accent-color:var(--purple)}
+  .kw{display:flex;flex-wrap:wrap;gap:6px}
+  .kw span{background:#fff;border:1px solid var(--orange-line);color:#9a3412;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:8px}
+  ul.dots{list-style:none;display:flex;flex-direction:column;gap:6px}
+  ul.dots li{display:flex;gap:9px;font-size:13px;color:#7f1d1d}
+  ul.dots li::before{content:"•";color:var(--red);font-weight:800}
+
+  /* progress */
+  .prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+  .prog-top b{font-size:14px}
+  .pct{font-size:17px;font-weight:800;color:var(--blue)}
+  .steps{display:flex;align-items:flex-start}
+  .step{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative}
+  .step .node{width:27px;height:27px;border-radius:50%;border:2.5px solid #cbd5e1;background:#fff;display:grid;place-items:center;font-size:11.5px;font-weight:700;color:#94a3b8;z-index:1}
+  .step.current .node{border-color:var(--blue);color:var(--blue)}
+  .step.done .node{background:var(--green);border-color:var(--green);color:#fff}
+  .step .lbl{font-size:10.5px;font-weight:600;color:var(--muted);text-align:center;max-width:90px;line-height:1.3}
+  .step:not(:last-child)::after{content:"";position:absolute;top:12px;left:calc(50% + 16px);width:calc(100% - 32px);height:2.5px;background:#e2e8f0}
+  .step.done:not(:last-child)::after{background:var(--green)}
+  .step .node.star{font-size:13px}
+  .step.done .node.star{background:var(--gold);border-color:var(--gold)}
+
+  /* activity rows */
+  .act-head{display:flex;align-items:center;gap:13px;cursor:pointer}
+  .act-head .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:16px;color:#fff;flex-shrink:0}
+  .act-head .txt{flex:1}
+  .act-head .txt b{display:block;font-size:13.5px}
+  .act-head .txt span{font-size:12px;color:var(--muted)}
+  .btn{font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer;border:1.5px solid transparent;transition:.15s;white-space:nowrap}
+  .btn.solid{background:var(--blue);color:#fff} .btn.solid:hover{background:#245c28}
+  .btn.o-blue{border-color:var(--blue);color:var(--blue);background:#fff} .btn.o-blue:hover{background:var(--blue-soft)}
+  .btn.o-orange{border-color:var(--orange);color:var(--orange);background:#fff} .btn.o-orange:hover{background:var(--orange-bg)}
+  .btn.o-purple{border-color:var(--purple);color:var(--purple);background:#fff} .btn.o-purple:hover{background:var(--purple-bg)}
+  .btn.o-pink{border-color:var(--pink);color:var(--pink);background:#fff} .btn.o-pink:hover{background:#fdf2f8}
+  .btn.solid-pink{background:var(--pink);color:#fff} .btn.solid-pink:hover{background:#be185d}
+  .btn.ghost{border-color:#cbd5e1;color:var(--muted);background:#fff}
+  .btn.done{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .chev{color:#94a3b8;font-size:13px;transition:.2s}
+  .open>.act-head .chev{transform:rotate(180deg)}
+  .body{display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+  .open>.body{display:block}
+
+  /* video rows */
+  .vid-row{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}
+  .vid-row .vr-head{display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer;background:#fff}
+  .vid-row .vr-head b{flex:1;font-size:12.5px}
+  .vid-row .vr-head .vic{color:var(--blue);font-size:14px}
+  .vid-row .vr-body{display:none;padding:13px;border-top:1px solid var(--line);background:#fbfcfe}
+  .vid-row.open .vr-body{display:block}
+  .notes-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:11px}
+  .notes-col h5{font-size:11.5px;font-weight:700;margin-bottom:6px}
+  .notes-col.kn h5{color:var(--green)} .notes-col.cs h5{color:var(--blue)} .notes-col.qt h5{color:var(--purple)}
+  .notes-col ul{list-style:none;display:flex;flex-direction:column;gap:5px}
+  .notes-col li{font-size:11.5px;color:#334155;display:flex;gap:6px}
+  .notes-col li::before{content:"•";color:#94a3b8;font-weight:700}
+  .ex{color:var(--muted);font-style:italic}
+  .yourturn{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:12px}
+  .yourturn h5{font-size:12px;font-weight:700;margin-bottom:8px}
+  .yourturn ol{padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#334155}
+  .yt-ans{display:none;margin-top:9px;background:var(--green-bg);border:1px solid var(--green-line);border-radius:9px;padding:10px 12px;font-size:12px;color:#14532d}
+  .yt-ans.show{display:block}
+
+  /* quiz */
+  .quiz-top{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+  .quiz-top .qnum{font-size:12.5px;font-weight:700}
+  .quiz-segs{flex:1;display:flex;gap:4px}
+  .quiz-segs i{flex:1;height:6px;border-radius:3px;background:#e2e8f0}
+  .quiz-segs i.right{background:var(--green)} .quiz-segs i.wrong{background:var(--red)} .quiz-segs i.cur{background:var(--blue)}
+  .diff{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .diff.easy{background:#dcfce7;color:#15803d} .diff.med{background:var(--blue-soft);color:var(--blue)} .diff.hard{background:#fee2e2;color:#b91c1c}
+  .q-text{font-size:14.5px;font-weight:700;margin-bottom:12px}
+  .q-opt{display:flex;align-items:center;gap:11px;width:100%;text-align:left;font-size:13px;padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer;background:#fff}
+  .q-opt .letter{width:24px;height:24px;border-radius:50%;border:1.5px solid #cbd5e1;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted);flex-shrink:0}
+  .q-opt:hover{border-color:var(--blue)}
+  .q-opt.picked-right{border-color:var(--green);background:var(--green-bg)}
+  .q-opt.picked-wrong{border-color:var(--red);background:var(--red-bg)}
+  .q-opt.reveal{border-color:var(--green)}
+  .q-opt:disabled{cursor:default}
+  .fb{display:none;border-radius:11px;padding:12px 14px;font-size:12.5px;margin:10px 0}
+  .fb.right{display:block;background:var(--green-bg);border:1px solid var(--green-line);color:#14532d}
+  .fb.wrong{display:block;background:var(--red-bg);border:1px solid var(--red-line);color:#7f1d1d}
+  .fb b{display:block;margin-bottom:3px}
+  .fb svg{display:block;margin-top:8px;max-width:340px}
+  .quiz-nav{display:flex;gap:9px;margin-top:12px}
+  .quiz-nav .spacer{flex:1}
+  .flagged{background:#fef9c3!important;border-color:#facc15!important;color:#854d0e!important}
+  .quiz-result{text-align:center;padding:18px 10px}
+  .quiz-result .big{font-size:30px;font-weight:800}
+  .quiz-result p{color:var(--muted);font-size:13px;margin-top:5px}
+
+  /* generator */
+  .gen-grid{display:grid;grid-template-columns:200px 1fr;gap:13px}
+  .hiw{background:var(--red-bg);border:1px solid var(--red-line);border-radius:11px;padding:12px 13px}
+  .hiw h5{font-size:12px;font-weight:700;color:var(--pink);margin-bottom:8px}
+  .hiw ol{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .hiw li{font-size:11.5px;color:#334155;display:flex;gap:8px}
+  .hiw li i{width:17px;height:17px;border-radius:50%;background:#fbcfe8;color:var(--pink);font-style:normal;font-weight:700;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+  .hiw .btn{width:100%;margin-top:11px;text-align:center}
+  .gen-right{display:flex;flex-direction:column;gap:11px}
+  .gen-qcard{border:1px solid var(--line);border-radius:11px;padding:13px 15px;background:#fff}
+  .gen-qcard .meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+  .gen-qcard .qbadge{font-size:11px;font-weight:700;color:var(--pink);background:#fdf2f8;border:1px solid #fbcfe8;padding:3px 9px;border-radius:999px}
+  .gen-qcard .marks{font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:3px 9px;border-radius:999px}
+  .gen-qcard .qq{font-size:13.5px;font-weight:600}
+  .gen-qcard .tot{font-size:11px;color:var(--muted);text-align:right;margin-top:8px}
+  .workspace{border:1.5px dashed #f9a8d4;border-radius:11px;padding:12px 14px;min-height:150px;
+    background-image:linear-gradient(#fce7f31a 1px,transparent 1px),linear-gradient(90deg,#fce7f31a 1px,transparent 1px),
+                     linear-gradient(#f1f5f9 1px,transparent 1px),linear-gradient(90deg,#f1f5f9 1px,transparent 1px);
+    background-size:20px 20px,20px 20px,20px 20px,20px 20px}
+  .workspace h5{font-size:11.5px;font-weight:700;color:var(--pink);margin-bottom:4px}
+  .workspace p{font-size:11px;color:var(--muted)}
+  .ms{display:none;background:var(--green-bg);border:1px solid var(--green-line);border-radius:11px;padding:12px 14px;font-size:12.5px;color:#14532d}
+  .ms.show{display:block}
+  .gen-actions{display:flex;gap:9px}
+
+  /* worksheet modal + video modal */
+  .modal{display:none;position:fixed;inset:0;background:rgba(10,20,45,.62);z-index:50;padding:26px;overflow:auto}
+  .modal.show{display:flex;align-items:flex-start;justify-content:center}
+  .modal-box{background:#fff;border-radius:16px;max-width:820px;width:100%;padding:22px 26px;position:relative}
+  .modal-x{position:absolute;top:13px;right:15px;border:none;background:#f1f5f9;width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--muted)}
+  .video-frame{aspect-ratio:16/9;width:100%;border:none;border-radius:11px;background:#0f172a}
+  .video-missing{aspect-ratio:16/9;display:grid;place-items:center;background:#0f172a;color:#94a3b8;border-radius:11px;font-size:13px;text-align:center;padding:20px}
+
+  /* worksheet */
+  .ws-head{display:flex;align-items:center;gap:13px;border-bottom:2.5px solid var(--mm-green);padding-bottom:12px;margin-bottom:15px}
+  .ws-head .ttl{flex:1}
+  .ws-head h4{font-size:19px;font-weight:800;color:var(--mm-green)}
+  .ws-head span{font-size:12px;color:var(--muted);font-weight:600}
+  .ws-head .tm{font-size:10px;color:var(--muted)}
+  .ws-sec{margin-bottom:15px;border:1px solid #d7e7d7;border-radius:11px;overflow:hidden}
+  .ws-sec-head{display:flex;justify-content:space-between;align-items:center;background:#f0f7f0;padding:8px 13px}
+  .ws-sec-head b{font-size:13px;color:var(--mm-green)}
+  .ws-grade{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:#dcedc8;color:#33691e}
+  .ws-grade.g3{background:var(--mm-green);color:#fff}
+  .ws-qs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+  .ws-q{padding:11px 13px;border-right:1px solid #edf3ed;font-size:11.5px;color:#334155}
+  .ws-q:last-child{border-right:none}
+  .ws-q b{display:block;margin-bottom:4px;font-size:11.5px}
+  .ws-lines{margin-top:9px;height:44px;background:repeating-linear-gradient(#fff,#fff 13px,#e2e8f0 13px,#e2e8f0 14px)}
+  .ws-foot{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:6px}
+
+  .footer-nav{display:flex;justify-content:space-between;gap:10px;margin-top:18px}
+  .btn.complete{background:var(--blue);color:#fff;padding:11px 20px;font-size:13px}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;font-weight:600;font-size:13px;padding:11px 20px;border-radius:11px;transition:.3s;opacity:0;z-index:99}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}.gen-grid{grid-template-columns:1fr}.notes-grid{grid-template-columns:1fr}.ws-qs{grid-template-columns:1fr}}
+  @media(max-width:760px){.sidebar{display:none}.main{padding:16px}}
+  :focus-visible{outline:2.5px solid var(--blue);outline-offset:2px}
+  @media print{
+    body *{visibility:hidden}
+    #wsPrintArea,#wsPrintArea *{visibility:visible}
+    #wsPrintArea{position:absolute;left:0;top:0;width:100%}
+    .no-print{display:none!important}
+  }
+
+
+  /* teacher editor */
+  .ad-wrap{display:flex;flex-direction:column;gap:13px;max-width:920px}
+  .ad-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .ad-panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .ad-panel h4{font-size:13.5px;margin-bottom:6px}
+  .ad-lb{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin:9px 0 4px}
+  .ad-in{font:inherit;font-size:13px;padding:8px 10px;border:1.5px solid var(--line);border-radius:9px;width:100%}
+  .ad-ta{min-height:64px;resize:vertical;line-height:1.45}
+  .ad-q{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:10px;background:#fbfcfe}
+  .ad-row{display:flex;gap:8px;align-items:center}
+  .ad-mini{font-size:11px;padding:5px 10px}
+  .ad-note{font-size:11px;color:var(--muted);font-weight:500}
+  .ad-grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+  .ad-steps{background:var(--blue-soft);border:1px solid #cbe0cf;border-radius:11px;padding:11px 14px;font-size:12.5px;color:#1f3a24}
+  .ad-steps code{background:#fff;padding:1px 5px;border-radius:5px;font-size:11.5px}
+  .draft-banner{background:#fef9c3;border:1px solid #facc15;border-radius:11px;padding:10px 13px;font-size:12.5px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .teacher-link{margin-top:8px;background:none;border:none;color:#6e7d95;font-size:11px;cursor:pointer;text-align:left;padding:3px 6px;font-family:inherit}
+  .teacher-link:hover{color:#fff}
+  /* multi-lesson additions */
+  .nav-item .tick{color:#4ade80;font-weight:800;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar shell — populated by JS -->
+  <nav class="sidebar" aria-label="Course pathway">
+    <div class="brand">
+      <h1>GCSE Maths<span>Foundation Pathway</span></h1>
+    </div>
+    <div id="sidebarNav"></div>
+    <div class="ext"><b>★ Higher Extension</b><span>Unlocks after Week 1</span></div>
+    <button class="teacher-link" onclick="location.hash='#/admin'">✎ Teacher: edit content</button>
+  </nav>
+
+  <!-- Main shell -->
+  <main class="main">
+    <div class="crumb" id="crumb"></div>
+    <div class="title-row">
+      <h2 class="title" id="lessonTitle"></h2>
+      <span class="chip grade" id="chipGrade"></span>
+      <span class="chip time" id="chipTime"></span>
+    </div>
+
+    <div id="comingSoon" style="display:none" class="card">
+      <h3><span class="ic" style="background:#dbe6ff">🚧</span>Lesson content coming soon</h3>
+      <p style="font-size:13px;color:var(--muted)">This lesson is on the pathway but its videos, quiz and worksheet haven't been added yet. Check back shortly — or head back to a completed lesson using the sidebar.</p>
+    </div>
+
+    <div id="adminRoot" style="display:none"></div>
+
+    <div class="grid" id="lessonGrid">
+      <!-- LEFT -->
+      <div class="col">
+        <section class="card">
+          <div class="prog-top"><b>Your Progress</b><span class="pct" id="pct">0%</span></div>
+          <div class="steps">
+            <div class="step" data-step="learn"><div class="node">1</div><div class="lbl">1. Watch Lesson &amp; Read Notes</div></div>
+            <div class="step" data-step="quiz"><div class="node">2</div><div class="lbl">2. Quiz</div></div>
+            <div class="step" data-step="worksheet"><div class="node">3</div><div class="lbl">3. Practice Worksheet</div></div>
+            <div class="step" data-step="generate"><div class="node">4</div><div class="lbl">4. Question Generator</div></div>
+            <div class="step" data-step="complete"><div class="node star">☆</div><div class="lbl">Lesson Complete</div></div>
+          </div>
+        </section>
+
+        <section class="card" id="secLearn">
+          <div class="act-head" data-toggle="secLearn">
+            <div class="ico" style="background:var(--blue)">▶</div>
+            <div class="txt"><b>1. Watch Lesson &amp; Read Notes</b><span>Watch the video explanation with worked examples, then read the summary notes with key formulas.</span></div>
+            <button class="btn solid" id="learnBtn">Start ⊕</button>
+            <span class="chev">▼</span>
+          </div>
+          <div class="body" id="videoList"></div>
+        </section>
+
+        <section class="card" id="secQuiz">
+          <div class="act-head">
+            <div class="ico" style="background:var(--orange)">🧠</div>
+            <div class="txt"><b>2. Quiz</b><span>Test your understanding with 10 questions. You'll get instant feedback!</span></div>
+            <button class="btn o-orange" id="quizBtn">Start Quiz</button>
+          </div>
+          <div class="body" id="quizBody">
+            <div class="quiz-top">
+              <span class="qnum" id="qNum"></span>
+              <div class="quiz-segs" id="qSegs"></div>
+              <span class="diff med" id="qDiff"></span>
+            </div>
+            <div id="qArea"></div>
+            <div class="quiz-nav no-print">
+              <button class="btn ghost" id="qPrev">← Previous Question</button>
+              <button class="btn ghost" id="qFlag">⚑ Flag Question</button>
+              <span class="spacer"></span>
+              <button class="btn ghost" id="qExit">Exit Quiz</button>
+              <button class="btn solid" id="qNext">Next Question →</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="secWs">
+          <div class="act-head">
+            <div class="ico" style="background:var(--purple)">✏️</div>
+            <div class="txt"><b>3. Practice Worksheet</b><span>Downloadable worksheet containing exam style questions.</span></div>
+            <button class="btn o-purple" id="wsBtn">Download</button>
+          </div>
+        </section>
+
+        <section class="card" id="secGen">
+          <div class="act-head" data-toggle="secGen">
+            <div class="ico" style="background:var(--pink)">🎲</div>
+            <div class="txt"><b>4. Question Generator</b><span>Generate unlimited exam-style questions to challenge your understanding.</span></div>
+            <button class="btn o-pink" id="hiwBtn">ⓘ How It Works</button>
+            <span class="chev">▼</span>
+          </div>
+          <div class="body">
+            <div class="gen-grid">
+              <div class="hiw">
+                <h5>How it works</h5>
+                <ol>
+                  <li><i>1</i>Click the button below to generate a new exam-style question.</li>
+                  <li><i>2</i>Read the question carefully.</li>
+                  <li><i>3</i>Work through it in the space provided.</li>
+                  <li><i>4</i>Check your answer using the mark scheme (available after your attempt).</li>
+                </ol>
+                <button class="btn solid-pink" id="genBtn">🎲 Generate Exam-Style Question</button>
+              </div>
+              <div class="gen-right">
+                <div class="gen-qcard" id="genCard" style="display:none">
+                  <div class="meta">
+                    <span class="qbadge" id="genLabel">Question 1</span>
+                    <span class="marks" id="genMarks"></span>
+                  </div>
+                  <div class="qq" id="genQ"></div>
+                  <div class="tot" id="genTot"></div>
+                </div>
+                <div class="workspace" id="genWork" style="display:none">
+                  <h5>✏️ Your Working Space</h5>
+                  <p>Show your working clearly.</p>
+                </div>
+                <div class="ms" id="genMs"></div>
+                <div class="gen-actions" id="genActions" style="display:none">
+                  <button class="btn o-pink" id="msBtn">📋 Show Mark Scheme</button>
+                  <button class="btn ghost" id="genAgain">↻ Try a New Question</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer-nav">
+          <button class="btn ghost" id="prevBtn">← Previous Lesson</button>
+          <button class="btn complete" id="completeBtn" disabled>Lesson Complete ☆</button>
+          <button class="btn solid" id="nextBtn">Next Lesson →</button>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="col">
+        <section class="card green"><h3><span class="ic">🎯</span>Success Criteria</h3><ul class="ticks" id="rcSuccess"></ul></section>
+        <section class="card purple"><h3><span class="ic">📋</span>Prior Knowledge Checklist</h3><div id="rcPrior"></div></section>
+        <section class="card orange"><h3><span class="ic">🔑</span>Keywords</h3><div class="kw" id="rcKeywords"></div></section>
+        <section class="card red"><h3><span class="ic">⚠️</span>Common Misconceptions</h3><ul class="dots" id="rcMisc"></ul></section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Video modal -->
+<div class="modal" id="videoModal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:760px">
+    <button class="modal-x" data-close="videoModal">✕</button>
+    <h3 style="margin-bottom:12px;font-size:15px" id="videoTitle"></h3>
+    <div id="videoHolder"></div>
+  </div>
+</div>
+
+<!-- Worksheet modal -->
+<div class="modal" id="wsModal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <button class="modal-x no-print" data-close="wsModal">✕</button>
+    <div id="wsPrintArea">
+      <div class="ws-head">
+        <div class="ttl"><h4 id="wsTitle"></h4><span id="wsSub"></span></div>
+        <div class="tm">MasterMaths Tutoring™</div>
+      </div>
+      <div id="wsSections"></div>
+      <div class="ws-foot"><span>© MasterMaths Tutoring™ — original material</span><span id="wsTip"></span></div>
+    </div>
+    <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:14px" class="no-print">
+      <button class="btn o-purple" id="wsPrint">🖨 Print / Save as PDF</button>
+      <button class="btn solid" id="wsDone">Mark as Completed ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="mm-content.js"></script>
+<script>
+/* =====================================================================
+   MASTERMATHS LEARNING PLATFORM — multi-lesson standalone app
+   • Host this single file anywhere (GitHub Pages / Render).
+   • Deep-link to any lesson:  https://your-url/#/1a   #/1b  etc.
+   • Progress is saved in the student's browser (localStorage).
+   • To add a lesson: copy a lesson object in LESSONS, edit content,
+     and add its id to the right week in WEEKS.
+===================================================================== */
+
+const SETTINGS = {
+  storageKey: 'mm-progress-v1',
+  /* set true to force lessons to be completed in order */
+  requireSequential: false
+};
+
+/* Background override: embed as  .../index.html?bg=ffffff#/1a
+   Use ?bg=transparent to let the Wix page background show through. */
+(function(){
+  const bg = new URLSearchParams(location.search).get('bg');
+  if(bg) document.body.style.background = bg==='transparent' ? 'transparent' : '#'+bg.replace('#','');
+})();
+
+let WEEKS = (window.MM_CONTENT||{}).WEEKS;
+let LESSONS = (window.MM_CONTENT||{}).LESSONS;
+if(!WEEKS||!LESSONS){ document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;max-width:560px"><h2>Content file missing</h2><p>mm-content.js was not found. Upload it to the same folder as this file (they must sit side by side in the GitHub repository).</p></div>'; throw new Error('MM_CONTENT missing'); }
+
+/* =============================== storage =============================== */
+/* Wrapped so the app still runs where localStorage is unavailable. */
+const store = {
+  read(){ try { return JSON.parse(localStorage.getItem(SETTINGS.storageKey)) || {}; } catch(e){ return this._mem || {}; } },
+  write(v){ try { localStorage.setItem(SETTINGS.storageKey, JSON.stringify(v)); } catch(e){ this._mem = v; } }
+};
+let allProgress = store.read();
+function prog(){ if(!allProgress[cur.code]) allProgress[cur.code]={learn:false,quiz:false,worksheet:false,generate:false,complete:false}; return allProgress[cur.code]; }
+function saveProgress(){ store.write(allProgress); }
+
+const $ = id => document.getElementById(id);
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
+function lessonDone(id){ const p=allProgress[id]; return !!(p&&p.complete); }
+
+/* =============================== router =============================== */
+let cur = null;
+function currentIdFromHash(){
+  const m = (location.hash||'').match(/#\/?([\w-]+)/);
+  if(m && m[1]==='admin') return 'admin';
+  return (m && LESSONS[m[1]]) ? m[1] : WEEKS[0].lessons[0];
+}
+function route(){
+  const id = currentIdFromHash();
+  if(id==='admin') renderAdmin(); else loadLesson(id);
+}
+window.addEventListener('hashchange', route);
+
+/* =============================== sidebar =============================== */
+function renderSidebar(){
+  const nav = $('sidebarNav'); nav.innerHTML='';
+  WEEKS.forEach((w,wi)=>{
+    const lbl=document.createElement('div'); lbl.className='week-label'; lbl.textContent=w.label; 
+    if(wi===0) nav.appendChild(lbl);
+    if(w.lessons){
+      w.lessons.forEach(id=>{
+        const L=LESSONS[id];
+        const b=document.createElement('button'); b.className='nav-item'+(cur&&cur.code===id?' active':'');
+        b.innerHTML=`<span class="tag">${L.code}</span>${L.title.replace(/^\d\w+\.\s*/,'')}` + (lessonDone(id)?'<span class="tick" style="display:inline">✓</span>':'');
+        b.addEventListener('click',()=>{ location.hash='#/'+id; });
+        nav.appendChild(b);
+      });
+    } else {
+      const b=document.createElement('button'); b.className='nav-item';
+      b.innerHTML=`${w.label}<span class="lock">🔒</span>`;
+      b.addEventListener('click',()=>toast(w.label+' unlocks after Week 1.'));
+      nav.appendChild(b);
+    }
+  });
+}
+
+/* =============================== lesson render =============================== */
+function loadLesson(id){
+  $('adminRoot').style.display='none';
+  document.querySelector('.title-row').style.display='flex';
+  cur = LESSONS[id];
+  document.title = cur.title + ' — MasterMaths Tutoring';
+  $('crumb').innerHTML = `${cur.week} <span class="sep">›</span> ${cur.strand} <span class="sep">›</span> <span class="here">Lesson ${cur.code}</span>`;
+  $('lessonTitle').textContent = cur.title;
+  $('chipGrade').textContent = '📊 ' + cur.grade;
+  $('chipTime').textContent = '🕐 ' + cur.duration;
+  renderSidebar();
+
+  if(cur.comingSoon){
+    $('comingSoon').style.display='block'; $('lessonGrid').style.display='none';
+    return;
+  }
+  $('comingSoon').style.display='none'; $('lessonGrid').style.display='grid';
+
+  /* right column */
+  $('rcSuccess').innerHTML = cur.success.map(s=>`<li>${s}</li>`).join('');
+  $('rcPrior').innerHTML = cur.prior.map(p=>`<label class="pk"><input type="checkbox">${p}</label>`).join('');
+  $('rcKeywords').innerHTML = cur.keywords.map(k=>`<span>${k}</span>`).join('');
+  $('rcMisc').innerHTML = cur.misconceptions.map(m=>`<li>${m}</li>`).join('');
+
+  /* videos */
+  buildVideos();
+
+  /* reset section states + buttons */
+  ['secLearn','secQuiz','secGen'].forEach(s=>$(s).classList.remove('open'));
+  const p = prog();
+  setBtn('learnBtn', p.learn, '✓ Started', 'Start ⊕', 'solid');
+  setBtn('quizBtn', p.quiz, '✓ Passed', 'Start Quiz', 'o-orange');
+  setBtn('wsBtn', p.worksheet, '✓ Completed', 'Download', 'o-purple');
+  $('genCard').style.display='none'; $('genWork').style.display='none';
+  $('genActions').style.display='none'; $('genMs').classList.remove('show');
+  genCount=0; lastGen=-1;
+
+  /* quiz reset */
+  quiz.i=0; quiz.answers=Array(cur.quiz.length).fill(null); quiz.flags=new Set();
+
+  /* worksheet modal */
+  $('wsTitle').textContent = cur.title.replace(/^\d\w+\.\s*/,'');
+  $('wsSub').textContent = cur.grade.replace('Grade:','Grade') + ' Worksheet';
+  $('wsTip').textContent = 'Tip: ' + cur.wsTip;
+  const wsWrap=$('wsSections'); wsWrap.innerHTML='';
+  cur.worksheet.forEach(sec=>{
+    const d=document.createElement('div'); d.className='ws-sec';
+    d.innerHTML=`<div class="ws-sec-head"><b>${sec.name}</b><span class="ws-grade${sec.g3?' g3':''}">${sec.grade}</span></div>
+      <div class="ws-qs">${sec.qs.map(q=>`<div class="ws-q">${q}<div class="ws-lines"></div></div>`).join('')}</div>`;
+    wsWrap.appendChild(d);
+  });
+
+  /* footer nav */
+  $('prevBtn').style.visibility = cur.prev ? 'visible':'hidden';
+  $('nextBtn').style.visibility = cur.next ? 'visible':'hidden';
+  if(cur.next) $('nextBtn').textContent = 'Next Lesson: ' + LESSONS[cur.next].title.replace(/^(\d\w+)\.\s*/,'$1. ') + ' →';
+  if(cur.prev) $('prevBtn').textContent = '← Previous Lesson: ' + LESSONS[cur.prev].code;
+
+  renderProgress();
+  window.scrollTo(0,0);
+}
+
+function setBtn(id, done, doneLabel, label, base){
+  const b=$(id); b.className='btn '+base+(done?' done':''); b.textContent=done?doneLabel:label;
+}
+
+function renderProgress(){
+  const p=prog();
+  const steps=['learn','quiz','worksheet','generate','complete'];
+  const done=steps.filter(s=>p[s]).length;
+  $('pct').textContent=done*20+'%';
+  document.querySelectorAll('.step').forEach((el,i)=>{
+    const key=el.dataset.step;
+    el.classList.toggle('done', p[key]);
+    el.classList.toggle('current', !p[key] && steps.slice(0,i).every(s=>p[s]));
+    if(key==='complete') el.querySelector('.node').textContent = p.complete?'★':'☆';
+  });
+  const four=['learn','quiz','worksheet','generate'].every(s=>p[s]);
+  $('completeBtn').disabled=!four||p.complete;
+  $('completeBtn').textContent = p.complete ? 'Lesson Complete ★' : 'Lesson Complete ☆';
+}
+function completeStep(key){
+  const p=prog();
+  if(p[key]) return;
+  p[key]=true; saveProgress(); renderProgress(); renderSidebar();
+  bridgeSend({ type:'progressUpdate', lessonId:cur.code, step:key, all:allProgress });
+}
+
+/* =============================== expand/collapse =============================== */
+document.querySelectorAll('[data-toggle]').forEach(h=>{
+  h.addEventListener('click', e=>{
+    if(e.target.closest('.btn')) return;
+    $(h.dataset.toggle).classList.toggle('open');
+  });
+});
+$('learnBtn').addEventListener('click', ()=> $('secLearn').classList.add('open'));
+$('hiwBtn').addEventListener('click', ()=> $('secGen').classList.toggle('open'));
+
+/* =============================== videos =============================== */
+function buildVideos(){
+  const vl=$('videoList'); vl.innerHTML='';
+  cur.videos.forEach((v,vi)=>{
+    const row=document.createElement('div'); row.className='vid-row'+(vi===0?' open':'');
+    let notesHtml='';
+    if(v.notes){
+      notesHtml=`
+        <div class="notes-grid">
+          <div class="notes-col kn"><h5>Key Notes</h5><ul>${v.notes.key.slice(0,5).map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
+          <div class="notes-col kn"><h5>&nbsp;</h5><ul>${v.notes.key.slice(5).map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
+          <div class="notes-col">
+            <div class="notes-col cs"><h5>Comparison Symbols</h5><ul>${v.notes.symbols.map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
+            <div class="notes-col qt" style="margin-top:10px"><h5>Quick Tips</h5><ul>${v.notes.tips.map(k=>`<li><span>${k}</span></li>`).join('')}</ul></div>
+          </div>
+        </div>
+        <div class="yourturn">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div><h5>Your Turn — answer the following:</h5>
+            <ol>${v.notes.yourTurn.questions.map(q=>`<li>${q}</li>`).join('')}</ol></div>
+            <button class="btn o-blue" data-yt="${vi}">Check Answers</button>
+          </div>
+          <div class="yt-ans" id="ytAns${vi}"><b>Answers:</b> ${v.notes.yourTurn.answers}</div>
+        </div>`;
+    }
+    row.innerHTML=`
+      <div class="vr-head">
+        <span class="vic">🎬</span><b>${v.title}</b>
+        <button class="btn o-blue" data-video="${vi}">Watch Video ⊕</button>
+        <span class="chev">▼</span>
+      </div>
+      <div class="vr-body">${notesHtml||'<p style="font-size:12px;color:var(--muted)">Notes for this video coming soon.</p>'}</div>`;
+    row.querySelector('.vr-head').addEventListener('click', e=>{
+      if(e.target.closest('.btn')) return;
+      row.classList.toggle('open');
+    });
+    vl.appendChild(row);
+  });
+}
+$('videoList').addEventListener('click', e=>{
+  const vbtn=e.target.closest('[data-video]');
+  if(vbtn){
+    const v=cur.videos[+vbtn.dataset.video];
+    $('videoTitle').textContent=v.title;
+    $('videoHolder').innerHTML = v.url
+      ? `<iframe class="video-frame" src="${v.url}" allow="autoplay; fullscreen" allowfullscreen></iframe>`
+      : `<div class="video-missing">🎬 Video coming soon.<br><br>To add it: paste your YouTube/Vimeo <b>embed</b> link into this lesson's videos → url in the LESSONS data.</div>`;
+    $('videoModal').classList.add('show');
+    completeStep('learn');
+    setBtn('learnBtn', true, '✓ Started', 'Start ⊕', 'solid');
+  }
+  const yt=e.target.closest('[data-yt]');
+  if(yt) $('ytAns'+yt.dataset.yt).classList.toggle('show');
+});
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{
+  $(b.dataset.close).classList.remove('show');
+  if(b.dataset.close==='videoModal') $('videoHolder').innerHTML='';
+}));
+
+/* =============================== quiz engine =============================== */
+const quiz={ i:0, answers:[], flags:new Set() };
+const DIFF={ easy:['Easy','easy'], med:['Medium','med'], hard:['Hard','hard'] };
+
+$('quizBtn').addEventListener('click', ()=>{ $('secQuiz').classList.add('open'); renderQuiz(); });
+$('qExit').addEventListener('click', ()=> $('secQuiz').classList.remove('open'));
+$('qPrev').addEventListener('click', ()=>{ if(quiz.i>0){quiz.i--; renderQuiz();} });
+$('qNext').addEventListener('click', ()=>{
+  if(quiz.i < cur.quiz.length-1){ quiz.i++; renderQuiz(); } else renderQuizResult();
+});
+$('qFlag').addEventListener('click', ()=>{
+  quiz.flags.has(quiz.i)?quiz.flags.delete(quiz.i):quiz.flags.add(quiz.i);
+  renderQuiz();
+});
+
+function numberLineSVG(nl){
+  const W=340,H=46,pad=18, span=nl.max-nl.min;
+  const x=v=>pad+(v-nl.min)/span*(W-2*pad);
+  let ticks='';
+  for(let v=nl.min; v<=nl.max; v++){
+    const big=v%5===0||v===nl.min||v===nl.max;
+    ticks+=`<line x1="${x(v)}" y1="18" x2="${x(v)}" y2="${big?28:24}" stroke="#94a3b8" stroke-width="1.5"/>`;
+    if(big) ticks+=`<text x="${x(v)}" y="42" font-size="9" fill="#64748b" text-anchor="middle">${v}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${pad-8}" y1="18" x2="${W-pad+8}" y2="18" stroke="#94a3b8" stroke-width="1.5"/>${ticks}
+    <circle cx="${x(nl.mark)}" cy="18" r="5" fill="#16a34a"/></svg>`;
+}
+
+function renderQuiz(){
+  const Q=cur.quiz[quiz.i];
+  $('qNum').textContent=`Question ${quiz.i+1} of ${cur.quiz.length}`;
+  const [dLabel,dClass]=DIFF[Q.d];
+  $('qDiff').textContent='📊 '+dLabel; $('qDiff').className='diff '+dClass;
+  $('qSegs').innerHTML=cur.quiz.map((_,i)=>{
+    const a=quiz.answers[i];
+    let c=i===quiz.i?'cur':'';
+    if(a!=null) c=a===cur.quiz[i].a?'right':'wrong';
+    return `<i class="${c}"></i>`;
+  }).join('');
+  $('qFlag').classList.toggle('flagged', quiz.flags.has(quiz.i));
+  $('qFlag').textContent=quiz.flags.has(quiz.i)?'⚑ Flagged':'⚑ Flag Question';
+  $('qPrev').disabled=quiz.i===0;
+  $('qNext').textContent=quiz.i===cur.quiz.length-1?'Finish Quiz →':'Next Question →';
+
+  const answered=quiz.answers[quiz.i];
+  const area=$('qArea');
+  area.innerHTML=`<div class="q-text">${Q.q}</div>`+
+    Q.opts.map((o,i)=>{
+      let cls='q-opt';
+      if(answered!=null){
+        if(i===answered) cls+=answered===Q.a?' picked-right':' picked-wrong';
+        else if(i===Q.a) cls+=' reveal';
+      }
+      return `<button class="${cls}" data-opt="${i}" ${answered!=null?'disabled':''}><span class="letter">${'ABCD'[i]}</span>${o}</button>`;
+    }).join('')+
+    (answered!=null
+      ? `<div class="fb ${answered===Q.a?'right':'wrong'}">
+           <b>${answered===Q.a?'✅ Correct!':'❌ Not quite — the answer is '+Q.opts[Q.a]}</b>
+           ${Q.fb}${Q.numberline?numberLineSVG(Q.numberline):''}</div>`
+      : '');
+  area.querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>{
+    quiz.answers[quiz.i]=+b.dataset.opt; renderQuiz();
+  }));
+}
+
+function renderQuizResult(){
+  const total=cur.quiz.length;
+  const correct=quiz.answers.filter((a,i)=>a===cur.quiz[i].a).length;
+  const pct=Math.round(correct/total*100);
+  const passed=pct>=cur.quizPass;
+  $('qArea').innerHTML=`
+    <div class="quiz-result">
+      <div class="big" style="color:${passed?'var(--green)':'var(--red)'}">${pct}%</div>
+      <p>You scored ${correct} out of ${total}. ${passed?'Passed! ✅':'You need '+cur.quizPass+'% to move on — review the notes and try again.'}</p>
+      ${quiz.flags.size?`<p>⚑ You flagged question${quiz.flags.size>1?'s':''} ${[...quiz.flags].map(i=>i+1).join(', ')} — worth revisiting.</p>`:''}
+      <div style="display:flex;gap:9px;justify-content:center;margin-top:13px">
+        <button class="btn ghost" id="qRetry">↻ Retry Quiz</button>
+        ${passed?'':'<button class="btn o-blue" id="qReview">Review Answers</button>'}
+      </div>
+    </div>`;
+  if(passed){ completeStep('quiz'); setBtn('quizBtn', true, '✓ Passed', 'Start Quiz', 'o-orange'); }
+  const retry=$('qRetry'); if(retry) retry.addEventListener('click',()=>{
+    quiz.i=0; quiz.answers=Array(total).fill(null); quiz.flags.clear(); renderQuiz();
+  });
+  const rev=$('qReview'); if(rev) rev.addEventListener('click',()=>{ quiz.i=0; renderQuiz(); });
+}
+
+/* =============================== worksheet =============================== */
+$('wsBtn').addEventListener('click', ()=> $('wsModal').classList.add('show'));
+$('wsPrint').addEventListener('click', ()=> window.print());
+$('wsDone').addEventListener('click', ()=>{
+  completeStep('worksheet');
+  setBtn('wsBtn', true, '✓ Completed', 'Download', 'o-purple');
+  $('wsModal').classList.remove('show');
+  toast('Worksheet marked as completed');
+});
+
+/* =============================== generator =============================== */
+let genCount=0, lastGen=-1;
+function pickGeneratedQuestion(){
+  /* PRODUCTION: replace with a fetch to the FastAPI generator, e.g.
+       const r = await fetch('https://your-api.onrender.com/generate', {
+         method:'POST', headers:{'Content-Type':'application/json'},
+         body: JSON.stringify({ topic: cur.title, tier:'foundation', count:1 })
+       });
+       return (await r.json()).questions[0];
+     The AI service generates unlimited questions from easy (Grade 1)
+     to challenging (Grade 3+). */
+  let i; do { i=Math.floor(Math.random()*cur.genBank.length); } while(i===lastGen && cur.genBank.length>1);
+  lastGen=i; return cur.genBank[i];
+}
+$('genBtn').addEventListener('click', ()=>{
+  $('secGen').classList.add('open');
+  const g=pickGeneratedQuestion(); genCount++;
+  $('genCard').style.display='block'; $('genWork').style.display='block'; $('genActions').style.display='flex';
+  $('genLabel').textContent='Question '+genCount;
+  $('genMarks').textContent=`${g.grade} · ${g.marks} mark${g.marks>1?'s':''}`;
+  $('genQ').innerHTML=g.q;
+  $('genTot').textContent=`(Total for question = ${g.marks} marks)`;
+  $('genMs').classList.remove('show'); $('genMs').innerHTML='<b>Mark scheme:</b> '+g.ms;
+  $('msBtn').textContent='📋 Show Mark Scheme';
+  completeStep('generate');
+});
+$('msBtn').addEventListener('click', ()=>{
+  const open=$('genMs').classList.toggle('show');
+  $('msBtn').textContent=open?'📋 Hide Mark Scheme':'📋 Show Mark Scheme';
+});
+$('genAgain').addEventListener('click', ()=> $('genBtn').click());
+
+/* =============================== footer nav =============================== */
+$('completeBtn').addEventListener('click', ()=>{
+  completeStep('complete'); renderProgress();
+  toast('🎉 '+cur.title+' complete!' + (cur.next?' '+LESSONS[cur.next].code+' is ready.':''));
+});
+$('nextBtn').addEventListener('click', ()=>{ if(cur.next) location.hash='#/'+cur.next; });
+$('prevBtn').addEventListener('click', ()=>{ if(cur.prev) location.hash='#/'+cur.prev; });
+
+/* =============================== Wix bridge =============================== */
+/* When embedded in a Wix HTML element, progress is synced with the
+   logged-in Wix member via postMessage — see wix-progress-bridge.js
+   for the page code + CMS collection. localStorage stays as the
+   offline / logged-out fallback. */
+function bridgeSend(msg){ try{ if(window.parent!==window) window.parent.postMessage(msg,'*'); }catch(e){} }
+
+window.addEventListener('message', e=>{
+  const d = e.data;
+  if(!d || typeof d !== 'object') return;
+  if(d.type === 'restoreProgress' && d.all){
+    /* merge: a step completed anywhere counts as completed (true wins) */
+    Object.keys(d.all).forEach(lid=>{
+      if(!allProgress[lid]) allProgress[lid] = d.all[lid];
+      else Object.keys(d.all[lid]).forEach(k=>{ if(d.all[lid][k]) allProgress[lid][k]=true; });
+    });
+    saveProgress();
+    if(cur){ renderProgress(); renderSidebar();
+      if(!cur.comingSoon){
+        const p=prog();
+        setBtn('learnBtn', p.learn, '✓ Started', 'Start ⊕', 'solid');
+        setBtn('quizBtn', p.quiz, '✓ Passed', 'Start Quiz', 'o-orange');
+        setBtn('wsBtn', p.worksheet, '✓ Completed', 'Download', 'o-purple');
+      }
+    }
+  }
+});
+
+/* =============================== TEACHER EDITOR =============================== */
+/* Open with the "✎ Teacher: edit content" link or #/admin.
+   Edits live in this browser (auto-saved as a draft) until the updated
+   mm-content.js is downloaded and uploaded to the GitHub repository. */
+
+const BLANK_LESSON = () => ({
+  code:'', title:'', week:'Week 1', strand:'Number Skills',
+  grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:null,
+  success:[], prior:[], keywords:[], misconceptions:[],
+  videos:[{title:'Video 1',url:'',notes:null}], quizPass:80, quiz:[], wsTip:'',
+  worksheet:[
+    {name:'Clarify',grade:'Grade 1',g3:false,qs:['<b>1.</b> ']},
+    {name:'Justify',grade:'Grade 2',g3:false,qs:['<b>1.</b> ']},
+    {name:'Challenge',grade:'Grade 3',g3:false,qs:['<b>1.</b> ']},
+    {name:'Generalise',grade:'Grade 3',g3:true,qs:['<b>1.</b> ']}
+  ],
+  genBank:[]
+});
+const BLANK_NOTES = () => ({ key:[], symbols:[], tips:[], yourTurn:{questions:[],answers:''} });
+const DRAFT_KEY = 'mm-content-draft-v1';
+
+let adminSel = null, draftChecked = false;
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function lines(v){ return v.split('\n').map(s=>s.trim()).filter(Boolean); }
+
+function saveDraft(){
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS})); }catch(e){}
+}
+function loadDraft(){ try{ return JSON.parse(localStorage.getItem(DRAFT_KEY)); }catch(e){ return null; } }
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+
+function renderAdmin(){
+  document.title = 'Teacher Editor — MasterMaths';
+  document.querySelector('.title-row').style.display='none';
+  $('comingSoon').style.display='none';
+  $('lessonGrid').style.display='none';
+  $('crumb').innerHTML = 'Teacher Editor <span class="sep">›</span> <span class="here">changes stay in this browser until you download &amp; upload the content file</span>';
+  renderSidebar();
+  const root=$('adminRoot'); root.style.display='block';
+  if(!adminSel || !LESSONS[adminSel]) adminSel = Object.keys(LESSONS)[0];
+
+  let draftBanner = '';
+  if(!draftChecked){
+    const d = loadDraft();
+    if(d) draftBanner = `<div class="draft-banner"><span>📝 You have draft edits saved in this browser from ${new Date(d.t).toLocaleString('en-GB')}. Restore them?</span>
+      <span style="display:flex;gap:7px"><button class="btn solid ad-mini" id="adRestore">Restore draft</button>
+      <button class="btn ghost ad-mini" id="adDiscard">Discard</button></span></div>`;
+  }
+
+  root.innerHTML = `
+  <div class="ad-wrap">
+    ${draftBanner}
+    <div class="ad-steps"><b>How publishing works:</b> 1) Edit below (everything auto-saves as a draft in this browser) &nbsp;2) <b>Preview</b> to see it as a student &nbsp;3) <b>Download content file</b> &nbsp;4) In the GitHub repository, upload the downloaded <code>mm-content.js</code> over the old one and commit. Students see the changes on their next refresh.</div>
+    <div class="ad-bar">
+      <label class="ad-lb" style="margin:0">Lesson:</label>
+      <select id="adLesson" class="ad-in" style="width:auto">${Object.keys(LESSONS).map(id=>`<option value="${id}" ${id===adminSel?'selected':''}>${esc(LESSONS[id].title||id)}</option>`).join('')}</select>
+      <button class="btn ghost ad-mini" id="adAddLesson">＋ Add new lesson</button>
+      <button class="btn ghost ad-mini" id="adDelLesson" style="color:var(--red);border-color:var(--red-line)">🗑 Delete this lesson</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn o-blue ad-mini" id="adPreview">👁 Preview lesson</button>
+      <button class="btn solid ad-mini" id="adDownload">⬇ Download content file</button>
+    </div>
+    <div id="adForm"></div>
+  </div>`;
+
+  if(!draftChecked){
+    const r=$('adRestore'), x=$('adDiscard');
+    if(r) r.addEventListener('click',()=>{
+      const d=loadDraft();
+      if(d){ WEEKS=d.WEEKS; LESSONS=d.LESSONS; window.MM_CONTENT={WEEKS,LESSONS}; }
+      draftChecked=true; renderAdmin(); toast('Draft restored');
+    });
+    if(x) x.addEventListener('click',()=>{ clearDraft(); draftChecked=true; renderAdmin(); });
+    draftChecked = true;
+  }
+
+  $('adLesson').addEventListener('change', e=>{ collectAdminForm(); adminSel=e.target.value; renderAdmin(); });
+  $('adPreview').addEventListener('click', ()=>{ collectAdminForm(); location.hash='#/'+adminSel; });
+  $('adDownload').addEventListener('click', downloadContent);
+  $('adAddLesson').addEventListener('click', addLessonFlow);
+  $('adDelLesson').addEventListener('click', deleteLessonFlow);
+
+  buildAdminForm();
+}
+
+/* ---------- form builders ---------- */
+function ta(label, id, val, hint){
+  return `<label class="ad-lb">${label}${hint?` <span class="ad-note">— ${hint}</span>`:''}</label><textarea id="${id}" class="ad-in ad-ta">${esc(val)}</textarea>`;
+}
+function inp(label, id, val, hint){
+  return `<label class="ad-lb">${label}${hint?` <span class="ad-note">— ${hint}</span>`:''}</label><input id="${id}" class="ad-in" value="${esc(val)}">`;
+}
+
+function buildAdminForm(){
+  const L = LESSONS[adminSel];
+  const f = $('adForm');
+
+  if(L.comingSoon){
+    f.innerHTML = `<div class="ad-panel"><h4>📋 Basics</h4>
+      ${inp('Lesson title','ad-title',L.title)}
+      <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0"><input type="checkbox" id="ad-soon" checked> "Coming soon" placeholder (untick to start adding content)</label></div>
+    </div>`;
+    f.addEventListener('change', onFormChange);
+    return;
+  }
+
+  const lessonIds = Object.keys(LESSONS);
+  const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
+
+  f.innerHTML = `
+  <div class="ad-panel"><h4>📋 Basics</h4>
+    ${inp('Lesson title','ad-title',L.title)}
+    <div class="ad-grid2">
+      <div>${inp('Grade chip','ad-grade',L.grade)}</div>
+      <div>${inp('Duration chip','ad-duration',L.duration)}</div>
+      <div>${inp('Week label','ad-week',L.week)}</div>
+      <div>${inp('Strand','ad-strand',L.strand)}</div>
+    </div>
+    <div class="ad-row" style="margin-top:10px;gap:16px">
+      <span><label class="ad-lb" style="margin:0 0 4px">Previous lesson</label>${linkSel('ad-prev',L.prev)}</span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Next lesson</label>${linkSel('ad-next',L.next)}</span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Quiz pass mark %</label><input id="ad-pass" class="ad-in" type="number" min="0" max="100" value="${L.quizPass}" style="width:90px"></span>
+      <label class="ad-lb" style="margin:14px 0 0"><input type="checkbox" id="ad-soon"> Mark as "coming soon"</label>
+    </div>
+  </div>
+
+  <div class="ad-panel"><h4>🎬 Videos &amp; Notes</h4><div id="adVideos">${L.videos.map((v,vi)=>videoEditor(v,vi)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addVideo">＋ Add video</button>
+  </div>
+
+  <div class="ad-panel"><h4>🧠 Quiz questions <span class="ad-note">(easy → challenging; tick the correct option)</span></h4>
+    <div id="adQuiz">${L.quiz.map((q,qi)=>quizEditor(q,qi)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addQuiz">＋ Add quiz question</button>
+  </div>
+
+  <div class="ad-panel"><h4>✏️ Worksheet sections</h4>
+    ${ta('Worksheet tip (footer)','ad-wstip',L.wsTip)}
+    <div id="adWs" style="margin-top:10px">${L.worksheet.map((s,si)=>wsEditor(s,si)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addWs">＋ Add worksheet section</button>
+  </div>
+
+  <div class="ad-panel"><h4>🎲 Question generator bank <span class="ad-note">(used until the AI generator is connected)</span></h4>
+    <div id="adGen">${L.genBank.map((g,gi)=>genEditor(g,gi)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addGen">＋ Add generator question</button>
+  </div>
+
+  <div class="ad-panel"><h4>🎯 Side panels <span class="ad-note">(one item per line)</span></h4>
+    ${ta('Success criteria','ad-success',L.success.join('\n'))}
+    ${ta('Prior knowledge checklist','ad-prior',L.prior.join('\n'))}
+    ${ta('Keywords','ad-keywords',L.keywords.join(', '),'separate with commas')}
+    ${ta('Common misconceptions','ad-misc',L.misconceptions.join('\n'))}
+  </div>`;
+
+  f.addEventListener('change', onFormChange);
+  f.addEventListener('click', onFormClick);
+}
+
+function videoEditor(v,vi){
+  const hasNotes = !!v.notes;
+  return `<div class="ad-q" data-vi="${vi}">
+    <div class="ad-row"><b style="font-size:12px">Video ${vi+1}</b><span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" data-act="delVideo" data-vi="${vi}">🗑 Remove</button></div>
+    <input class="ad-in v-title" placeholder="Video title" value="${esc(v.title)}">
+    <input class="ad-in v-url" style="margin-top:6px" placeholder="YouTube/Vimeo EMBED link e.g. https://www.youtube.com/embed/VIDEO_ID" value="${esc(v.url)}">
+    ${hasNotes ? `
+      <label class="ad-lb">Key notes <span class="ad-note">— one bullet per line; &lt;b&gt;bold&lt;/b&gt; allowed</span></label>
+      <textarea class="ad-in ad-ta v-key">${esc(v.notes.key.join('\n'))}</textarea>
+      <label class="ad-lb">Comparison symbols / formulas <span class="ad-note">— one per line</span></label>
+      <textarea class="ad-in ad-ta v-sym">${esc(v.notes.symbols.join('\n'))}</textarea>
+      <label class="ad-lb">Quick tips <span class="ad-note">— one per line</span></label>
+      <textarea class="ad-in ad-ta v-tips">${esc(v.notes.tips.join('\n'))}</textarea>
+      <label class="ad-lb">"Your Turn" questions <span class="ad-note">— one per line</span></label>
+      <textarea class="ad-in ad-ta v-ytq">${esc(v.notes.yourTurn.questions.join('\n'))}</textarea>
+      <label class="ad-lb">"Your Turn" answers <span class="ad-note">— shown when the student clicks Check Answers</span></label>
+      <textarea class="ad-in ad-ta v-yta">${esc(v.notes.yourTurn.answers)}</textarea>`
+    : `<button class="btn ghost ad-mini" style="margin-top:8px" data-act="addNotes" data-vi="${vi}">＋ Add a notes panel to this video</button>`}
+  </div>`;
+}
+
+function quizEditor(q,qi){
+  return `<div class="ad-q" data-qi="${qi}">
+    <div class="ad-row"><b style="font-size:12px">Q${qi+1}</b>
+      <select class="ad-in q-diff" style="width:auto">
+        <option value="easy" ${q.d==='easy'?'selected':''}>Easy</option>
+        <option value="med" ${q.d==='med'?'selected':''}>Medium</option>
+        <option value="hard" ${q.d==='hard'?'selected':''}>Hard</option>
+      </select>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" data-act="qUp" data-qi="${qi}">↑</button>
+      <button class="btn ghost ad-mini" data-act="qDown" data-qi="${qi}">↓</button>
+      <button class="btn ghost ad-mini" data-act="delQuiz" data-qi="${qi}">🗑</button>
+    </div>
+    <input class="ad-in q-text" placeholder="Question" value="${esc(q.q)}">
+    ${q.opts.map((o,oi)=>`
+      <div class="ad-row" style="margin-top:6px">
+        <input type="radio" name="cor-${qi}" value="${oi}" ${q.a===oi?'checked':''} title="correct answer">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">${'ABCD'[oi]}</span>
+        <input class="ad-in q-opt" data-oi="${oi}" value="${esc(o)}">
+      </div>`).join('')}
+    <label class="ad-lb">Feedback / explanation</label>
+    <textarea class="ad-in ad-ta q-fb" style="min-height:48px">${esc(q.fb)}</textarea>
+  </div>`;
+}
+
+function wsEditor(s,si){
+  return `<div class="ad-q" data-si="${si}">
+    <div class="ad-row">
+      <input class="ad-in s-name" style="width:160px" value="${esc(s.name)}" placeholder="Section name">
+      <input class="ad-in s-grade" style="width:110px" value="${esc(s.grade)}" placeholder="Grade label">
+      <label class="ad-lb" style="margin:0"><input type="checkbox" class="s-g3" ${s.g3?'checked':''}> dark badge</label>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" data-act="delWs" data-si="${si}">🗑 Remove section</button>
+    </div>
+    ${s.qs.map((q,qi2)=>`
+      <div class="ad-row" style="align-items:flex-start;margin-top:7px">
+        <textarea class="ad-in ad-ta s-q" data-qi2="${qi2}" style="min-height:56px">${esc(q)}</textarea>
+        <button class="btn ghost ad-mini" data-act="delWsQ" data-si="${si}" data-qi2="${qi2}">🗑</button>
+      </div>`).join('')}
+    <button class="btn ghost ad-mini" style="margin-top:7px" data-act="addWsQ" data-si="${si}">＋ Add question</button>
+    <div class="ad-note" style="margin-top:5px">Use &lt;b&gt;1.&lt;/b&gt; for bold numbering and &lt;br&gt; for a new line inside a question.</div>
+  </div>`;
+}
+
+function genEditor(g,gi){
+  return `<div class="ad-q" data-gi="${gi}">
+    <div class="ad-row">
+      <input class="ad-in g-grade" style="width:120px" value="${esc(g.grade)}" placeholder="Grade 2–3">
+      <input class="ad-in g-marks" type="number" min="1" style="width:80px" value="${g.marks}" title="marks">
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" data-act="delGen" data-gi="${gi}">🗑</button>
+    </div>
+    <textarea class="ad-in ad-ta g-q" placeholder="Question" style="min-height:48px">${esc(g.q)}</textarea>
+    <label class="ad-lb">Mark scheme</label>
+    <textarea class="ad-in ad-ta g-ms" style="min-height:48px">${esc(g.ms)}</textarea>
+  </div>`;
+}
+
+/* ---------- collect form → data ---------- */
+function collectAdminForm(){
+  const L = LESSONS[adminSel];
+  const f = $('adForm');
+  if(!f || !f.children.length) return;
+  const g = id => f.querySelector('#'+id);
+
+  if(L.comingSoon){
+    if(g('ad-title')) L.title = g('ad-title').value;
+    if(g('ad-soon') && !g('ad-soon').checked){ delete L.comingSoon; Object.assign(L, {...BLANK_LESSON(), ...L}); }
+    saveDraft(); return;
+  }
+
+  L.title = g('ad-title').value;
+  L.grade = g('ad-grade').value;
+  L.duration = g('ad-duration').value;
+  L.week = g('ad-week').value;
+  L.strand = g('ad-strand').value;
+  L.prev = g('ad-prev').value || null;
+  L.next = g('ad-next').value || null;
+  L.quizPass = +g('ad-pass').value || 80;
+  if(g('ad-soon').checked) L.comingSoon = true;
+
+  L.videos = [...f.querySelectorAll('#adVideos .ad-q')].map((el,vi)=>{
+    const old = L.videos[vi] || {};
+    const v = { title: el.querySelector('.v-title').value, url: el.querySelector('.v-url').value.trim(), notes: old.notes||null };
+    const key = el.querySelector('.v-key');
+    if(key){
+      v.notes = {
+        key: lines(key.value),
+        symbols: lines(el.querySelector('.v-sym').value),
+        tips: lines(el.querySelector('.v-tips').value),
+        yourTurn: { questions: lines(el.querySelector('.v-ytq').value), answers: el.querySelector('.v-yta').value }
+      };
+    }
+    return v;
+  });
+
+  L.quiz = [...f.querySelectorAll('#adQuiz .ad-q')].map((el,qi)=>{
+    const old = L.quiz[qi] || {};
+    const cor = el.querySelector(`input[name^="cor-"]:checked`);
+    return { ...old,
+      d: el.querySelector('.q-diff').value,
+      q: el.querySelector('.q-text').value,
+      opts: [...el.querySelectorAll('.q-opt')].map(o=>o.value),
+      a: cor ? +cor.value : (old.a||0),
+      fb: el.querySelector('.q-fb').value
+    };
+  });
+
+  L.wsTip = g('ad-wstip').value;
+  L.worksheet = [...f.querySelectorAll('#adWs .ad-q')].map(el=>({
+    name: el.querySelector('.s-name').value,
+    grade: el.querySelector('.s-grade').value,
+    g3: el.querySelector('.s-g3').checked,
+    qs: [...el.querySelectorAll('.s-q')].map(t=>t.value)
+  }));
+
+  L.genBank = [...f.querySelectorAll('#adGen .ad-q')].map(el=>({
+    grade: el.querySelector('.g-grade').value,
+    marks: +el.querySelector('.g-marks').value || 1,
+    q: el.querySelector('.g-q').value,
+    ms: el.querySelector('.g-ms').value
+  }));
+
+  L.success = lines(g('ad-success').value);
+  L.prior = lines(g('ad-prior').value);
+  L.keywords = g('ad-keywords').value.split(',').map(s=>s.trim()).filter(Boolean);
+  L.misconceptions = lines(g('ad-misc').value);
+
+  saveDraft();
+}
+
+function onFormChange(){ collectAdminForm(); }
+
+function onFormClick(e){
+  const b = e.target.closest('[data-act]');
+  if(!b) return;
+  collectAdminForm();
+  const L = LESSONS[adminSel];
+  const act = b.dataset.act;
+  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2;
+
+  if(act==='addVideo') L.videos.push({title:'Video '+(L.videos.length+1), url:'', notes:null});
+  if(act==='delVideo') L.videos.splice(vi,1);
+  if(act==='addNotes') L.videos[vi].notes = BLANK_NOTES();
+  if(act==='addQuiz') L.quiz.push({d:'med', q:'', opts:['','','',''], a:0, fb:''});
+  if(act==='delQuiz') L.quiz.splice(qi,1);
+  if(act==='qUp' && qi>0){ const t=L.quiz[qi-1]; L.quiz[qi-1]=L.quiz[qi]; L.quiz[qi]=t; }
+  if(act==='qDown' && qi<L.quiz.length-1){ const t=L.quiz[qi+1]; L.quiz[qi+1]=L.quiz[qi]; L.quiz[qi]=t; }
+  if(act==='addWs') L.worksheet.push({name:'New section', grade:'Grade 1', g3:false, qs:['<b>1.</b> ']});
+  if(act==='delWs') L.worksheet.splice(si,1);
+  if(act==='addWsQ') L.worksheet[si].qs.push('<b>'+(L.worksheet[si].qs.length+1)+'.</b> ');
+  if(act==='delWsQ') L.worksheet[si].qs.splice(qi2,1);
+  if(act==='addGen') L.genBank.push({grade:'Grade 1–3', marks:2, q:'', ms:''});
+  if(act==='delGen') L.genBank.splice(gi,1);
+
+  saveDraft();
+  buildAdminForm();
+}
+
+/* ---------- add / delete lessons ---------- */
+function addLessonFlow(){
+  collectAdminForm();
+  const code = (prompt('Short code for the new lesson (e.g. 1c, 2a):')||'').trim();
+  if(!code) return;
+  if(LESSONS[code]) return toast('A lesson with that code already exists.');
+  const title = (prompt('Lesson title (e.g. Indices, Powers and Roots):')||'New lesson').trim();
+  const weekNum = +(prompt('Which week number does it belong to? (1–'+WEEKS.length+')')||'1');
+  const wk = WEEKS[Math.min(Math.max(weekNum,1),WEEKS.length)-1];
+
+  const L = BLANK_LESSON();
+  L.code = code; L.title = code+'. '+title; L.week = 'Week '+weekNum; L.strand = wk.label.split(': ')[1]||'';
+  if(!wk.lessons) wk.lessons = [];
+  const last = wk.lessons[wk.lessons.length-1];
+  if(last){ L.prev = last; if(LESSONS[last]) LESSONS[last].next = code; }
+  wk.lessons.push(code);
+  LESSONS[code] = L;
+  adminSel = code;
+  saveDraft(); renderAdmin();
+  toast('Lesson '+code+' created — now add its content below.');
+}
+
+function deleteLessonFlow(){
+  if(Object.keys(LESSONS).length<=1) return toast('You can\u2019t delete the only lesson.');
+  if(!confirm('Delete "'+LESSONS[adminSel].title+'"? This cannot be undone (until you re-upload an older content file).')) return;
+  const id = adminSel;
+  WEEKS.forEach(w=>{ if(w.lessons) w.lessons = w.lessons.filter(x=>x!==id); });
+  Object.values(LESSONS).forEach(L=>{ if(L.prev===id) L.prev=null; if(L.next===id) L.next=null; });
+  delete LESSONS[id];
+  adminSel = Object.keys(LESSONS)[0];
+  saveDraft(); renderAdmin();
+  toast('Lesson deleted.');
+}
+
+/* ---------- download ---------- */
+function downloadContent(){
+  collectAdminForm();
+  const banner = '/* MASTERMATHS CONTENT FILE — generated by the Teacher Editor on '+new Date().toLocaleString('en-GB')+'\n   Upload this file to the GitHub repository, replacing the old mm-content.js. */\n';
+  const js = banner + 'window.MM_CONTENT = ' + JSON.stringify({WEEKS, LESSONS}, null, 2) + ';\n';
+  const blob = new Blob([js], {type:'text/javascript'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mm-content.js';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Downloaded — now replace mm-content.js in the GitHub repository.');
+}
+
+/* =============================== boot =============================== */
+route();
+bridgeSend({ type:'ready' });   /* ask the Wix page for saved progress */
+</script>
+</body>
+</html>
