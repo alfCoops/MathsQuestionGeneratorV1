@@ -239,38 +239,96 @@ const LESSONS = {
     { title:'Video 1: Place Value in Decimals', url:'',
       notes:{
         key:[
-          'The columns after the decimal point are <b>tenths</b>, <b>hundredths</b>, then <b>thousandths</b>.',
-          'The value of a digit depends on its column. <span class="ex">In 0.3, the 3 is worth 3 tenths.</span>',
-          'Adding zeros to the end of a decimal does not change its value. <span class="ex">0.5 = 0.50 = 0.500</span>',
-          'Compare decimals digit by digit from the left. <span class="ex">0.72 &gt; 0.7 because 2 hundredths &gt; 0 hundredths</span>',
-          'A longer decimal is not automatically bigger. <span class="ex">0.09 &lt; 0.1</span>',
-          'Multiplying by 10, 100 or 1000 moves every digit 1, 2 or 3 places to the <b>left</b>.',
-          'Dividing by 10, 100 or 1000 moves every digit 1, 2 or 3 places to the <b>right</b>. <span class="ex">3.45 ÷ 100 = 0.0345</span>',
-          'To round, look at the digit to the right of the place you are rounding to: 5 or more rounds up.'
+          'The columns after the decimal point are tenths, then hundredths, then thousandths.',
+          'The value of a digit depends on its column. In 0.36, the 3 is worth 0.3 and the 6 is worth 0.06.',
+          'Each column to the right is worth 10 times less than the one before it.',
+          'Adding zeros to the end of a decimal does not change its value: 0.5 = 0.50 = 0.500.'
         ],
-        symbols:[
-          '&gt; means "greater than." <span class="ex">Example: 0.6 &gt; 0.56</span>',
-          '&lt; means "less than." <span class="ex">Example: 0.09 &lt; 0.1</span>',
-          '= means "equal to." <span class="ex">Example: 4.2 = 4.20</span>',
-          '≠ means "not equal to." <span class="ex">Example: 0.5 ≠ 0.05</span>'
-        ],
-        tips:[
-          'Write numbers in a place value table if you are unsure.',
-          'Pad decimals with zeros to the same length before comparing. <span class="ex">0.3 vs 0.28 → 0.30 vs 0.28</span>',
-          'Estimate first — it helps you spot answers that are 10× too big or small.'
-        ],
+        symbols:[], tips:[],
         yourTurn:{
           questions:[
             'What is the value of the 7 in 3.472?',
-            'Which is bigger: 0.6 or 0.56?',
-            'Put in ascending order: 0.3, 0.28, 0.305.',
-            'Write the correct symbol (&lt;, &gt; or =): 4.2 __ 4.20'
+            'What is the value of the 4 in 0.845?',
+            'Write down the value of the 9 in 12.09',
+            'Write 0.7 as a fraction.',
+            'Write 0.03 as a fraction.',
+            'Which digit is in the hundredths place in 5.264?',
+            'Write 0.5 using two extra zeros so it keeps the same value.',
+            'Which is worth more: the 6 in 0.6 or the 6 in 0.06?'
           ],
-          answers:'1) 7 hundredths (0.07). &nbsp; 2) 0.6 — pad to 0.60, and 60 hundredths &gt; 56 hundredths. &nbsp; 3) 0.28, 0.3, 0.305. &nbsp; 4) 4.2 = 4.20.'
+          answers:'<b>1.</b> 7 hundredths (0.07) &nbsp; <b>2.</b> 4 tenths (0.4) &nbsp; <b>3.</b> 9 hundredths (0.09) &nbsp; <b>4.</b> 7/10 &nbsp; <b>5.</b> 3/100 &nbsp; <b>6.</b> 6 &nbsp; <b>7.</b> 0.500 &nbsp; <b>8.</b> the 6 in 0.6 (it is 10 times bigger)'
         }
       }},
-    { title:'Video 2: Multiplying and Dividing by 10, 100 and 1000', url:'', notes:null },
-    { title:'Video 3: Rounding Decimals', url:'', notes:null }
+    { title:'Video 2: Comparing and Ordering Decimals', url:'',
+      notes:{
+        key:[
+          'Compare decimals digit by digit from the left — tenths first, then hundredths.',
+          'A longer decimal is not automatically bigger: 0.09 &lt; 0.1.',
+          'Pad decimals with zeros to the same length before comparing: 0.3 vs 0.28 → 0.30 vs 0.28.',
+          'Ascending means smallest first; descending means largest first.'
+        ],
+        symbols:[], tips:[],
+        yourTurn:{
+          questions:[
+            'Which is bigger: 0.6 or 0.56?',
+            'Write &lt; or &gt;:&nbsp; 0.45 __ 0.5',
+            'Write &lt; or &gt;:&nbsp; 0.703 __ 0.73',
+            'Order smallest first:&nbsp; 0.3, 0.28, 0.305',
+            'Order largest first:&nbsp; 0.5, 0.55, 0.505, 0.055',
+            'Which is closest to 5:&nbsp; 4.9, 5.2 or 5.09?',
+            'Write a decimal that lies between 0.4 and 0.5',
+            'True or false:&nbsp; 0.80 = 0.8'
+          ],
+          answers:'<b>1.</b> 0.6 (pad to 0.60; 60 hundredths &gt; 56) &nbsp; <b>2.</b> 0.45 &lt; 0.5 &nbsp; <b>3.</b> 0.703 &lt; 0.73 &nbsp; <b>4.</b> 0.28, 0.3, 0.305 &nbsp; <b>5.</b> 0.55, 0.505, 0.5, 0.055 &nbsp; <b>6.</b> 5.09 (gap of 0.09) &nbsp; <b>7.</b> any value between, e.g. 0.45 &nbsp; <b>8.</b> True'
+        }
+      }},
+    { title:'Video 3: Multiplying and Dividing Decimals by 10, 100 and 1000', url:'',
+      notes:{
+        key:[
+          'Multiplying by 10, 100 or 1000 moves every digit 1, 2 or 3 places to the left.',
+          'Dividing by 10, 100 or 1000 moves every digit 1, 2 or 3 places to the right.',
+          'The digits move — the decimal point stays still. Fill any empty places with zeros.',
+          'Multiplying makes a number bigger; dividing makes it smaller.'
+        ],
+        symbols:[], tips:[],
+        yourTurn:{
+          questions:[
+            'Work out 0.7 × 10',
+            'Work out 3.45 × 100',
+            'Work out 2.6 × 1000',
+            'Work out 45 ÷ 100',
+            'Work out 3.45 ÷ 100',
+            'Work out 0.8 ÷ 10',
+            'A ribbon 2.4 m long is cut into 100 equal pieces. How long is each piece?',
+            'A 1.5 kg bag of rice is split equally into 1000 portions. How heavy is each portion?'
+          ],
+          answers:'<b>1.</b> 7 &nbsp; <b>2.</b> 345 &nbsp; <b>3.</b> 2600 &nbsp; <b>4.</b> 0.45 &nbsp; <b>5.</b> 0.0345 &nbsp; <b>6.</b> 0.08 &nbsp; <b>7.</b> 0.024 m (2.4 cm) &nbsp; <b>8.</b> 0.0015 kg (1.5 g)'
+        }
+      }},
+    { title:'Video 4: Rounding Decimals and Estimating', url:'',
+      notes:{
+        key:[
+          'To round, look at the digit just to the right of the place you are rounding to.',
+          'If that digit is 5 or more, round up; if it is 4 or less, round down.',
+          '&ldquo;1 decimal place&rdquo; means one digit after the point; &ldquo;2 decimal places&rdquo; means two.',
+          'Estimate by rounding first — it helps you spot an answer that is 10 times too big or too small.'
+        ],
+        symbols:[], tips:[],
+        yourTurn:{
+          questions:[
+            'Round 4.276 to 1 decimal place.',
+            'Round 0.148 to 2 decimal places.',
+            'Round 3.95 to 1 decimal place.',
+            'Round £1.479 to the nearest penny.',
+            'Round 12.5 to the nearest whole number.',
+            'Estimate 3.4 × 5.3 by rounding.',
+            'Estimate 19.6 ÷ 3.9 by rounding.',
+            'Jayne says 3.4 × 5.3 = 180.2. Use estimation to explain why she is wrong.'
+          ],
+          answers:'<b>1.</b> 4.3 &nbsp; <b>2.</b> 0.15 &nbsp; <b>3.</b> 4.0 (the 5 rounds up and carries) &nbsp; <b>4.</b> £1.48 &nbsp; <b>5.</b> 13 &nbsp; <b>6.</b> ≈ 3 × 5 = 15 &nbsp; <b>7.</b> ≈ 20 ÷ 4 = 5 &nbsp; <b>8.</b> A good estimate is 3 × 5 = 15, so the answer should be about 18 — 180.2 is ten times too big.'
+        }
+      }},
+    { title:'Video 5: Fractions, Decimals and Percentages', url:'', notes:null }
   ],
   quizPass:80,
   quiz:[
@@ -295,24 +353,24 @@ const LESSONS = {
     { d:'hard', q:'Which of these is closest to 5?', opts:['4.89','5.2','5.09','4.5'], a:2,
       fb:'Compare the differences: 0.11, 0.2, 0.09 and 0.5 — the smallest gap is 0.09, so 5.09 is closest.' }
   ],
-  wsTip:'Pad decimals with zeros to the same length before comparing, and remember the digits move — not the point.',
+  wsTip:'Pad decimals with zeros to the same length before comparing, and remember: the digits move, not the point.',
   worksheet:[
-    { name:'Clarify', grade:'Grade 1', g3:false, qs:[
-      '<b>1.</b> Write the value of the 3 in each number.<br>a) 4.3<br>b) 0.03<br>c) 3.5<br>d) 1.435',
-      '<b>2.</b> Circle the larger number in each pair.<br>a) 0.5 or 0.45<br>b) 0.07 or 0.1<br>c) 2.36 or 2.4<br>d) 0.808 or 0.88',
-      '<b>3.</b> Write the correct symbol (&gt;, &lt; or =).<br>a) 0.6 ___ 0.60<br>b) 0.25 ___ 0.3<br>c) 1.09 ___ 1.1<br>d) 0.5 ___ 0.05' ]},
-    { name:'Justify', grade:'Grade 2', g3:false, qs:[
+    { name:'Clarify', grade:'Grade 1–2', g3:false, qs:[
+      '<b>1.</b> Write down the value of the 3 in each number.<br>a) 4.3&nbsp;&nbsp; b) 0.03&nbsp;&nbsp; c) 1.435',
+      '<b>2.</b> Write &lt; or &gt; between each pair.<br>a) 0.5 __ 0.45<br>b) 0.07 __ 0.1<br>c) 2.36 __ 2.4',
+      '<b>3.</b> a) Write 0.7 as a fraction.<br>b) Is 0.80 equal to 0.8?<br>Explain how you know.' ]},
+    { name:'Justify', grade:'Grade 2–3', g3:false, qs:[
       '<b>1.</b> Explain why 0.72 is greater than 0.7, but 0.09 is less than 0.1.',
-      '<b>2.</b> Tom says "0.35 is bigger than 0.4 because 35 is bigger than 4." Explain his mistake.',
+      '<b>2.</b> Tom says &ldquo;0.35 is bigger than 0.4 because 35 is bigger than 4&rdquo;.<br>Explain his mistake.',
       '<b>3.</b> Explain what happens to the digits of a number when you multiply it by 100.' ]},
     { name:'Challenge', grade:'Grade 3', g3:false, qs:[
-      '<b>1.</b> Put the following numbers in descending order.<br>0.505, 0.55, 0.5, 0.055, 0.545',
-      '<b>2.</b> A number rounded to 1 decimal place is 3.7. Write down the smallest and largest possible values of the number.',
-      '<b>3.</b> Work out 1.2 × 10 ÷ 1000. Explain a shortcut you could use.' ]},
-    { name:'Generalise', grade:'Grade 3', g3:true, qs:[
+      '<b>1.</b> Put these numbers in descending order.<br>0.505, 0.55, 0.5, 0.055, 0.545',
+      '<b>2.</b> A ribbon 4.5 m long is cut into 1000 equal pieces.<br>How long is each piece, in metres?',
+      '<b>3.</b> A length is 3.7 m correct to 1 decimal place.<br>What is the smallest possible actual length?' ]},
+    { name:'Generalise', grade:'Grade 3–4', g3:true, qs:[
       '<b>1.</b> Write a general rule for comparing any two decimals.',
       '<b>2.</b> Write a general rule for what happens to the digits when you divide by a power of 10.',
-      '<b>3.</b> When does writing an extra zero on a number change its value, and when does it not? Explain.' ]}
+      '<b>3.</b> When does writing an extra zero on a number change its value, and when does it not?<br>Give an example of each.' ]}
   ],
   genBank:[
     { grade:'Grade 1', marks:3, q:'<b>(a)</b> Write these numbers in order of size. Start with the smallest number.<br>0.63&nbsp;&nbsp;&nbsp;0.633&nbsp;&nbsp;&nbsp;0.603&nbsp;&nbsp;&nbsp;0.6&nbsp;&nbsp;&nbsp;0.06&nbsp;&nbsp;&nbsp;<b>(1)</b><br><br><b>(b)</b> Write down the value of the 8 in 2.485 <b>(1)</b><br><br><b>(c)</b> Write 4.4354 correct to 2 decimal places. <b>(1)</b>',
