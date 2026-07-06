@@ -200,36 +200,41 @@
   .video-frame{aspect-ratio:16/9;width:100%;border:none;border-radius:11px;background:#0f172a}
   .video-missing{aspect-ratio:16/9;display:grid;place-items:center;background:#0f172a;color:#94a3b8;border-radius:11px;font-size:13px;text-align:center;padding:20px}
 
-  /* worksheet */
-  .ws-head{display:flex;align-items:center;gap:13px;border-bottom:2.5px solid var(--mm-green);padding-bottom:12px;margin-bottom:15px}
+  /* worksheet — printable, MasterMaths Tutoring branded */
+  #wsPrintArea{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ws-head{display:flex;align-items:center;gap:13px;border-bottom:3px solid var(--mm-green);padding-bottom:12px;margin-bottom:18px}
   .ws-head .ttl{flex:1}
-  .ws-head h4{font-size:19px;font-weight:800;color:var(--mm-green)}
+  .ws-head h4{font-size:20px;font-weight:800;color:var(--mm-green)}
   .ws-head span{font-size:12px;color:var(--muted);font-weight:600}
-  .ws-head .tm{font-size:10px;color:var(--muted)}
-  .ws-sec{margin-bottom:15px;border:1px solid #d7e7d7;border-radius:11px;overflow:hidden}
-  .ws-sec-head{display:flex;justify-content:space-between;align-items:center;background:#f0f7f0;padding:8px 13px}
-  .ws-sec-head b{font-size:13px;color:var(--mm-green)}
-  .ws-grade{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:#dcedc8;color:#33691e}
-  .ws-grade.g3{background:var(--mm-green);color:#fff}
-  .ws-qs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
-  .ws-q{padding:11px 13px;border-right:1px solid #edf3ed;font-size:11.5px;color:#334155}
-  .ws-q:last-child{border-right:none}
-  .ws-q b{display:block;margin-bottom:4px;font-size:11.5px}
-  .ws-lines{margin-top:9px;height:44px;background:repeating-linear-gradient(#fff,#fff 13px,#e2e8f0 13px,#e2e8f0 14px)}
-  .ws-foot{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:6px}
+  .ws-head .tm{font-size:11px;font-weight:700;color:var(--mm-green)}
+  .ws-sec{position:relative;margin-bottom:24px;break-inside:avoid;page-break-inside:avoid}
+  .ws-sec-head{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+  .ws-pill{font-family:Georgia,'Times New Roman',serif;font-size:21px;font-weight:800;color:var(--acc);border:2.5px solid var(--acc);border-radius:999px;padding:2px 24px;line-height:1.35}
+  .ws-grade{font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:#eef4e6;color:#33691e;border:1px solid #cfe0bd}
+  .ws-grade.g3{background:var(--mm-green);color:#fff;border-color:var(--mm-green)}
+  .ws-qs{position:relative;display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px}
+  .ws-wm{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:150px;font-weight:800;color:var(--acc);opacity:.10;pointer-events:none;z-index:0;line-height:1}
+  .ws-q{position:relative;z-index:1;display:flex;flex-direction:column}
+  .ws-q .qbox{border:2px solid var(--acc);border-radius:16px;padding:11px 14px;font-size:12px;line-height:1.45;color:#1f2937;text-align:center;min-height:58px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.86)}
+  .ws-q .qbox b{font-weight:700}
+  .ws-lines{margin-top:12px;flex:1;min-height:150px;background:repeating-linear-gradient(transparent,transparent 20px,#eecfdd 20px,#eecfdd 21px)}
+  .ws-foot{text-align:center;font-size:16px;font-weight:800;color:var(--mm-green);margin-top:12px;padding-top:14px;border-top:2px solid #1f2937;letter-spacing:.3px}
+  .ws-foot .tip{display:block;font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:0;margin-top:5px}
 
   .footer-nav{display:flex;justify-content:space-between;gap:10px;margin-top:18px}
   .btn.complete{background:var(--blue);color:#fff;padding:11px 20px;font-size:13px}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;font-weight:600;font-size:13px;padding:11px 20px;border-radius:11px;transition:.3s;opacity:0;z-index:99}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
-  @media(max-width:1000px){.grid{grid-template-columns:1fr}.gen-grid{grid-template-columns:1fr}.vnotes{grid-template-columns:1fr}.ws-qs{grid-template-columns:1fr}}
-  @media(max-width:760px){.sidebar{display:none}.main{padding:16px}}
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}.gen-grid{grid-template-columns:1fr}.vnotes{grid-template-columns:1fr}}
+  @media screen and (max-width:720px){.sidebar{display:none}.main{padding:16px}.ws-qs{grid-template-columns:1fr}.ws-wm{display:none}}
   :focus-visible{outline:2.5px solid var(--blue);outline-offset:2px}
   @media print{
     body *{visibility:hidden}
     #wsPrintArea,#wsPrintArea *{visibility:visible}
     #wsPrintArea{position:absolute;left:0;top:0;width:100%}
+    .ws-qs{grid-template-columns:1fr 1fr 1fr!important}
+    .ws-lines{min-height:120px}
     .no-print{display:none!important}
   }
 
@@ -419,7 +424,7 @@
         <div class="tm">MasterMaths Tutoring™</div>
       </div>
       <div id="wsSections"></div>
-      <div class="ws-foot"><span>© MasterMaths Tutoring™ — original material</span><span id="wsTip"></span></div>
+      <div class="ws-foot">MasterMathsTutoring™<span class="tip" id="wsTip"></span></div>
     </div>
     <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:14px" class="no-print">
       <button class="btn o-purple" id="wsPrint">🖨 Print / Save as PDF</button>
@@ -552,11 +557,18 @@ function loadLesson(id){
   $('wsTitle').textContent = cur.title.replace(/^\d\w+\.\s*/,'');
   $('wsSub').textContent = cur.grade.replace('Grade:','Grade') + ' Worksheet';
   $('wsTip').textContent = 'Tip: ' + cur.wsTip;
+  const WS_THEME=[
+    {acc:'#7d9e57', wm:'%'},
+    {acc:'#c2975f', wm:'+'},
+    {acc:'#9bbf7a', wm:'×'},
+    {acc:'#2f6b2f', wm:'π'}
+  ];
   const wsWrap=$('wsSections'); wsWrap.innerHTML='';
-  cur.worksheet.forEach(sec=>{
-    const d=document.createElement('div'); d.className='ws-sec';
-    d.innerHTML=`<div class="ws-sec-head"><b>${sec.name}</b><span class="ws-grade${sec.g3?' g3':''}">${sec.grade}</span></div>
-      <div class="ws-qs">${sec.qs.map(q=>`<div class="ws-q">${q}<div class="ws-lines"></div></div>`).join('')}</div>`;
+  cur.worksheet.forEach((sec,si)=>{
+    const t=WS_THEME[si % WS_THEME.length];
+    const d=document.createElement('div'); d.className='ws-sec'; d.style.setProperty('--acc', t.acc);
+    d.innerHTML=`<div class="ws-sec-head"><span class="ws-pill">${sec.name}</span><span class="ws-grade${sec.g3?' g3':''}">${sec.grade}</span></div>
+      <div class="ws-qs"><div class="ws-wm">${t.wm}</div>${sec.qs.map(q=>`<div class="ws-q"><div class="qbox">${q}</div><div class="ws-lines"></div></div>`).join('')}</div>`;
     wsWrap.appendChild(d);
   });
 

@@ -169,24 +169,24 @@ const LESSONS = {
     { d:'hard', q:'Round 3,472 to the nearest 100, then divide by 10.', opts:['34.7','347','350','35'], a:2,
       fb:'3,472 rounds to 3,500 (the tens digit 7 rounds up). 3,500 ÷ 10 = 350.' }
   ],
-  wsTip:'Use a number line when comparing integers, and check place value carefully for decimals.',
+  wsTip:'Sketch a number line to help with negatives, and remember: multiplying or dividing two negatives gives a positive.',
   worksheet:[
-    { name:'Clarify', grade:'Grade 1', g3:false, qs:[
-      '<b>1.</b> Order the following numbers from smallest to largest.<br>−5, 2, −1, 4, 0',
-      '<b>2.</b> Write the correct comparison symbol (&gt;, &lt; or =).<br>a) −3 ___ −1<br>b) 4 ___ −2<br>c) −6 ___ −8<br>d) 0 ___ 1',
-      '<b>3.</b> Which number is greater?<br>a) −2 or −5<br>b) 3.4 or 3.07<br>c) −1.2 or −1.8<br>d) 0.5 or 0.50' ]},
-    { name:'Justify', grade:'Grade 2', g3:false, qs:[
-      '<b>1.</b> Explain why −4 is less than −2 using a number line.',
-      '<b>2.</b> A bank account has £50. The balance changes by −£65. What is the new balance? Explain your answer.',
-      '<b>3.</b> Compare 2.46 and 2.406. Explain your reasoning.' ]},
+    { name:'Clarify', grade:'Grade 1–2', g3:false, qs:[
+      '<b>1.</b> Is −6 greater or smaller than −2?<br>Explain how you know.',
+      '<b>2.</b> One night the temperature is −5°C.<br>What does the negative sign tell you?',
+      '<b>3.</b> Work out:<br>a) 5 − 3<br>b) 5 − (−3)<br>What do you notice about your two answers?' ]},
+    { name:'Justify', grade:'Grade 2–3', g3:false, qs:[
+      '<b>1.</b> Explain why −3 + 5 gives a positive answer.<br>You may use a number line.',
+      '<b>2.</b> Explain why −6 × −4 gives a positive answer.',
+      '<b>3.</b> Explain why subtracting a negative is the same as adding.<br>Give an example.' ]},
     { name:'Challenge', grade:'Grade 3', g3:false, qs:[
-      '<b>1.</b> Put the following numbers in ascending order.<br>−3.7, 0, −1.25, 2.08, −2, 1.5',
-      '<b>2.</b> If a number <i>x</i> is less than −2 but greater than −6, write down all the integers that <i>x</i> could be.',
-      '<b>3.</b> The temperature rises from −7°C to 4°C. What is the overall change in temperature?' ]},
-    { name:'Generalise', grade:'Grade 3', g3:true, qs:[
-      '<b>1.</b> Write a general rule for comparing two integers.',
-      '<b>2.</b> Write a general rule for comparing decimals.',
-      '<b>3.</b> When will the following be true? |a| &lt; |b|<br>Explain your answer.' ]}
+      '<b>1.</b> Is −1 × −1 × −1 positive or negative?<br>Explain your answer.',
+      '<b>2.</b> A submarine at −80 m dives a further 45 m, then rises 60 m.<br>How deep is it now?',
+      '<b>3.</b> Can adding a negative number ever make a total larger?<br>Explain, with an example.' ]},
+    { name:'Generalise', grade:'Grade 3–4', g3:true, qs:[
+      '<b>1.</b> What is the sign of the answer when you multiply an <b>even</b> number of negatives?',
+      '<b>2.</b> What is the sign of the answer when you multiply an <b>odd</b> number of negatives?',
+      '<b>3.</b> Write a general rule for finding the sign of the answer to any multiplication or division.' ]}
   ],
   genBank:[
     { grade:'Grade 1', marks:3, q:'<b>(a)</b> Write these numbers in order of size. Start with the smallest number.<br>52&nbsp;&nbsp;&nbsp;102&nbsp;&nbsp;&nbsp;25&nbsp;&nbsp;&nbsp;120&nbsp;&nbsp;&nbsp;55&nbsp;&nbsp;&nbsp;<b>(1)</b><br><br><b>(b)</b> Write these numbers in order of size. Start with the smallest number.<br>6&nbsp;&nbsp;&nbsp;−2&nbsp;&nbsp;&nbsp;0&nbsp;&nbsp;&nbsp;−5&nbsp;&nbsp;&nbsp;3&nbsp;&nbsp;&nbsp;<b>(1)</b><br><br><b>(c)</b> Write these numbers in order of size. Start with the smallest number.<br>0.63&nbsp;&nbsp;&nbsp;0.633&nbsp;&nbsp;&nbsp;0.603&nbsp;&nbsp;&nbsp;0.6&nbsp;&nbsp;&nbsp;0.06&nbsp;&nbsp;&nbsp;<b>(1)</b>',
