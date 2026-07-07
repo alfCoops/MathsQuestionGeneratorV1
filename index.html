@@ -506,16 +506,17 @@ const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
 const getTeacherKey = () => { try{ return localStorage.getItem(TEACHER_KEY_STORE) || ''; }catch(e){ return ''; } };
 const setTeacherKey = k => { try{ k ? localStorage.setItem(TEACHER_KEY_STORE, k) : localStorage.removeItem(TEACHER_KEY_STORE); }catch(e){} };
 
+const beBase = () => String(BACKEND.url||'').trim().replace(/\/+$/,'');   /* tolerate a trailing slash */
 async function fetchRemoteContent(){
   if(!backendOn()) return null;
   try{
-    const r = await fetch(`${BACKEND.url}/rest/v1/${BACKEND.table}?id=eq.${BACKEND.rowId}&select=data`,
+    const r = await fetch(`${beBase()}/rest/v1/${BACKEND.table}?id=eq.${BACKEND.rowId}&select=data`,
       { headers:{ apikey:BACKEND.anonKey, Authorization:'Bearer '+BACKEND.anonKey } });
-    if(!r.ok) return null;
+    if(!r.ok){ console.warn('[backend] read failed HTTP', r.status, await r.text().catch(()=>'')); return null; }
     const rows = await r.json();
     const data = rows && rows[0] && rows[0].data;
     if(data && data.WEEKS && data.LESSONS) return data;   /* validate shape before trusting it */
-  }catch(e){}
+  }catch(e){ console.warn('[backend] read error:', e && e.message); }
   return null;
 }
 async function saveRemoteContent(){
@@ -523,14 +524,36 @@ async function saveRemoteContent(){
   if(!backendOn()) return { ok:false, reason:'not-configured' };
   if(!key)         return { ok:false, reason:'no-key' };
   try{
-    const r = await fetch(`${BACKEND.url}/rest/v1/${BACKEND.table}?on_conflict=id`, {
+    const r = await fetch(`${beBase()}/rest/v1/${BACKEND.table}?on_conflict=id`, {
       method:'POST',
       headers:{ apikey:key, Authorization:'Bearer '+key, 'Content-Type':'application/json',
                 Prefer:'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({ id:BACKEND.rowId, data:{WEEKS,LESSONS}, updated_at:new Date().toISOString() })
     });
-    return { ok:r.ok, status:r.status };
-  }catch(e){ return { ok:false, reason:'network' }; }
+    if(!r.ok){ const body = await r.text().catch(()=>''); console.warn('[backend] save failed HTTP', r.status, body); return { ok:false, status:r.status, detail:body }; }
+    return { ok:true, status:r.status };
+  }catch(e){ console.error('[backend] save network error:', e); return { ok:false, reason:'network', detail:(e&&e.message)||'' }; }
+}
+/* Diagnose the connection — returns a human-readable result for the Test button. */
+async function testBackend(){
+  if(!backendOn()) return 'Backend not configured: fill in url + anonKey in the BACKEND block.';
+  const base = beBase();
+  if(!/^https:\/\//.test(base)) return 'Your url must start with https:// (got "'+base+'").';
+  let readMsg;
+  try{
+    const r = await fetch(`${base}/rest/v1/${BACKEND.table}?select=id&limit=1`,
+      { headers:{ apikey:BACKEND.anonKey, Authorization:'Bearer '+BACKEND.anonKey } });
+    readMsg = r.ok ? 'Read OK (HTTP '+r.status+').'
+                   : 'Read failed HTTP '+r.status+' — '+((await r.text().catch(()=>''))||'check anon key / table name / "public read" policy.');
+  }catch(e){
+    return 'Could not reach the server (network/CORS). Check the url is exact, you have internet, and — if embedded in Wix — that the page allows connections to supabase.co. ['+((e&&e.message)||'')+']';
+  }
+  if(!getTeacherKey()) return readMsg+' No editor key set yet, so writes are not tested.';
+  const w = await saveRemoteContent();
+  const writeMsg = w.ok ? 'Write OK (HTTP '+w.status+') — you are fully connected.'
+                        : (w.reason==='network' ? 'Write blocked (network/CORS).'
+                           : 'Write failed HTTP '+(w.status||'?')+' — '+(w.detail||'editor key is likely wrong (use the service_role key).'));
+  return readMsg+' '+writeMsg;
 }
 /* On boot, pull the shared content from the cloud and refresh the view. */
 async function syncFromBackend(){
@@ -1005,7 +1028,8 @@ async function saveLive(){
     const res = await saveRemoteContent();
     if(res.ok) toast('✓ Saved to the cloud — every student now sees these changes.');
     else if(res.reason==='no-key') toast('Enter your editor key to publish to all students.');
-    else toast('⚠ Cloud save failed ('+(res.status||res.reason||'error')+'). Saved locally — check your editor key.');
+    else if(res.reason==='network') toast('⚠ Cloud save failed: can\'t reach the server. Saved locally. Use “Test connection” to diagnose.');
+    else toast('⚠ Cloud save failed (HTTP '+(res.status||'?')+'). Saved locally — your editor key is likely wrong (use the service_role key).');
   } else {
     toast(localOk ? '✓ Changes saved in this browser. (Set up a cloud backend to reach all students.)'
                   : '⚠ Could not save (storage blocked). Use Download content file instead.');
@@ -1023,6 +1047,7 @@ function backendBar(){
     <span class="spacer" style="flex:1"></span>
     <input id="beKey" class="ad-in" type="password" autocomplete="off" placeholder="${hasKey?'editor key saved ✓ — paste to replace':'paste your editor key'}" style="width:230px">
     <button class="btn ghost ad-mini" id="beSaveKey">Save key</button>
+    <button class="btn o-blue ad-mini" id="beTest">Test connection</button>
     ${hasKey?'<button class="btn ghost ad-mini" id="beClearKey">Forget key</button>':''}
   </div>`;
 }
@@ -1085,6 +1110,7 @@ function renderAdmin(){
   $('adLesson').addEventListener('change', e=>{ collectAdminForm(); adminSel=e.target.value; renderAdmin(); });
   if($('beSaveKey')) $('beSaveKey').addEventListener('click', ()=>{ const v=$('beKey').value.trim(); if(v){ setTeacherKey(v); toast('Editor key saved in this browser.'); } renderAdmin(); });
   if($('beClearKey')) $('beClearKey').addEventListener('click', ()=>{ setTeacherKey(''); toast('Editor key removed.'); renderAdmin(); });
+  if($('beTest')) $('beTest').addEventListener('click', async e=>{ const b=e.target; const t=b.textContent; b.textContent='Testing…'; b.disabled=true; let msg; try{ msg=await testBackend(); }catch(err){ msg='Test error: '+(err&&err.message); } b.textContent=t; b.disabled=false; alert('Connection test:\n\n'+msg); });
   $('adSave').addEventListener('click', saveLive);
   $('adResetLive').addEventListener('click', resetLive);
   $('adPreview').addEventListener('click', ()=>{ collectAdminForm(); location.hash='#/'+adminSel; });
