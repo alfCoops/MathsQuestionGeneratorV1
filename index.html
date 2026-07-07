@@ -496,7 +496,7 @@ const LIVE_KEY = 'mm-content-live-v1';
    • Your private editor key is typed into the editor and stored only in your browser.
    Setup steps are in BACKEND-SETUP.md. ============================================ */
 const BACKEND = {
-  url:     'https://kagwebzjujlpbjerqwtk.supabase.com',              /* e.g. https://abcdefgh.supabase.co  (no trailing slash) */
+  url:     'https://kagwebzjujlpbjerqwtk.supabase.co',              /* e.g. https://abcdefgh.supabase.co  (no trailing slash) */
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZ3dlYnpqdWpscGJqZXJxd3RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjkxNTIsImV4cCI6MjA5OTAwNTE1Mn0.5Kz5gPJAVuco4amu2HFMl4qYCVyBHItfabPerDPc3nw',              /* public anon key from Supabase → Settings → API */
   table:   'site_content',
   rowId:   1
@@ -539,6 +539,14 @@ async function testBackend(){
   if(!backendOn()) return 'Backend not configured: fill in url + anonKey in the BACKEND block.';
   const base = beBase();
   if(!/^https:\/\//.test(base)) return 'Your url must start with https:// (got "'+base+'").';
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(base))
+    return 'Your url doesn\'t look like a Supabase Project URL.\nIt should be exactly:  https://YOUR-REF.supabase.co\n(from Supabase → Settings → API → Project URL — NOT the dashboard link, and nothing after .co)\nYou have:  '+base;
+  /* Reachability probe: no custom headers + no-cors, so CORS can\'t block it — it only
+     throws if the host itself is unreachable (wrong ref, paused/deleted project, offline). */
+  try{ await fetch(base+'/rest/v1/', { mode:'no-cors' }); }
+  catch(e){
+    return 'The Supabase host could not be reached at all:\n'+base+'\n\nMost likely one of:\n• The project is PAUSED — free projects pause after ~1 week idle. Open your Supabase dashboard and click Restore/Resume, then retry.\n• The url has a typo (wrong project ref).\n• You are offline.\n\n['+((e&&e.message)||'')+']';
+  }
   let readMsg;
   try{
     const r = await fetch(`${base}/rest/v1/${BACKEND.table}?select=id&limit=1`,
@@ -546,7 +554,7 @@ async function testBackend(){
     readMsg = r.ok ? 'Read OK (HTTP '+r.status+').'
                    : 'Read failed HTTP '+r.status+' — '+((await r.text().catch(()=>''))||'check anon key / table name / "public read" policy.');
   }catch(e){
-    return 'Could not reach the server (network/CORS). Check the url is exact, you have internet, and — if embedded in Wix — that the page allows connections to supabase.co. ['+((e&&e.message)||'')+']';
+    return 'The host is reachable, but the API call was blocked (CORS or bad anon key). ['+((e&&e.message)||'')+']';
   }
   if(!getTeacherKey()) return readMsg+' No editor key set yet, so writes are not tested.';
   const w = await saveRemoteContent();
