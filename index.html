@@ -476,6 +476,72 @@ let WEEKS = (window.MM_CONTENT||{}).WEEKS;
 let LESSONS = (window.MM_CONTENT||{}).LESSONS;
 if(!WEEKS||!LESSONS){ document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;max-width:560px"><h2>Content file missing</h2><p>mm-content.js was not found. Upload it to the same folder as this file (they must sit side by side in the GitHub repository).</p></div>'; throw new Error('MM_CONTENT missing'); }
 
+/* Saved teacher edits (from the editor's Save button) live in this browser and
+   override the packaged content file, so students see them on every visit.
+   This also acts as an offline cache of the latest cloud content. */
+const LIVE_KEY = 'mm-content-live-v1';
+(function loadSavedContent(){
+  try{
+    const d = JSON.parse(localStorage.getItem(LIVE_KEY));
+    if(d && d.WEEKS && d.LESSONS){ WEEKS = d.WEEKS; LESSONS = d.LESSONS; window.MM_CONTENT = {WEEKS, LESSONS}; }
+  }catch(e){}
+})();
+
+/* =============================== shared cloud backend (Supabase) ===============
+   Fill in url + anonKey ONCE, then commit index.html a single time. After that,
+   pressing 💾 Save in the editor publishes to the cloud and EVERY student — on any
+   device — sees the change on their next visit, with no GitHub step.
+   Leave url/anonKey blank to keep the in-browser-only save (nothing else changes).
+   • anonKey is the PUBLIC key — safe to commit; row-level security makes it read-only.
+   • Your private editor key is typed into the editor and stored only in your browser.
+   Setup steps are in BACKEND-SETUP.md. ============================================ */
+const BACKEND = {
+  url:     'https://kagwebzjujlpbjerqwtk.supabase.com',              /* e.g. https://abcdefgh.supabase.co  (no trailing slash) */
+  anonKey: 'sb_publishable_bChor-4JM9UCbwdCHx3eAQ_OWj-IyR2',              /* public anon key from Supabase → Settings → API */
+  table:   'site_content',
+  rowId:   1
+};
+const TEACHER_KEY_STORE = 'mm-teacher-key';
+const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
+const getTeacherKey = () => { try{ return localStorage.getItem(TEACHER_KEY_STORE) || ''; }catch(e){ return ''; } };
+const setTeacherKey = k => { try{ k ? localStorage.setItem(TEACHER_KEY_STORE, k) : localStorage.removeItem(TEACHER_KEY_STORE); }catch(e){} };
+
+async function fetchRemoteContent(){
+  if(!backendOn()) return null;
+  try{
+    const r = await fetch(`${BACKEND.url}/rest/v1/${BACKEND.table}?id=eq.${BACKEND.rowId}&select=data`,
+      { headers:{ apikey:BACKEND.anonKey, Authorization:'Bearer '+BACKEND.anonKey } });
+    if(!r.ok) return null;
+    const rows = await r.json();
+    const data = rows && rows[0] && rows[0].data;
+    if(data && data.WEEKS && data.LESSONS) return data;   /* validate shape before trusting it */
+  }catch(e){}
+  return null;
+}
+async function saveRemoteContent(){
+  const key = getTeacherKey();
+  if(!backendOn()) return { ok:false, reason:'not-configured' };
+  if(!key)         return { ok:false, reason:'no-key' };
+  try{
+    const r = await fetch(`${BACKEND.url}/rest/v1/${BACKEND.table}?on_conflict=id`, {
+      method:'POST',
+      headers:{ apikey:key, Authorization:'Bearer '+key, 'Content-Type':'application/json',
+                Prefer:'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ id:BACKEND.rowId, data:{WEEKS,LESSONS}, updated_at:new Date().toISOString() })
+    });
+    return { ok:r.ok, status:r.status };
+  }catch(e){ return { ok:false, reason:'network' }; }
+}
+/* On boot, pull the shared content from the cloud and refresh the view. */
+async function syncFromBackend(){
+  const remote = await fetchRemoteContent();
+  if(!remote) return;
+  WEEKS = remote.WEEKS; LESSONS = remote.LESSONS; window.MM_CONTENT = {WEEKS, LESSONS};
+  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS})); }catch(e){}
+  if(currentIdFromHash()!=='admin'){ route(); }
+  renderSidebar();
+}
+
 /* =============================== storage =============================== */
 /* Wrapped so the app still runs where localStorage is unavailable. */
 const store = {
@@ -922,12 +988,58 @@ function saveDraft(){
 function loadDraft(){ try{ return JSON.parse(localStorage.getItem(DRAFT_KEY)); }catch(e){ return null; } }
 function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 
+/* Save = publish the current edits. If a cloud backend is set up, they go to the
+   server (all students, everywhere); otherwise they persist in this browser. */
+async function saveLive(){
+  collectAdminForm();                       // pull the on-screen fields into LESSONS
+  window.MM_CONTENT = {WEEKS, LESSONS};
+  let localOk=true;
+  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS})); }
+  catch(e){ localOk=false; }
+  clearDraft();                             // edits are now saved, so drop the unsaved-draft copy
+  renderSidebar();
+
+  if(backendOn()){
+    if(!getTeacherKey()){ toast('Enter your editor key (Cloud backend box) to publish to all students.'); return; }
+    toast('Saving to the cloud…');
+    const res = await saveRemoteContent();
+    if(res.ok) toast('✓ Saved to the cloud — every student now sees these changes.');
+    else if(res.reason==='no-key') toast('Enter your editor key to publish to all students.');
+    else toast('⚠ Cloud save failed ('+(res.status||res.reason||'error')+'). Saved locally — check your editor key.');
+  } else {
+    toast(localOk ? '✓ Changes saved in this browser. (Set up a cloud backend to reach all students.)'
+                  : '⚠ Could not save (storage blocked). Use Download content file instead.');
+  }
+}
+/* Editor UI: cloud-backend status + private editor-key box. */
+function backendBar(){
+  if(!backendOn()){
+    return `<div class="ad-steps" style="background:#fef9c3;border-color:#facc15"><b>☁ Cloud backend:</b> not set up yet — edits save in <b>this browser only</b>. To share every edit with all students automatically, follow <code>BACKEND-SETUP.md</code> (free, ~10 min), then Save publishes to the cloud.</div>`;
+  }
+  const hasKey = !!getTeacherKey();
+  return `<div class="ad-steps" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;${hasKey?'background:var(--green-bg);border-color:var(--green-line)':''}">
+    <b>☁ Cloud backend:</b>
+    <span>${hasKey?'✅ Connected — <b>Save</b> publishes to all students.':'Connected. Enter your <b>editor key</b> to publish to all students.'}</span>
+    <span class="spacer" style="flex:1"></span>
+    <input id="beKey" class="ad-in" type="password" autocomplete="off" placeholder="${hasKey?'editor key saved ✓ — paste to replace':'paste your editor key'}" style="width:230px">
+    <button class="btn ghost ad-mini" id="beSaveKey">Save key</button>
+    ${hasKey?'<button class="btn ghost ad-mini" id="beClearKey">Forget key</button>':''}
+  </div>`;
+}
+/* Reset = discard this browser's saved edits and reload the packaged content file. */
+function resetLive(){
+  if(!confirm('Remove all edits saved in this browser and reload the published content file? Anything not downloaded will be lost.')) return;
+  try{ localStorage.removeItem(LIVE_KEY); }catch(e){}
+  clearDraft();
+  location.reload();
+}
+
 function renderAdmin(){
   document.title = 'Teacher Editor — MasterMaths';
   document.querySelector('.title-row').style.display='none';
   $('comingSoon').style.display='none';
   $('lessonGrid').style.display='none';
-  $('crumb').innerHTML = 'Teacher Editor <span class="sep">›</span> <span class="here">changes stay in this browser until you download &amp; upload the content file</span>';
+  $('crumb').innerHTML = 'Teacher Editor <span class="sep">›</span> <span class="here">press 💾 Save changes to apply your edits in this browser</span>';
   renderSidebar();
   const root=$('adminRoot'); root.style.display='block';
   if(!adminSel || !LESSONS[adminSel]) adminSel = Object.keys(LESSONS)[0];
@@ -943,15 +1055,18 @@ function renderAdmin(){
   root.innerHTML = `
   <div class="ad-wrap">
     ${draftBanner}
-    <div class="ad-steps"><b>How publishing works:</b> 1) Edit below (everything auto-saves as a draft in this browser) &nbsp;2) <b>Preview</b> to see it as a student &nbsp;3) <b>Download content file</b> &nbsp;4) In the GitHub repository, upload the downloaded <code>mm-content.js</code> over the old one and commit. Students see the changes on their next refresh.</div>
+    <div class="ad-steps"><b>How saving works:</b> Edit below, then press <b>💾 Save changes</b>. If a cloud backend is connected, your edits publish to <b>every student instantly</b>. Otherwise they save in this browser — and you can still <b>Download content file</b> to publish via GitHub. <b>Preview</b> shows it as a student; <b>Reset to file</b> clears this browser's saved edits.</div>
+    ${backendBar()}
     <div class="ad-bar">
       <label class="ad-lb" style="margin:0">Lesson:</label>
       <select id="adLesson" class="ad-in" style="width:auto">${Object.keys(LESSONS).map(id=>`<option value="${id}" ${id===adminSel?'selected':''}>${esc(LESSONS[id].title||id)}</option>`).join('')}</select>
       <button class="btn ghost ad-mini" id="adAddLesson">＋ Add new lesson</button>
       <button class="btn ghost ad-mini" id="adDelLesson" style="color:var(--red);border-color:var(--red-line)">🗑 Delete this lesson</button>
       <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" id="adResetLive" title="Remove edits saved in this browser and reload the published content file">↺ Reset to file</button>
       <button class="btn o-blue ad-mini" id="adPreview">👁 Preview lesson</button>
-      <button class="btn solid ad-mini" id="adDownload">⬇ Download content file</button>
+      <button class="btn ghost ad-mini" id="adDownload">⬇ Download content file</button>
+      <button class="btn solid ad-mini" id="adSave">💾 Save changes</button>
     </div>
     <div id="adForm"></div>
   </div>`;
@@ -968,6 +1083,10 @@ function renderAdmin(){
   }
 
   $('adLesson').addEventListener('change', e=>{ collectAdminForm(); adminSel=e.target.value; renderAdmin(); });
+  if($('beSaveKey')) $('beSaveKey').addEventListener('click', ()=>{ const v=$('beKey').value.trim(); if(v){ setTeacherKey(v); toast('Editor key saved in this browser.'); } renderAdmin(); });
+  if($('beClearKey')) $('beClearKey').addEventListener('click', ()=>{ setTeacherKey(''); toast('Editor key removed.'); renderAdmin(); });
+  $('adSave').addEventListener('click', saveLive);
+  $('adResetLive').addEventListener('click', resetLive);
   $('adPreview').addEventListener('click', ()=>{ collectAdminForm(); location.hash='#/'+adminSel; });
   $('adDownload').addEventListener('click', downloadContent);
   $('adAddLesson').addEventListener('click', addLessonFlow);
@@ -1280,6 +1399,7 @@ function downloadContent(){
 /* =============================== boot =============================== */
 route();
 bridgeSend({ type:'ready' });   /* ask the Wix page for saved progress */
+syncFromBackend();              /* pull the latest shared content from the cloud */
 </script>
 </body>
 </html>
