@@ -71,6 +71,27 @@ Done. From now on, edit → **Save** → everyone gets it on their next visit.
 
 ---
 
+## Step 6 — Enable video uploads (optional)
+
+This lets you **drag & drop a video file** into a lesson in the editor and have it stream to
+every student — no YouTube needed.
+
+1. In Supabase, open **Storage** (left sidebar) → **New bucket**.
+2. Name it exactly **`videos`**, tick **Public bucket**, and create it.
+   (Public = students can watch; uploading still needs your editor key.)
+3. That's it. In the editor, each video now has a **drag & drop** area — drop an `.mp4`/`.webm`
+   file, wait for the progress bar, then press **💾 Save changes** to publish it.
+
+Notes:
+- You can still paste a **YouTube/Vimeo embed link** instead — that's better for large or
+  many videos (see the bandwidth note below).
+- If uploading says *"bucket does not exist"*, re-check the bucket is named `videos` and is Public.
+- **Free-tier limits:** Supabase Storage gives ~1 GB of storage and ~5 GB of downloads per month
+  on the free plan. Video is heavy, so a busy class can use that up quickly. If you outgrow it,
+  host big videos on **YouTube (unlisted)** and paste the embed link — that has no bandwidth cost.
+
+---
+
 ## Notes on safety
 
 - The **anon key is public by design** and can only read, because of the row-level-security

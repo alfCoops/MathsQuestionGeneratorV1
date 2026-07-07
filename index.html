@@ -260,6 +260,15 @@
   .ad-row{display:flex;gap:8px;align-items:center}
   .ad-mini{font-size:11px;padding:5px 10px}
   .ad-note{font-size:11px;color:var(--muted);font-weight:500}
+  /* video drop zone */
+  .v-drop{margin-top:6px;border:1.5px dashed #c7d2e0;border-radius:10px;background:#f8fafc;padding:12px 14px;text-align:center;transition:.15s}
+  .v-drop.drag{border-color:var(--blue);background:var(--blue-soft)}
+  .v-drop.busy{opacity:.85}
+  .v-drop-msg{font-size:12px;color:#475569}
+  .ad-linklike{color:var(--blue);font-weight:700;cursor:pointer;text-decoration:underline;margin-left:4px}
+  .v-prog{display:none;height:7px;border-radius:99px;background:#e2e8f0;margin-top:9px;overflow:hidden}
+  .v-prog.show{display:block}
+  .v-prog-bar{height:100%;width:0;background:var(--blue);transition:width .2s}
   .ad-grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
   .ad-steps{background:var(--blue-soft);border:1px solid #cbe0cf;border-radius:11px;padding:11px 14px;font-size:12.5px;color:#1f3a24}
   .ad-steps code{background:#fff;padding:1px 5px;border-radius:5px;font-size:11.5px}
@@ -499,7 +508,8 @@ const BACKEND = {
   url:     'https://kagwebzjujlpbjerqwtk.supabase.co',              /* e.g. https://abcdefgh.supabase.co  (no trailing slash) */
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZ3dlYnpqdWpscGJqZXJxd3RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjkxNTIsImV4cCI6MjA5OTAwNTE1Mn0.5Kz5gPJAVuco4amu2HFMl4qYCVyBHItfabPerDPc3nw',              /* public anon key from Supabase → Settings → API */
   table:   'site_content',
-  rowId:   1
+  rowId:   1,
+  bucket:  'videos'         /* public Storage bucket for uploaded video files (see BACKEND-SETUP.md) */
 };
 const TEACHER_KEY_STORE = 'mm-teacher-key';
 const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
@@ -562,6 +572,48 @@ async function testBackend(){
                         : (w.reason==='network' ? 'Write blocked (network/CORS).'
                            : 'Write failed HTTP '+(w.status||'?')+' — '+(w.detail||'editor key is likely wrong (use the service_role key).'));
   return readMsg+' '+writeMsg;
+}
+/* Upload a video file to Supabase Storage; returns { ok, url } or { ok:false, msg }.
+   onProgress(fraction 0..1) is called during the upload. */
+function storageUpload(file, pathHint, onProgress){
+  return new Promise(resolve=>{
+    const key = getTeacherKey();
+    if(!backendOn())            return resolve({ ok:false, msg:'Set up the cloud backend first (BACKEND url + anonKey).' });
+    if(!key)                    return resolve({ ok:false, msg:'Enter your editor key in the ☁ Cloud backend box first.' });
+    if(!file)                   return resolve({ ok:false, msg:'No file.' });
+    if(!/^video\//.test(file.type||'') && !/\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name||''))
+                                return resolve({ ok:false, msg:'That is not a video file (use mp4, webm, mov…).' });
+    const safe = (file.name||'video').replace(/[^\w.\-]+/g,'_');
+    const path = `${(pathHint||'video').replace(/[^\w.\-]+/g,'_')}-${Date.now()}-${safe}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${beBase()}/storage/v1/object/${BACKEND.bucket}/${path}`);
+    xhr.setRequestHeader('Authorization', 'Bearer '+key);
+    xhr.setRequestHeader('apikey', key);
+    xhr.setRequestHeader('x-upsert', 'true');
+    if(file.type) xhr.setRequestHeader('Content-Type', file.type);
+    xhr.upload.onprogress = e => { if(e.lengthComputable && onProgress) onProgress(e.loaded/e.total); };
+    xhr.onload = () => {
+      if(xhr.status>=200 && xhr.status<300){
+        resolve({ ok:true, url:`${beBase()}/storage/v1/object/public/${BACKEND.bucket}/${path}` });
+      } else {
+        let hint = (xhr.responseText||'').slice(0,180);
+        if(xhr.status===404) hint = 'the "'+BACKEND.bucket+'" storage bucket does not exist yet — create it (public) in Supabase → Storage.';
+        if(xhr.status===400 && /Bucket not found/i.test(xhr.responseText||'')) hint = 'bucket "'+BACKEND.bucket+'" not found — create it (public) in Supabase → Storage.';
+        if(xhr.status===401||xhr.status===403) hint = 'your editor key is wrong (use the service_role key).';
+        resolve({ ok:false, msg:'Upload failed (HTTP '+xhr.status+'): '+hint });
+      }
+    };
+    xhr.onerror = () => resolve({ ok:false, msg:'Upload failed (network/CORS). Check the bucket exists and your editor key.' });
+    xhr.send(file);
+  });
+}
+/* Choose <video> for direct files (incl. Supabase public URLs), <iframe> for YouTube/Vimeo embeds. */
+function isFileVideo(url){ return /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(url||'') || /\/storage\/v1\/object\/public\//.test(url||''); }
+function videoEmbedHtml(url){
+  if(!url) return `<div class="video-missing">🎬 Video coming soon.<br><br>Add it in the Teacher Editor: drop a video file, or paste a YouTube/Vimeo embed link.</div>`;
+  return isFileVideo(url)
+    ? `<video class="video-frame" src="${url}" controls playsinline preload="metadata"></video>`
+    : `<iframe class="video-frame" src="${url}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
 }
 /* On boot, pull the shared content from the cloud and refresh the view. */
 async function syncFromBackend(){
@@ -774,9 +826,7 @@ $('videoList').addEventListener('click', e=>{
   if(vbtn){
     const v=cur.videos[+vbtn.dataset.video];
     $('videoTitle').textContent=v.title;
-    $('videoHolder').innerHTML = v.url
-      ? `<iframe class="video-frame" src="${v.url}" allow="autoplay; fullscreen" allowfullscreen></iframe>`
-      : `<div class="video-missing">🎬 Video coming soon.<br><br>To add it: paste your YouTube/Vimeo <b>embed</b> link into this lesson's videos → url in the LESSONS data.</div>`;
+    $('videoHolder').innerHTML = videoEmbedHtml(v.url);
     $('videoModal').classList.add('show');
     completeStep('learn');
     setBtn('learnBtn', true, '✓ Started', 'Start ⊕', 'solid');
@@ -1146,7 +1196,7 @@ function buildAdminForm(){
       ${inp('Lesson title','ad-title',L.title)}
       <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0"><input type="checkbox" id="ad-soon" checked> "Coming soon" placeholder (untick to start adding content)</label></div>
     </div>`;
-    f.addEventListener('change', onFormChange);
+    wireForm(f);
     return;
   }
 
@@ -1197,8 +1247,52 @@ function buildAdminForm(){
     ${ta('Common misconceptions','ad-misc',L.misconceptions.join('\n'))}
   </div>`;
 
+  wireForm(f);
+}
+
+/* Attach the editor's delegated listeners once per #adForm element (prevents duplicates). */
+function wireForm(f){
+  if(f._wired) return;
+  f._wired = true;
   f.addEventListener('change', onFormChange);
   f.addEventListener('click', onFormClick);
+  f.addEventListener('change', onVideoFilePick);
+  f.addEventListener('dragover', onVideoDragOver);
+  f.addEventListener('dragleave', onVideoDragLeave);
+  f.addEventListener('drop', onVideoDrop);
+}
+function onVideoDragOver(e){ const z=e.target.closest('.v-drop'); if(z){ e.preventDefault(); z.classList.add('drag'); } }
+function onVideoDragLeave(e){ const z=e.target.closest('.v-drop'); if(z) z.classList.remove('drag'); }
+function onVideoDrop(e){ const z=e.target.closest('.v-drop'); if(!z) return; e.preventDefault(); z.classList.remove('drag');
+  const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(file) doVideoUpload(+z.dataset.vi, file); }
+function onVideoFilePick(e){ const inp=e.target.closest('.v-file'); if(!inp) return; const file=inp.files&&inp.files[0]; if(file) doVideoUpload(+inp.dataset.vi, file); }
+
+async function doVideoUpload(vi, file){
+  collectAdminForm();                                  /* keep other on-screen edits */
+  const L = LESSONS[adminSel];
+  if(!L || !L.videos[vi]) return;
+  if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload videos.'); return; }
+  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  const zone = document.querySelector(`.v-drop[data-vi="${vi}"]`);
+  const bar  = document.querySelector(`.v-prog-bar[data-vi="${vi}"]`);
+  const prog = document.querySelector(`.v-prog[data-vi="${vi}"]`);
+  if(zone) zone.classList.add('busy');
+  if(prog) prog.classList.add('show');
+  const setPct = fr => { if(bar) bar.style.width = Math.max(2,Math.round(fr*100))+'%'; };
+  setPct(0.02);
+  toast('Uploading video… large files can take a while.');
+  const res = await storageUpload(file, `${adminSel}-v${vi+1}`, setPct);
+  if(res.ok){
+    L.videos[vi].url = res.url;
+    saveDraft();
+    buildAdminForm();
+    toast('✓ Video uploaded. Press 💾 Save changes to publish it to students.');
+  } else {
+    if(zone) zone.classList.remove('busy');
+    if(prog) prog.classList.remove('show');
+    if(bar) bar.style.width='0';
+    toast('⚠ '+res.msg);
+  }
 }
 
 function videoEditor(v,vi){
@@ -1207,7 +1301,17 @@ function videoEditor(v,vi){
     <div class="ad-row"><b style="font-size:12px">Video ${vi+1}</b><span class="spacer" style="flex:1"></span>
       <button class="btn ghost ad-mini" data-act="delVideo" data-vi="${vi}">🗑 Remove</button></div>
     <input class="ad-in v-title" placeholder="Video title" value="${esc(v.title)}">
-    <input class="ad-in v-url" style="margin-top:6px" placeholder="YouTube/Vimeo EMBED link e.g. https://www.youtube.com/embed/VIDEO_ID" value="${esc(v.url)}">
+    <div class="v-drop" data-vi="${vi}">
+      <input type="file" accept="video/*" class="v-file" data-vi="${vi}" id="vfile${vi}" hidden>
+      <div class="v-drop-msg">
+        ${v.url ? (isFileVideo(v.url) ? '✅ <b>Video file uploaded.</b> Drop a new one to replace it.'
+                                      : '▶ <b>Embed link set.</b> Drop a video file to switch to an uploaded file.')
+                : '🎬 <b>Drag &amp; drop a video file here</b>, or'}
+        <label for="vfile${vi}" class="ad-linklike">${v.url?'choose a different file':'choose a file'}</label>
+      </div>
+      <div class="v-prog" data-vi="${vi}"><div class="v-prog-bar" data-vi="${vi}"></div></div>
+    </div>
+    <input class="ad-in v-url" style="margin-top:6px" placeholder="…or paste a YouTube/Vimeo EMBED link e.g. https://www.youtube.com/embed/VIDEO_ID" value="${esc(v.url)}">
     ${hasNotes ? `
       <label class="ad-lb">Key notes <span class="ad-note">— one bullet per line; &lt;b&gt;bold&lt;/b&gt; allowed</span></label>
       <textarea class="ad-in ad-ta v-key">${esc(v.notes.key.join('\n'))}</textarea>
