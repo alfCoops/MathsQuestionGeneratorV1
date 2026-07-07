@@ -656,11 +656,11 @@ window.addEventListener('hashchange', route);
 function renderSidebar(){
   const nav = $('sidebarNav'); nav.innerHTML='';
   WEEKS.forEach((w,wi)=>{
-    const lbl=document.createElement('div'); lbl.className='week-label'; lbl.textContent=w.label; 
-    if(wi===0) nav.appendChild(lbl);
-    if(w.lessons){
+    const hasLessons = w.lessons && w.lessons.filter(id=>LESSONS[id]).length;
+    if(hasLessons){
+      const lbl=document.createElement('div'); lbl.className='week-label'; lbl.textContent=w.label; nav.appendChild(lbl);
       w.lessons.forEach(id=>{
-        const L=LESSONS[id];
+        const L=LESSONS[id]; if(!L) return;
         const b=document.createElement('button'); b.className='nav-item'+(cur&&cur.code===id?' active':'');
         b.innerHTML=`<span class="tag">${L.code}</span>${L.title.replace(/^\d\w+\.\s*/,'')}` + (lessonDone(id)?'<span class="tick" style="display:inline">✓</span>':'');
         b.addEventListener('click',()=>{ location.hash='#/'+id; });
@@ -669,7 +669,7 @@ function renderSidebar(){
     } else {
       const b=document.createElement('button'); b.className='nav-item';
       b.innerHTML=`${w.label}<span class="lock">🔒</span>`;
-      b.addEventListener('click',()=>toast(w.label+' unlocks after Week 1.'));
+      b.addEventListener('click',()=>toast(w.label+' — no lessons added yet.'));
       nav.appendChild(b);
     }
   });
@@ -1192,9 +1192,10 @@ function buildAdminForm(){
   const f = $('adForm');
 
   if(L.comingSoon){
-    f.innerHTML = `<div class="ad-panel"><h4>📋 Basics</h4>
+    f.innerHTML = weeksPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
       ${inp('Lesson title','ad-title',L.title)}
-      <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0"><input type="checkbox" id="ad-soon" checked> "Coming soon" placeholder (untick to start adding content)</label></div>
+      <div class="ad-steps" style="margin-top:10px;background:#fef9c3;border-color:#facc15">This lesson is a <b>“coming soon” placeholder</b>. Untick the box below to turn it into a full lesson — video, quiz, worksheet and generator editors will appear.</div>
+      <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0;font-size:13px"><input type="checkbox" id="ad-soon" checked> Keep as a “coming soon” placeholder &nbsp;—&nbsp; <b>untick to start adding content</b></label></div>
     </div>`;
     wireForm(f);
     return;
@@ -1203,7 +1204,7 @@ function buildAdminForm(){
   const lessonIds = Object.keys(LESSONS);
   const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
 
-  f.innerHTML = `
+  f.innerHTML = weeksPanel() + `
   <div class="ad-panel"><h4>📋 Basics</h4>
     ${inp('Lesson title','ad-title',L.title)}
     <div class="ad-grid2">
@@ -1392,6 +1393,9 @@ function collectAdminForm(){
   if(!f || !f.children.length) return;
   const g = id => f.querySelector('#'+id);
 
+  /* week labels (from the Weeks panel — present on every editor screen) */
+  f.querySelectorAll('.wk-label').forEach(inp=>{ const wi=+inp.dataset.wk; if(WEEKS[wi]) WEEKS[wi].label = inp.value; });
+
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
     if(g('ad-soon') && !g('ad-soon').checked){ delete L.comingSoon; Object.assign(L, {...BLANK_LESSON(), ...L}); }
@@ -1458,7 +1462,11 @@ function collectAdminForm(){
   saveDraft();
 }
 
-function onFormChange(){ collectAdminForm(); }
+function onFormChange(e){
+  collectAdminForm();
+  /* toggling "coming soon" switches between the placeholder form and the full content editor */
+  if(e && e.target && e.target.id==='ad-soon'){ buildAdminForm(); renderSidebar(); }
+}
 
 function onFormClick(e){
   const b = e.target.closest('[data-act]');
@@ -1482,8 +1490,58 @@ function onFormClick(e){
   if(act==='addGen') L.genBank.push({grade:'Grade 1–3', marks:2, q:'', ms:''});
   if(act==='delGen') L.genBank.splice(gi,1);
 
+  /* week actions */
+  if(act==='addWeek') WEEKS.push({ label:'Week '+(WEEKS.length+1)+': New topic', lessons:[] });
+  if(act==='addLessonToWeek'){ addLessonToWeek(+b.dataset.wk); return; }
+  if(act==='gotoLesson'){ const id=b.dataset.id; if(LESSONS[id]){ adminSel=id; saveDraft(); renderAdmin(); } return; }
+  if(act==='delWeek'){
+    const wk=+b.dataset.wk, w=WEEKS[wk];
+    if(w && w.lessons && w.lessons.filter(id=>LESSONS[id]).length) return toast('Remove this week’s lessons first (delete each lesson), then delete the week.');
+    if(WEEKS.length<=1) return toast('You need at least one week.');
+    WEEKS.splice(wk,1);
+  }
+
   saveDraft();
   buildAdminForm();
+  renderSidebar();
+}
+
+/* ---------- weeks panel ---------- */
+function weeksPanel(){
+  return `<div class="ad-panel"><h4>🗂 Weeks <span class="ad-note">(rename any week, add lessons to it, or add/remove whole weeks)</span></h4>
+    <div id="adWeeks">${WEEKS.map((w,wi)=>`
+      <div class="ad-q" data-wk="${wi}">
+        <div class="ad-row">
+          <input class="ad-in wk-label" data-wk="${wi}" value="${esc(w.label)}" placeholder="Week label e.g. Week 2: Algebra Basics">
+          <button class="btn ghost ad-mini" data-act="addLessonToWeek" data-wk="${wi}" title="Add a lesson to this week">＋ Lesson</button>
+          <button class="btn ghost ad-mini" data-act="delWeek" data-wk="${wi}" title="Remove this week" style="color:var(--red);border-color:var(--red-line)">🗑</button>
+        </div>
+        <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">${(w.lessons&&w.lessons.filter(id=>LESSONS[id]).length)
+          ? w.lessons.filter(id=>LESSONS[id]).map(id=>`<button class="btn ${id===adminSel?'solid':'ghost'} ad-mini" data-act="gotoLesson" data-id="${id}">${id}${id===adminSel?' ✎':''}</button>`).join('')
+          : '<span class="ad-note">no lessons yet — click ＋ Lesson</span>'}</div>
+      </div>`).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addWeek">＋ Add week</button>
+  </div>`;
+}
+function addLessonToWeek(wi){
+  collectAdminForm();
+  const wk = WEEKS[wi]; if(!wk) return;
+  const code = (prompt('Short code for the new lesson (e.g. 2a):')||'').trim();
+  if(!code) return;
+  if(LESSONS[code]) return toast('A lesson with that code already exists.');
+  const title = (prompt('Lesson title (e.g. Expanding Brackets):')||'New lesson').trim();
+  const L = BLANK_LESSON();
+  L.code = code; L.title = code+'. '+title;
+  L.week = (wk.label.split(':')[0]||('Week '+(wi+1))).trim();
+  L.strand = (wk.label.split(': ')[1]||'');
+  if(!wk.lessons) wk.lessons = [];
+  const last = wk.lessons[wk.lessons.length-1];
+  if(last && LESSONS[last]){ L.prev = last; LESSONS[last].next = code; }
+  wk.lessons.push(code);
+  LESSONS[code] = L;
+  adminSel = code;
+  saveDraft(); renderAdmin();
+  toast('Lesson '+code+' added to '+wk.label+'.');
 }
 
 /* ---------- add / delete lessons ---------- */
