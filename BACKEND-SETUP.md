@@ -82,6 +82,9 @@ every student — no YouTube needed.
 3. That's it. In the editor, each video now has a **drag & drop** area — drop an `.mp4`/`.webm`
    file, wait for the progress bar, then press **💾 Save changes** to publish it.
 
+The same `videos` bucket is also used for **images** you add to a lesson's Key notes
+(each video's notes editor has a **🖼 Add image** button) — no extra setup needed.
+
 Notes:
 - You can still paste a **YouTube/Vimeo embed link** instead — that's better for large or
   many videos (see the bandwidth note below).

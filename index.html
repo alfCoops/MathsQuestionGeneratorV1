@@ -130,6 +130,9 @@
   .fact-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:11px}
   .fact-list>li{font-size:12px;color:#334155;display:flex;gap:8px;line-height:1.45}
   .fact-list>li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+  .fact-list>li.is-img{display:block}
+  .fact-list>li.is-img::before{content:none}
+  .fact-list>li.is-img img{max-width:100%;border-radius:8px}
   .fact-list ul{list-style:none;margin-top:5px;padding-left:2px;display:flex;flex-direction:column;gap:4px}
   .fact-list ul li{font-size:11.5px;color:var(--muted)}
   .fact-list ul li::before{content:"•";color:#94a3b8;font-weight:700;margin-right:7px}
@@ -170,6 +173,13 @@
   .quiz-result .big{font-size:30px;font-weight:800}
   .quiz-result p{color:var(--muted);font-size:13px;margin-top:5px}
 
+  /* tables & images inside questions (generator + quiz) */
+  .qq table,.q-text table{border-collapse:collapse;margin:9px 0;font-size:12.5px}
+  .qq td,.qq th,.q-text td,.q-text th{border:1px solid #94a3b8;padding:4px 11px;text-align:center}
+  .qq th,.q-text th{background:#f1f5f9;font-weight:700}
+  .qq img,.q-text img{max-width:100%;border-radius:8px;margin:6px 0}
+  .qq table,.q-text table{display:block;overflow-x:auto}
+
   /* generator */
   .gen-grid{display:grid;grid-template-columns:200px 1fr;gap:13px}
   .hiw{background:var(--red-bg);border:1px solid var(--red-line);border-radius:11px;padding:12px 13px}
@@ -190,12 +200,6 @@
   @keyframes timerflash{0%,100%{opacity:1}50%{opacity:.45}}
   .gen-qcard .qq{font-size:13.5px;font-weight:600}
   .gen-qcard .tot{font-size:11px;color:var(--muted);text-align:right;margin-top:8px}
-  .workspace{border:1.5px dashed #f9a8d4;border-radius:11px;padding:12px 14px;min-height:150px;
-    background-image:linear-gradient(#fce7f31a 1px,transparent 1px),linear-gradient(90deg,#fce7f31a 1px,transparent 1px),
-                     linear-gradient(#f1f5f9 1px,transparent 1px),linear-gradient(90deg,#f1f5f9 1px,transparent 1px);
-    background-size:20px 20px,20px 20px,20px 20px,20px 20px}
-  .workspace h5{font-size:11.5px;font-weight:700;color:var(--pink);margin-bottom:4px}
-  .workspace p{font-size:11px;color:var(--muted)}
   .ms{display:none;background:var(--green-bg);border:1px solid var(--green-line);border-radius:11px;padding:12px 14px;font-size:12.5px;color:#14532d}
   .ms.show{display:block}
   .gen-actions{display:flex;gap:9px}
@@ -377,7 +381,7 @@
                 <ol>
                   <li><i>1</i>Click the button below to generate a new exam-style question.</li>
                   <li><i>2</i>A countdown starts automatically — work at exam pace (about 1½ minutes per mark).</li>
-                  <li><i>3</i>Work through it in the space provided before the time runs out.</li>
+                  <li><i>3</i>Work through it on paper before the time runs out.</li>
                   <li><i>4</i>Check your answer using the mark scheme (available after your attempt).</li>
                 </ol>
                 <button class="btn solid-pink" id="genBtn">🎲 Generate Exam-Style Question</button>
@@ -393,10 +397,6 @@
                   </div>
                   <div class="qq" id="genQ"></div>
                   <div class="tot" id="genTot"></div>
-                </div>
-                <div class="workspace" id="genWork" style="display:none">
-                  <h5>✏️ Your Working Space</h5>
-                  <p>Show your working clearly.</p>
                 </div>
                 <div class="ms" id="genMs"></div>
                 <div class="gen-actions" id="genActions" style="display:none">
@@ -575,14 +575,19 @@ async function testBackend(){
 }
 /* Upload a video file to Supabase Storage; returns { ok, url } or { ok:false, msg }.
    onProgress(fraction 0..1) is called during the upload. */
-function storageUpload(file, pathHint, onProgress){
+function storageUpload(file, pathHint, onProgress, kind){
   return new Promise(resolve=>{
+    kind = kind || 'video';
     const key = getTeacherKey();
     if(!backendOn())            return resolve({ ok:false, msg:'Set up the cloud backend first (BACKEND url + anonKey).' });
     if(!key)                    return resolve({ ok:false, msg:'Enter your editor key in the ☁ Cloud backend box first.' });
     if(!file)                   return resolve({ ok:false, msg:'No file.' });
-    if(!/^video\//.test(file.type||'') && !/\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name||''))
-                                return resolve({ ok:false, msg:'That is not a video file (use mp4, webm, mov…).' });
+    const okType = kind==='image'
+      ? (/^image\//.test(file.type||'') || /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name||''))
+      : kind==='file'
+      ? (/^(image\/|application\/pdf)/.test(file.type||'') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))
+      : (/^video\//.test(file.type||'') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name||''));
+    if(!okType) return resolve({ ok:false, msg: kind==='image' ? 'That is not an image file (use png, jpg, gif or webp).' : kind==='file' ? 'Use a PDF or an image file (pdf, png, jpg).' : 'That is not a video file (use mp4, webm, mov…).' });
     const safe = (file.name||'video').replace(/[^\w.\-]+/g,'_');
     const path = `${(pathHint||'video').replace(/[^\w.\-]+/g,'_')}-${Date.now()}-${safe}`;
     const xhr = new XMLHttpRequest();
@@ -709,7 +714,7 @@ function loadLesson(id){
   setBtn('learnBtn', p.learn, '✓ Started', 'Start ⊕', 'solid');
   setBtn('quizBtn', p.quiz, '✓ Passed', 'Start Quiz', 'o-orange');
   setBtn('wsBtn', p.worksheet, '✓ Completed', 'Download', 'o-purple');
-  $('genCard').style.display='none'; $('genWork').style.display='none';
+  $('genCard').style.display='none';
   $('genActions').style.display='none'; $('genMs').classList.remove('show');
   stopGenTimer(); genCount=0; lastGen=-1;
 
@@ -795,7 +800,7 @@ function buildVideos(){
         <div class="vnotes">
           <div class="vn-card facts">
             <h5><span class="vn-ico">💡</span> Key Facts to Remember</h5>
-            <ul class="fact-list">${facts.map(k=>`<li><span>${k}</span></li>`).join('')}</ul>
+            <ul class="fact-list">${facts.map(k=>`<li class="${/<img/i.test(k)?'is-img':''}"><span>${k}</span></li>`).join('')}</ul>
           </div>
           <div class="vn-card qfq">
             <div class="qfq-head">
@@ -928,7 +933,15 @@ function renderQuizResult(){
 }
 
 /* =============================== worksheet =============================== */
-$('wsBtn').addEventListener('click', ()=> $('wsModal').classList.add('show'));
+$('wsBtn').addEventListener('click', ()=>{
+  if(cur.worksheetFile){                       /* an uploaded file replaces the built worksheet */
+    window.open(cur.worksheetFile, '_blank');
+    completeStep('worksheet');
+    setBtn('wsBtn', true, '✓ Completed', 'Download', 'o-purple');
+  } else {
+    $('wsModal').classList.add('show');
+  }
+});
 $('wsPrint').addEventListener('click', ()=> window.print());
 $('wsDone').addEventListener('click', ()=>{
   completeStep('worksheet');
@@ -979,7 +992,7 @@ function pickGeneratedQuestion(){
 $('genBtn').addEventListener('click', ()=>{
   $('secGen').classList.add('open');
   const g=pickGeneratedQuestion(); genCount++;
-  $('genCard').style.display='block'; $('genWork').style.display='block'; $('genActions').style.display='flex';
+  $('genCard').style.display='block'; $('genActions').style.display='flex';
   $('genLabel').textContent='Question '+genCount;
   $('genMarks').textContent=`${g.grade} · ${g.marks} mark${g.marks>1?'s':''}`;
   $('genQ').innerHTML=g.q;
@@ -1046,7 +1059,7 @@ const BLANK_LESSON = () => ({
   code:'', title:'', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:null,
   success:[], prior:[], keywords:[], misconceptions:[],
-  videos:[{title:'Video 1',url:'',notes:null}], quizPass:80, quiz:[], wsTip:'',
+  videos:[{title:'Video 1',url:'',notes:null}], quizPass:80, quiz:[], wsTip:'', worksheetFile:'',
   worksheet:[
     {name:'Clarify',grade:'Grade 1',g3:false,qs:['<b>1.</b> ']},
     {name:'Justify',grade:'Grade 2',g3:false,qs:['<b>1.</b> ']},
@@ -1230,9 +1243,20 @@ function buildAdminForm(){
     <button class="btn ghost ad-mini" data-act="addQuiz">＋ Add quiz question</button>
   </div>
 
-  <div class="ad-panel"><h4>✏️ Worksheet sections</h4>
+  <div class="ad-panel"><h4>✏️ Worksheet</h4>
+    <div class="ad-steps" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;${L.worksheetFile?'background:var(--green-bg);border-color:var(--green-line)':''}">
+      <b>📎 Attach a worksheet file</b>
+      <span class="ad-note" style="margin:0">PDF or image — if attached, students download <b>this</b> instead of the sections below.</span>
+      <span class="spacer" style="flex:1"></span>
+      ${L.worksheetFile
+        ? `<a href="${esc(L.worksheetFile)}" target="_blank" class="btn ghost ad-mini">📄 View attached</a><button class="btn ghost ad-mini" data-act="removeWsFile" style="color:var(--red);border-color:var(--red-line)">Remove file</button>`
+        : ''}
+      <input type="file" accept=".pdf,image/*" class="ws-file-input" id="wsfileinput" hidden>
+      <label for="wsfileinput" class="btn ${L.worksheetFile?'ghost':'solid'} ad-mini">${L.worksheetFile?'Replace file':'📎 Attach file'}</label>
+    </div>
+    <div class="ad-lb" style="margin-top:14px">Or build the worksheet from sections ${L.worksheetFile?'<span class="ad-note">(currently ignored — a file is attached)</span>':''}</div>
     ${ta('Worksheet tip (footer)','ad-wstip',L.wsTip)}
-    <div id="adWs" style="margin-top:10px">${L.worksheet.map((s,si)=>wsEditor(s,si)).join('')}</div>
+    <div id="adWs" style="margin-top:10px${L.worksheetFile?';opacity:.5':''}">${L.worksheet.map((s,si)=>wsEditor(s,si)).join('')}</div>
     <button class="btn ghost ad-mini" data-act="addWs">＋ Add worksheet section</button>
   </div>
 
@@ -1258,9 +1282,61 @@ function wireForm(f){
   f.addEventListener('change', onFormChange);
   f.addEventListener('click', onFormClick);
   f.addEventListener('change', onVideoFilePick);
+  f.addEventListener('change', onImageFilePick);
+  f.addEventListener('change', onGenImageFilePick);
+  f.addEventListener('change', onWsFileFilePick);
   f.addEventListener('dragover', onVideoDragOver);
   f.addEventListener('dragleave', onVideoDragLeave);
   f.addEventListener('drop', onVideoDrop);
+}
+const TABLE_TPL = '\n<table>\n  <tr><th>Header 1</th><th>Header 2</th><th>Header 3</th></tr>\n  <tr><td> </td><td> </td><td> </td></tr>\n  <tr><td> </td><td> </td><td> </td></tr>\n</table>\n';
+function onImageFilePick(e){ const inp=e.target.closest('.img-file'); if(!inp) return; const file=inp.files&&inp.files[0]; if(file) doImageUpload(+inp.dataset.vi, file); }
+function onGenImageFilePick(e){ const inp=e.target.closest('.gimg-file'); if(!inp) return; const file=inp.files&&inp.files[0]; if(file) doGenImageUpload(+inp.dataset.gi, file); }
+function onWsFileFilePick(e){ const inp=e.target.closest('.ws-file-input'); if(!inp) return; const file=inp.files&&inp.files[0]; if(file) doWsFileUpload(file); }
+async function doGenImageUpload(gi, file){
+  collectAdminForm();
+  const L = LESSONS[adminSel];
+  if(!L || !L.genBank[gi]) return;
+  if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload images.'); return; }
+  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  toast('Uploading chart/image…');
+  const res = await storageUpload(file, `${adminSel}-gen${gi+1}-img`, null, 'image');
+  if(res.ok){
+    L.genBank[gi].q = (L.genBank[gi].q||'') + `<br><img src="${res.url}" alt="" style="max-width:100%;border-radius:8px">`;
+    saveDraft(); buildAdminForm();
+    toast('✓ Chart/image added to the question. Press 💾 Save changes to publish.');
+  } else { toast('⚠ '+res.msg); }
+}
+async function doWsFileUpload(file){
+  collectAdminForm();
+  const L = LESSONS[adminSel];
+  if(!L) return;
+  if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to attach a worksheet.'); return; }
+  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  toast('Uploading worksheet file…');
+  const res = await storageUpload(file, `${adminSel}-worksheet`, null, 'file');
+  if(res.ok){
+    L.worksheetFile = res.url;
+    saveDraft(); buildAdminForm();
+    toast('✓ Worksheet file attached. Press 💾 Save changes to publish.');
+  } else { toast('⚠ '+res.msg); }
+}
+async function doImageUpload(vi, file){
+  collectAdminForm();                                  /* capture current key-notes edits first */
+  const L = LESSONS[adminSel];
+  if(!L || !L.videos[vi] || !L.videos[vi].notes) return;
+  if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload images.'); return; }
+  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  toast('Uploading image…');
+  const res = await storageUpload(file, `${adminSel}-v${vi+1}-img`, null, 'image');
+  if(res.ok){
+    L.videos[vi].notes.key.push(`<img src="${res.url}" alt="" style="max-width:100%;border-radius:8px;margin-top:4px">`);
+    saveDraft();
+    buildAdminForm();
+    toast('✓ Image added to the key notes. Press 💾 Save changes to publish.');
+  } else {
+    toast('⚠ '+res.msg);
+  }
 }
 function onVideoDragOver(e){ const z=e.target.closest('.v-drop'); if(z){ e.preventDefault(); z.classList.add('drag'); } }
 function onVideoDragLeave(e){ const z=e.target.closest('.v-drop'); if(z) z.classList.remove('drag'); }
@@ -1314,7 +1390,12 @@ function videoEditor(v,vi){
     </div>
     <input class="ad-in v-url" style="margin-top:6px" placeholder="…or paste a YouTube/Vimeo EMBED link e.g. https://www.youtube.com/embed/VIDEO_ID" value="${esc(v.url)}">
     ${hasNotes ? `
-      <label class="ad-lb">Key notes <span class="ad-note">— one bullet per line; &lt;b&gt;bold&lt;/b&gt; allowed</span></label>
+      <div class="ad-row" style="margin-top:9px">
+        <label class="ad-lb" style="margin:0">Key notes <span class="ad-note">— one bullet per line; &lt;b&gt;bold&lt;/b&gt; and &lt;img&gt; allowed</span></label>
+        <span class="spacer" style="flex:1"></span>
+        <input type="file" accept="image/*" class="img-file" data-vi="${vi}" id="imgfile${vi}" hidden>
+        <label for="imgfile${vi}" class="btn ghost ad-mini" title="Upload an image and add it to the key notes">🖼 Add image</label>
+      </div>
       <textarea class="ad-in ad-ta v-key">${esc(v.notes.key.join('\n'))}</textarea>
       <label class="ad-lb">Comparison symbols / formulas <span class="ad-note">— one per line</span></label>
       <textarea class="ad-in ad-ta v-sym">${esc(v.notes.symbols.join('\n'))}</textarea>
@@ -1379,6 +1460,13 @@ function genEditor(g,gi){
       <input class="ad-in g-marks" type="number" min="1" style="width:80px" value="${g.marks}" title="marks">
       <span class="spacer" style="flex:1"></span>
       <button class="btn ghost ad-mini" data-act="delGen" data-gi="${gi}">🗑</button>
+    </div>
+    <div class="ad-row" style="margin-bottom:3px">
+      <label class="ad-lb" style="margin:0">Question <span class="ad-note">— HTML, tables &amp; images allowed</span></label>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" data-act="insTable" data-gi="${gi}">⊞ Table</button>
+      <input type="file" accept="image/*" class="gimg-file" data-gi="${gi}" id="gimg${gi}" hidden>
+      <label for="gimg${gi}" class="btn ghost ad-mini" title="Upload a chart, graph or diagram image">🖼 Chart / image</label>
     </div>
     <textarea class="ad-in ad-ta g-q" placeholder="Question" style="min-height:48px">${esc(g.q)}</textarea>
     <label class="ad-lb">Mark scheme</label>
@@ -1489,6 +1577,8 @@ function onFormClick(e){
   if(act==='delWsQ') L.worksheet[si].qs.splice(qi2,1);
   if(act==='addGen') L.genBank.push({grade:'Grade 1–3', marks:2, q:'', ms:''});
   if(act==='delGen') L.genBank.splice(gi,1);
+  if(act==='insTable') L.genBank[gi].q = (L.genBank[gi].q||'') + TABLE_TPL;
+  if(act==='removeWsFile') delete L.worksheetFile;
 
   /* week actions */
   if(act==='addWeek') WEEKS.push({ label:'Week '+(WEEKS.length+1)+': New topic', lessons:[] });
