@@ -934,9 +934,13 @@ function renderQuizResult(){
   const m=masteryRating(pct);
   /* F4 — store latest + best mastery in the existing progress object */
   const p=prog(); p.masteryLatest=pct; p.masteryBest=Math.max(p.masteryBest||0, pct); saveProgress();
-  const guidance = m.level==='confident' ? 'Great work — you’ve got this! 🎉'
-                 : m.level==='practice'  ? 'You’re close. Retry the quiz to push into the green.'
-                 :                         'Let’s review the lesson, then try the quiz again.';
+  /* Copy keys off BOTH pass and mastery so an amber/green PASS celebrates and treats retry as optional. */
+  const conf = masteryThresholds().confident;
+  let guidance;
+  if(m.level==='confident')     guidance = 'Great work — you’ve got this! 🎉';
+  else if(passed)               guidance = `Nice — you passed! ✅ You’re just short of Confident (${conf}%), so retrying is optional — aim higher, or move on to the next step.`;
+  else if(m.level==='practice') guidance = `You’re close — you need ${cur.quizPass}% to pass. Retry the quiz to move on.`;
+  else                          guidance = 'Let’s review the lesson, then try the quiz again.';
   $('qArea').innerHTML=`
     <div class="quiz-result">
       <div class="big" style="color:${passed?'var(--green)':'var(--red)'}">${pct}%</div>
@@ -945,7 +949,7 @@ function renderQuizResult(){
       ${quiz.flags.size?`<p>⚑ You flagged question${quiz.flags.size>1?'s':''} ${[...quiz.flags].map(i=>i+1).join(', ')} — worth revisiting.</p>`:''}
       <div style="display:flex;gap:9px;justify-content:center;margin-top:13px;flex-wrap:wrap">
         ${m.level==='review'?'<button class="btn o-blue" id="qReviewLesson">📘 Review the lesson</button>':''}
-        <button class="btn ${m.level==='confident'?'ghost':'solid'}" id="qRetry">↻ Retry Quiz</button>
+        <button class="btn ${passed?'ghost':'solid'}" id="qRetry">↻ Retry Quiz</button>
         <button class="btn ghost" id="qReview">Review Answers</button>
       </div>
     </div>`;

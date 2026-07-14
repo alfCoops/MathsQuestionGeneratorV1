@@ -35,7 +35,7 @@ Effort: **S** < ½ day · **M** 1–2 days · **L** 3–5 days · **XL** 1–2 w
 | F1 | Student accounts (email sign-in) | **Must** | M | — | 1 | ☐ |
 | F2 | Cloud progress sync across devices | **Must** | M | F1 | 1 | ☐ |
 | F3 | Automatic sequential lesson unlocking | **Must** | S | — (better with F2) | 0 | ☐ |
-| F4 | Quiz mastery ratings (🟢🟡🔴) | **Must** | S | — | 0 | ☐ |
+| F4 | Quiz mastery ratings (🟢🟡🔴) | **Must** | S | — | 0 | ✅ |
 | F5 | "Continue where you left off" button | **Must** | S–M | F2 | 1 | ☐ |
 | F6 | Estimated time per section | **Must** | S | — | 0 | ☐ |
 | F7 | Resume at the exact point (question-level) | Should | M | F2, F5 | 2 | ☐ |
@@ -146,9 +146,10 @@ a tailored message ("Review Lesson" links straight back to the video/notes). Kee
 content so Ryan can tune them.
 
 **Acceptance criteria**
-- ☐ Rating shows on quiz completion with the right colour and message
-- ☐ 🔴 links back to notes/video; 🟡 offers retry; 🟢 celebrates
-- ☐ Latest + best rating stored per lesson (needs F2 for cross-device)
+- ✅ Rating shows on quiz completion with the right colour and message
+- ✅ 🔴 links back to notes/video; 🟡 offers retry; 🟢 celebrates
+- ✅ Latest + best rating stored per lesson (local; F2 adds cross-device)
+- ✅ A pass below the confident threshold (amber-but-passed) celebrates the pass and makes retry optional
 
 ---
 
