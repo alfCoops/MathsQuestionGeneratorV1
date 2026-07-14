@@ -98,6 +98,9 @@
   .act-head .txt{flex:1}
   .act-head .txt b{display:block;font-size:13.5px}
   .act-head .txt span{font-size:12px;color:var(--muted)}
+  .time-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);background:#f1f5f9;border:1px solid var(--line);padding:3px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+  .time-chip:empty{display:none}
+  @media(max-width:560px){.time-chip{display:none}}
   .btn{font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer;border:1.5px solid transparent;transition:.15s;white-space:nowrap}
   .btn.solid{background:var(--blue);color:#fff} .btn.solid:hover{background:#245c28}
   .btn.o-blue{border-color:var(--blue);color:var(--blue);background:#fff} .btn.o-blue:hover{background:var(--blue-soft)}
@@ -334,6 +337,7 @@
           <div class="act-head" data-toggle="secLearn">
             <div class="ico" style="background:var(--blue)">▶</div>
             <div class="txt"><b>1. Watch Lesson &amp; Read Notes</b><span>Watch the video explanation with worked examples, then read the summary notes with key formulas.</span></div>
+            <span class="time-chip" id="timeLearn"></span>
             <button class="btn solid" id="learnBtn">Start ⊕</button>
             <span class="chev">▼</span>
           </div>
@@ -344,6 +348,7 @@
           <div class="act-head">
             <div class="ico" style="background:var(--orange)">🧠</div>
             <div class="txt"><b>2. Quiz</b><span>Test your understanding with 10 questions. You'll get instant feedback!</span></div>
+            <span class="time-chip" id="timeQuiz"></span>
             <button class="btn o-orange" id="quizBtn">Start Quiz</button>
           </div>
           <div class="body" id="quizBody">
@@ -367,6 +372,7 @@
           <div class="act-head">
             <div class="ico" style="background:var(--purple)">✏️</div>
             <div class="txt"><b>3. Practice Worksheet</b><span>Downloadable worksheet containing exam style questions.</span></div>
+            <span class="time-chip" id="timeWs"></span>
             <button class="btn o-purple" id="wsBtn">Download</button>
           </div>
         </section>
@@ -375,6 +381,7 @@
           <div class="act-head" data-toggle="secGen">
             <div class="ico" style="background:var(--pink)">🎲</div>
             <div class="txt"><b>4. Question Generator</b><span>Generate unlimited exam-style questions to challenge your understanding.</span></div>
+            <span class="time-chip" id="timeGen"></span>
             <button class="btn o-pink" id="hiwBtn">ⓘ How It Works</button>
             <span class="chev">▼</span>
           </div>
@@ -685,6 +692,13 @@ function renderSidebar(){
 }
 
 /* =============================== lesson render =============================== */
+/* F6 — estimated section times (content-configurable per lesson, back-compatible defaults). */
+const SECTION_TIME_DEFAULTS = { learn:'~15 minutes', quiz:'~10 minutes', worksheet:'~25 minutes', generate:'Unlimited practice' };
+function sectionTime(key){ const t=(cur&&cur.sectionTimes)||{}; const v=t[key]&&String(t[key]).trim(); return v||SECTION_TIME_DEFAULTS[key]; }
+function renderSectionTimes(){
+  const set=(id,key)=>{ const el=$(id); if(el) el.textContent='🕒 '+sectionTime(key); };
+  set('timeLearn','learn'); set('timeQuiz','quiz'); set('timeWs','worksheet'); set('timeGen','generate');
+}
 function loadLesson(id){
   $('adminRoot').style.display='none';
   document.querySelector('.title-row').style.display='flex';
@@ -701,6 +715,7 @@ function loadLesson(id){
     return;
   }
   $('comingSoon').style.display='none'; $('lessonGrid').style.display='grid';
+  renderSectionTimes();   /* F6 — estimated time chip on each section card */
 
   /* right column */
   $('rcSuccess').innerHTML = cur.success.map(s=>`<li>${s}</li>`).join('');
@@ -1266,6 +1281,13 @@ function buildAdminForm(){
       <span><label class="ad-lb" style="margin:0 0 4px">Mastery 🟡 ≥ %</label><input id="ad-mprac" class="ad-in" type="number" min="0" max="100" value="${(L.masteryThresholds&&L.masteryThresholds.practice!=null)?L.masteryThresholds.practice:50}" style="width:90px" title="Needs practice at or above this score; below it is Review"></span>
       <label class="ad-lb" style="margin:14px 0 0"><input type="checkbox" id="ad-soon"> Mark as "coming soon"</label>
     </div>
+    <div class="ad-row" style="margin-top:12px;gap:14px;flex-wrap:wrap">
+      <label class="ad-lb" style="margin:0;align-self:center">⏱ Section times <span class="ad-note">(blank = default)</span></label>
+      <span><label class="ad-lb" style="margin:0 0 4px">Video</label><input id="ad-tlearn" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.learn)||''}" placeholder="~15 minutes" style="width:130px"></span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Quiz</label><input id="ad-tquiz" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.quiz)||''}" placeholder="~10 minutes" style="width:130px"></span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Worksheet</label><input id="ad-tws" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.worksheet)||''}" placeholder="~25 minutes" style="width:130px"></span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Generator</label><input id="ad-tgen" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.generate)||''}" placeholder="Unlimited practice" style="width:150px"></span>
+    </div>
   </div>
 
   <div class="ad-panel"><h4>🎬 Videos &amp; Notes</h4><div id="adVideos">${L.videos.map((v,vi)=>videoEditor(v,vi)).join('')}</div>
@@ -1533,6 +1555,7 @@ function collectAdminForm(){
   L.next = g('ad-next').value || null;
   L.quizPass = +g('ad-pass').value || 80;
   if(g('ad-mconf')) L.masteryThresholds = { confident:+g('ad-mconf').value||80, practice:+g('ad-mprac').value||50 };
+  if(g('ad-tlearn')) L.sectionTimes = { learn:g('ad-tlearn').value.trim(), quiz:g('ad-tquiz').value.trim(), worksheet:g('ad-tws').value.trim(), generate:g('ad-tgen').value.trim() };
   if(g('ad-soon').checked) L.comingSoon = true;
 
   L.videos = [...f.querySelectorAll('#adVideos .ad-q')].map((el,vi)=>{

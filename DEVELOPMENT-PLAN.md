@@ -37,7 +37,7 @@ Effort: **S** < ½ day · **M** 1–2 days · **L** 3–5 days · **XL** 1–2 w
 | F3 | Automatic sequential lesson unlocking | **Must** | S | — (better with F2) | 0 | ☐ |
 | F4 | Quiz mastery ratings (🟢🟡🔴) | **Must** | S | — | 0 | ✅ |
 | F5 | "Continue where you left off" button | **Must** | S–M | F2 | 1 | ☐ |
-| F6 | Estimated time per section | **Must** | S | — | 0 | ☐ |
+| F6 | Estimated time per section | **Must** | S | — | 0 | ✅ |
 | F7 | Resume at the exact point (question-level) | Should | M | F2, F5 | 2 | ☐ |
 | F8 | Quick Help button (hint / worked example / notes / rewatch) | Should | M | content authoring | 2 | ☐ |
 | F9 | Badges & streaks | Should | M | F2 | 2 | ☐ |
@@ -172,8 +172,8 @@ Editor, with those defaults) and render a small chip on each section card. Conte
 change + ~10 lines of UI.
 
 **Acceptance criteria**
-- ☐ Each section shows its estimate; generator shows "Unlimited practice"
-- ☐ Editable per lesson in the Teacher Editor
+- ✅ Each section shows its estimate; generator shows "Unlimited practice"
+- ✅ Editable per lesson in the Teacher Editor
 
 ---
 
