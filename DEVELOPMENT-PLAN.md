@@ -34,7 +34,7 @@ Effort: **S** < ½ day · **M** 1–2 days · **L** 3–5 days · **XL** 1–2 w
 |---|---|---|---|---|---|---|
 | F1 | Student accounts (email sign-in) | **Must** | M | — | 1 | ☐ |
 | F2 | Cloud progress sync across devices | **Must** | M | F1 | 1 | ☐ |
-| F3 | Automatic sequential lesson unlocking | **Must** | S | — (better with F2) | 0 | ☐ |
+| F3 | Automatic sequential lesson unlocking | **Must** | S | — (better with F2) | 0 | ✅ |
 | F4 | Quiz mastery ratings (🟢🟡🔴) | **Must** | S | — | 0 | ✅ |
 | F5 | "Continue where you left off" button | **Must** | S–M | F2 | 1 | ☐ |
 | F6 | Estimated time per section | **Must** | S | — | 0 | ✅ |
@@ -125,9 +125,9 @@ locked lessons in the sidebar, and show a friendly "finish 1a to unlock" toast o
 Make the flag editable in the Teacher Editor so Ryan can turn it off for revision periods.
 
 **Acceptance criteria**
-- ☐ 1b locked until 1a's four steps complete; unlock is instant (no refresh)
-- ☐ Deep links to a locked lesson redirect to the right lesson with a message
-- ☐ Ryan can toggle the behaviour in the editor
+- ✅ 1b locked until 1a's four steps complete; unlock is instant (no refresh)
+- ✅ Deep links to a locked lesson redirect to the right lesson with a message
+- ✅ Ryan can toggle the behaviour in the editor (persists in content SETTINGS; ships ON by default)
 
 ---
 

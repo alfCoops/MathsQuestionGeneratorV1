@@ -39,6 +39,9 @@
   .nav-item.active{background:var(--blue);color:#fff}
   .nav-item .tag{width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0;color:#fff}
   .nav-item .lock{margin-left:auto;opacity:.55;font-size:11px}
+  .nav-item.locked{color:#64748b;cursor:not-allowed}
+  .nav-item.locked .tag{background:rgba(255,255,255,.06);color:#64748b}
+  .nav-item.locked:hover{background:rgba(255,255,255,.03)}
   .nav-item .tick{margin-left:auto;color:#4ade80;font-weight:800;display:none}
   .ext{margin-top:auto;border:1.5px solid var(--gold);border-radius:11px;padding:10px 12px;color:var(--gold)}
   .ext b{display:flex;align-items:center;gap:7px;font-size:12.5px}
@@ -480,9 +483,7 @@
 ===================================================================== */
 
 const SETTINGS = {
-  storageKey: 'mm-progress-v1',
-  /* set true to force lessons to be completed in order */
-  requireSequential: false
+  storageKey: 'mm-progress-v1'   /* localStorage key for progress (app config, not content) */
 };
 
 /* Background override: embed as  .../index.html?bg=ffffff#/1a
@@ -496,6 +497,10 @@ let WEEKS = (window.MM_CONTENT||{}).WEEKS;
 let LESSONS = (window.MM_CONTENT||{}).LESSONS;
 if(!WEEKS||!LESSONS){ document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;max-width:560px"><h2>Content file missing</h2><p>mm-content.js was not found. Upload it to the same folder as this file (they must sit side by side in the GitHub repository).</p></div>'; throw new Error('MM_CONTENT missing'); }
 
+/* Site-wide settings travel with the content (so the tutor can toggle them and
+   publish). Back-compatible: content without a SETTINGS block uses these defaults. */
+let siteSettings = Object.assign({ requireSequential:true, freeLessons:['1a'] }, (window.MM_CONTENT&&window.MM_CONTENT.SETTINGS)||{});
+
 /* Saved teacher edits (from the editor's Save button) live in this browser and
    override the packaged content file, so students see them on every visit.
    This also acts as an offline cache of the latest cloud content. */
@@ -503,7 +508,7 @@ const LIVE_KEY = 'mm-content-live-v1';
 (function loadSavedContent(){
   try{
     const d = JSON.parse(localStorage.getItem(LIVE_KEY));
-    if(d && d.WEEKS && d.LESSONS){ WEEKS = d.WEEKS; LESSONS = d.LESSONS; window.MM_CONTENT = {WEEKS, LESSONS}; }
+    if(d && d.WEEKS && d.LESSONS){ WEEKS = d.WEEKS; LESSONS = d.LESSONS; if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS); window.MM_CONTENT = {WEEKS, LESSONS, SETTINGS:siteSettings}; }
   }catch(e){}
 })();
 
@@ -549,7 +554,7 @@ async function saveRemoteContent(){
       method:'POST',
       headers:{ apikey:key, Authorization:'Bearer '+key, 'Content-Type':'application/json',
                 Prefer:'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ id:BACKEND.rowId, data:{WEEKS,LESSONS}, updated_at:new Date().toISOString() })
+      body: JSON.stringify({ id:BACKEND.rowId, data:{WEEKS,LESSONS,SETTINGS:siteSettings}, updated_at:new Date().toISOString() })
     });
     if(!r.ok){ const body = await r.text().catch(()=>''); console.warn('[backend] save failed HTTP', r.status, body); return { ok:false, status:r.status, detail:body }; }
     return { ok:true, status:r.status };
@@ -635,8 +640,8 @@ function videoEmbedHtml(url){
 async function syncFromBackend(){
   const remote = await fetchRemoteContent();
   if(!remote) return;
-  WEEKS = remote.WEEKS; LESSONS = remote.LESSONS; window.MM_CONTENT = {WEEKS, LESSONS};
-  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS})); }catch(e){}
+  WEEKS = remote.WEEKS; LESSONS = remote.LESSONS; if(remote.SETTINGS) siteSettings = Object.assign(siteSettings, remote.SETTINGS); window.MM_CONTENT = {WEEKS, LESSONS, SETTINGS:siteSettings};
+  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS, SETTINGS:siteSettings})); }catch(e){}
   if(currentIdFromHash()!=='admin'){ route(); }
   renderSidebar();
 }
@@ -655,6 +660,28 @@ const $ = id => document.getElementById(id);
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
 function lessonDone(id){ const p=allProgress[id]; return !!(p&&p.complete); }
 
+/* F3 — sequential unlocking. "Required parts" = the four steps (video opened,
+   quiz passed, worksheet downloaded, ≥1 generated question). */
+function orderedLessonIds(){ const out=[]; WEEKS.forEach(w=>(w.lessons||[]).forEach(id=>{ if(LESSONS[id]) out.push(id); })); return out; }
+function stepsDone(id){ const p=allProgress[id]; return !!(p && p.learn && p.quiz && p.worksheet && p.generate); }
+function isLessonUnlocked(id){
+  if(!siteSettings.requireSequential) return true;
+  const order=orderedLessonIds(), idx=order.indexOf(id);
+  if(idx<=0) return true;                         // first lesson is always open
+  for(let i=0;i<idx;i++){ if(!stepsDone(order[i])) return false; }
+  return true;
+}
+function firstBlockerId(id){                       // the earliest lesson still to finish before `id` unlocks
+  const order=orderedLessonIds(), idx=order.indexOf(id);
+  for(let i=0;i<idx;i++){ if(!stepsDone(order[i])) return order[i]; }
+  return null;
+}
+function furthestUnlockedId(){                      // the deepest lesson the student may open right now
+  const order=orderedLessonIds();
+  for(let i=0;i<order.length;i++){ if(!stepsDone(order[i])) return order[i]; }
+  return order[order.length-1];
+}
+
 /* =============================== router =============================== */
 let cur = null;
 function currentIdFromHash(){
@@ -664,7 +691,17 @@ function currentIdFromHash(){
 }
 function route(){
   const id = currentIdFromHash();
-  if(id==='admin') renderAdmin(); else loadLesson(id);
+  if(id==='admin') return renderAdmin();
+  if(LESSONS[id] && !isLessonUnlocked(id)){        // F3 — deep link to a locked lesson
+    const target = furthestUnlockedId();
+    if(target && target!==id){
+      const blk = firstBlockerId(id);
+      toast('That lesson is locked — finish ' + (blk&&LESSONS[blk]?LESSONS[blk].code:'the earlier lessons') + ' first.');
+      location.hash = '#/'+target;
+      return;
+    }
+  }
+  loadLesson(id);
 }
 window.addEventListener('hashchange', route);
 
@@ -677,9 +714,16 @@ function renderSidebar(){
       const lbl=document.createElement('div'); lbl.className='week-label'; lbl.textContent=w.label; nav.appendChild(lbl);
       w.lessons.forEach(id=>{
         const L=LESSONS[id]; if(!L) return;
-        const b=document.createElement('button'); b.className='nav-item'+(cur&&cur.code===id?' active':'');
-        b.innerHTML=`<span class="tag">${L.code}</span>${L.title.replace(/^\d\w+\.\s*/,'')}` + (lessonDone(id)?'<span class="tick" style="display:inline">✓</span>':'');
-        b.addEventListener('click',()=>{ location.hash='#/'+id; });
+        const unlocked = isLessonUnlocked(id);
+        const b=document.createElement('button'); b.className='nav-item'+(cur&&cur.code===id?' active':'')+(unlocked?'':' locked');
+        b.innerHTML=`<span class="tag">${L.code}</span>${L.title.replace(/^\d\w+\.\s*/,'')}`
+          + (unlocked ? (lessonDone(id)?'<span class="tick" style="display:inline">✓</span>':'')
+                      : '<span class="lock">🔒</span>');
+        b.addEventListener('click',()=>{
+          if(unlocked){ location.hash='#/'+id; return; }
+          const blk=firstBlockerId(id);
+          toast('Finish ' + (blk&&LESSONS[blk]?LESSONS[blk].code:'the previous lesson') + ' to unlock ' + L.code + '.');
+        });
         nav.appendChild(b);
       });
     } else {
@@ -1124,7 +1168,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 function lines(v){ return v.split('\n').map(s=>s.trim()).filter(Boolean); }
 
 function saveDraft(){
-  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS})); }catch(e){}
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS, SETTINGS:siteSettings})); }catch(e){}
 }
 function loadDraft(){ try{ return JSON.parse(localStorage.getItem(DRAFT_KEY)); }catch(e){ return null; } }
 function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
@@ -1133,9 +1177,9 @@ function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
    server (all students, everywhere); otherwise they persist in this browser. */
 async function saveLive(){
   collectAdminForm();                       // pull the on-screen fields into LESSONS
-  window.MM_CONTENT = {WEEKS, LESSONS};
+  window.MM_CONTENT = {WEEKS, LESSONS, SETTINGS:siteSettings};
   let localOk=true;
-  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS})); }
+  try{ localStorage.setItem(LIVE_KEY, JSON.stringify({t:Date.now(), WEEKS, LESSONS, SETTINGS:siteSettings})); }
   catch(e){ localOk=false; }
   clearDraft();                             // edits are now saved, so drop the unsaved-draft copy
   renderSidebar();
@@ -1200,6 +1244,7 @@ function renderAdmin(){
     ${draftBanner}
     <div class="ad-steps"><b>How saving works:</b> Edit below, then press <b>💾 Save changes</b>. If a cloud backend is connected, your edits publish to <b>every student instantly</b>. Otherwise they save in this browser — and you can still <b>Download content file</b> to publish via GitHub. <b>Preview</b> shows it as a student; <b>Reset to file</b> clears this browser's saved edits.</div>
     ${backendBar()}
+    <div class="ad-steps"><label class="ad-lb" style="margin:0"><input type="checkbox" id="adSeq" ${siteSettings.requireSequential?'checked':''}> 🔒 <b>Sequential unlocking</b> — students must finish each lesson (all four steps) before the next unlocks. Turn off for revision periods. <span class="ad-note">(applies to all lessons; press Save to publish)</span></label></div>
     <div class="ad-bar">
       <label class="ad-lb" style="margin:0">Lesson:</label>
       <select id="adLesson" class="ad-in" style="width:auto">${Object.keys(LESSONS).map(id=>`<option value="${id}" ${id===adminSel?'selected':''}>${esc(LESSONS[id].title||id)}</option>`).join('')}</select>
@@ -1218,7 +1263,7 @@ function renderAdmin(){
     const r=$('adRestore'), x=$('adDiscard');
     if(r) r.addEventListener('click',()=>{
       const d=loadDraft();
-      if(d){ WEEKS=d.WEEKS; LESSONS=d.LESSONS; window.MM_CONTENT={WEEKS,LESSONS}; }
+      if(d){ WEEKS=d.WEEKS; LESSONS=d.LESSONS; if(d.SETTINGS) siteSettings=Object.assign(siteSettings,d.SETTINGS); window.MM_CONTENT={WEEKS,LESSONS,SETTINGS:siteSettings}; }
       draftChecked=true; renderAdmin(); toast('Draft restored');
     });
     if(x) x.addEventListener('click',()=>{ clearDraft(); draftChecked=true; renderAdmin(); });
@@ -1229,6 +1274,10 @@ function renderAdmin(){
   if($('beSaveKey')) $('beSaveKey').addEventListener('click', ()=>{ const v=$('beKey').value.trim(); if(v){ setTeacherKey(v); toast('Editor key saved in this browser.'); } renderAdmin(); });
   if($('beClearKey')) $('beClearKey').addEventListener('click', ()=>{ setTeacherKey(''); toast('Editor key removed.'); renderAdmin(); });
   if($('beTest')) $('beTest').addEventListener('click', async e=>{ const b=e.target; const t=b.textContent; b.textContent='Testing…'; b.disabled=true; let msg; try{ msg=await testBackend(); }catch(err){ msg='Test error: '+(err&&err.message); } b.textContent=t; b.disabled=false; alert('Connection test:\n\n'+msg); });
+  if($('adSeq')) $('adSeq').addEventListener('change', e=>{
+    siteSettings.requireSequential = e.target.checked; saveDraft(); renderSidebar();
+    toast(e.target.checked ? 'Sequential unlocking ON — press Save to publish.' : 'Sequential unlocking OFF — press Save to publish.');
+  });
   $('adSave').addEventListener('click', saveLive);
   $('adResetLive').addEventListener('click', resetLive);
   $('adPreview').addEventListener('click', ()=>{ collectAdminForm(); location.hash='#/'+adminSel; });
@@ -1730,7 +1779,7 @@ function deleteLessonFlow(){
 function downloadContent(){
   collectAdminForm();
   const banner = '/* MASTERMATHS CONTENT FILE — generated by the Teacher Editor on '+new Date().toLocaleString('en-GB')+'\n   Upload this file to the GitHub repository, replacing the old mm-content.js. */\n';
-  const js = banner + 'window.MM_CONTENT = ' + JSON.stringify({WEEKS, LESSONS}, null, 2) + ';\n';
+  const js = banner + 'window.MM_CONTENT = ' + JSON.stringify({WEEKS, LESSONS, SETTINGS:siteSettings}, null, 2) + ';\n';
   const blob = new Blob([js], {type:'text/javascript'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
