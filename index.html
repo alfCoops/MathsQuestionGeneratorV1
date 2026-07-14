@@ -172,6 +172,10 @@
   .quiz-result{text-align:center;padding:18px 10px}
   .quiz-result .big{font-size:30px;font-weight:800}
   .quiz-result p{color:var(--muted);font-size:13px;margin-top:5px}
+  .mastery-badge{display:inline-block;font-size:13px;font-weight:800;padding:5px 15px;border-radius:999px;margin:8px 0 2px;border:1.5px solid}
+  .mastery-badge.m-green{color:#15803d;background:var(--green-bg);border-color:var(--green-line)}
+  .mastery-badge.m-amber{color:#b45309;background:#fef3c7;border-color:#fde68a}
+  .mastery-badge.m-red{color:#b91c1c;background:var(--red-bg);border-color:var(--red-line)}
 
   /* tables & images inside questions (generator + quiz) */
   .qq table,.q-text table{border-collapse:collapse;margin:9px 0;font-size:12.5px}
@@ -910,19 +914,39 @@ function renderQuiz(){
   }));
 }
 
+/* F4 — mastery thresholds (content-configurable per lesson; defaults 80 / 50). */
+function masteryThresholds(){
+  const t = (cur && cur.masteryThresholds) || {};
+  return { confident: (typeof t.confident==='number' ? t.confident : 80),
+           practice:  (typeof t.practice ==='number' ? t.practice  : 50) };
+}
+function masteryRating(pct){
+  const {confident, practice} = masteryThresholds();
+  if(pct>=confident) return { level:'confident', label:'🟢 Confident',      cls:'m-green' };
+  if(pct>=practice)  return { level:'practice',  label:'🟡 Needs Practice', cls:'m-amber' };
+  return                    { level:'review',    label:'🔴 Review Lesson',  cls:'m-red'   };
+}
 function renderQuizResult(){
   const total=cur.quiz.length;
   const correct=quiz.answers.filter((a,i)=>a===cur.quiz[i].a).length;
   const pct=Math.round(correct/total*100);
   const passed=pct>=cur.quizPass;
+  const m=masteryRating(pct);
+  /* F4 — store latest + best mastery in the existing progress object */
+  const p=prog(); p.masteryLatest=pct; p.masteryBest=Math.max(p.masteryBest||0, pct); saveProgress();
+  const guidance = m.level==='confident' ? 'Great work — you’ve got this! 🎉'
+                 : m.level==='practice'  ? 'You’re close. Retry the quiz to push into the green.'
+                 :                         'Let’s review the lesson, then try the quiz again.';
   $('qArea').innerHTML=`
     <div class="quiz-result">
       <div class="big" style="color:${passed?'var(--green)':'var(--red)'}">${pct}%</div>
-      <p>You scored ${correct} out of ${total}. ${passed?'Passed! ✅':'You need '+cur.quizPass+'% to move on — review the notes and try again.'}</p>
+      <div class="mastery-badge ${m.cls}">${m.label}</div>
+      <p>You scored ${correct} out of ${total}. ${guidance}${p.masteryBest>pct?` (best: ${p.masteryBest}%)`:''}</p>
       ${quiz.flags.size?`<p>⚑ You flagged question${quiz.flags.size>1?'s':''} ${[...quiz.flags].map(i=>i+1).join(', ')} — worth revisiting.</p>`:''}
-      <div style="display:flex;gap:9px;justify-content:center;margin-top:13px">
-        <button class="btn ghost" id="qRetry">↻ Retry Quiz</button>
-        ${passed?'':'<button class="btn o-blue" id="qReview">Review Answers</button>'}
+      <div style="display:flex;gap:9px;justify-content:center;margin-top:13px;flex-wrap:wrap">
+        ${m.level==='review'?'<button class="btn o-blue" id="qReviewLesson">📘 Review the lesson</button>':''}
+        <button class="btn ${m.level==='confident'?'ghost':'solid'}" id="qRetry">↻ Retry Quiz</button>
+        <button class="btn ghost" id="qReview">Review Answers</button>
       </div>
     </div>`;
   if(passed){ completeStep('quiz'); setBtn('quizBtn', true, '✓ Passed', 'Start Quiz', 'o-orange'); }
@@ -930,6 +954,10 @@ function renderQuizResult(){
     quiz.i=0; quiz.answers=Array(total).fill(null); quiz.flags.clear(); renderQuiz();
   });
   const rev=$('qReview'); if(rev) rev.addEventListener('click',()=>{ quiz.i=0; renderQuiz(); });
+  const rl=$('qReviewLesson'); if(rl) rl.addEventListener('click',()=>{
+    $('secLearn').classList.add('open'); if(typeof syncVideoFocus==='function') syncVideoFocus();
+    $('secLearn').scrollIntoView({behavior:'smooth', block:'start'});
+  });
 }
 
 /* =============================== worksheet =============================== */
@@ -1226,10 +1254,12 @@ function buildAdminForm(){
       <div>${inp('Week label','ad-week',L.week)}</div>
       <div>${inp('Strand','ad-strand',L.strand)}</div>
     </div>
-    <div class="ad-row" style="margin-top:10px;gap:16px">
+    <div class="ad-row" style="margin-top:10px;gap:16px;flex-wrap:wrap">
       <span><label class="ad-lb" style="margin:0 0 4px">Previous lesson</label>${linkSel('ad-prev',L.prev)}</span>
       <span><label class="ad-lb" style="margin:0 0 4px">Next lesson</label>${linkSel('ad-next',L.next)}</span>
       <span><label class="ad-lb" style="margin:0 0 4px">Quiz pass mark %</label><input id="ad-pass" class="ad-in" type="number" min="0" max="100" value="${L.quizPass}" style="width:90px"></span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Mastery 🟢 ≥ %</label><input id="ad-mconf" class="ad-in" type="number" min="0" max="100" value="${(L.masteryThresholds&&L.masteryThresholds.confident!=null)?L.masteryThresholds.confident:80}" style="width:90px" title="Confident at or above this score"></span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Mastery 🟡 ≥ %</label><input id="ad-mprac" class="ad-in" type="number" min="0" max="100" value="${(L.masteryThresholds&&L.masteryThresholds.practice!=null)?L.masteryThresholds.practice:50}" style="width:90px" title="Needs practice at or above this score; below it is Review"></span>
       <label class="ad-lb" style="margin:14px 0 0"><input type="checkbox" id="ad-soon"> Mark as "coming soon"</label>
     </div>
   </div>
@@ -1498,6 +1528,7 @@ function collectAdminForm(){
   L.prev = g('ad-prev').value || null;
   L.next = g('ad-next').value || null;
   L.quizPass = +g('ad-pass').value || 80;
+  if(g('ad-mconf')) L.masteryThresholds = { confident:+g('ad-mconf').value||80, practice:+g('ad-mprac').value||50 };
   if(g('ad-soon').checked) L.comingSoon = true;
 
   L.videos = [...f.querySelectorAll('#adVideos .ad-q')].map((el,vi)=>{
