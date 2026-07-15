@@ -28,7 +28,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F3 | Sequential lesson unlocking | Must | S | — | 0 | ✅ |
 | F4 | Quiz mastery ratings 🟢🟡🔴 | Must | S | — | 0 | ✅ |
 | F6 | Estimated time per section | Must | S | — | 0 | ✅ |
-| F1 | Student accounts (email OTP) **+ display names + privacy notice + deletion** | **Must** | M–L | — | 1 | ☐ |
+| F1 | Student accounts (email + password; OTP deferred) **+ display names + privacy notice + deletion** | **Must** | M–L | — | 1 | ✅ |
 | F15 | **Course hierarchy & dashboard** (qualification → board → tier) | **Must** | M | with F1 | 1 | ✅ |
 | F2 | Cloud progress sync (now keyed by course + lesson) | **Must** | M | F1, F15 | 1 | ☐ |
 | F5 | "Continue where you left off" | **Must** | S–M | F2 | 1 | ☐ |
@@ -162,6 +162,9 @@ high-contrast mode remove** — Ryan's two wishes conflict here, and focus wins.
 ### Amendments to v1 specs
 - **F1:** + display-name field at sign-up (no real names), privacy notice route,
   delete-account action, login lands on F15's dashboard.
+  ✅ Shipped as **email + password** (email confirmation off → no SMTP needed); **OTP,
+  email verification and password-reset are deferred until custom SMTP is configured**
+  (see README launch blockers). Full account deletion via a `delete-account` Edge Function.
 - **F8:** hints are **staged** (nudge → method prompt → worked step), each stage can
   include an image/concrete representation; still authored via editor, AI-draftable.
 - **F12:** + pre-start choice "Timed (exam conditions) / Untimed"; timer hidden anyway

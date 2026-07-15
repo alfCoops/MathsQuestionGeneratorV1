@@ -73,6 +73,30 @@
   .course-tile .ct-sub{font-size:12.5px;color:var(--muted);font-weight:600}
   .course-tile .ct-go{margin-top:auto;font-size:13px;font-weight:800;color:var(--green)}
   .course-tile .ct-lock{position:absolute;top:15px;right:16px;font-size:15px;opacity:.6}
+  /* F1 — auth UI */
+  .auth-box{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .auth-nick{color:#c7d2e8;font-size:12px;font-weight:700}
+  .auth-link{background:none;border:none;color:#9fb3d1;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left;padding:2px 4px;font-family:inherit;text-decoration:underline}
+  .auth-link:hover{color:#fff}
+  .auth-link.solid{background:var(--green);color:#fff;border-radius:8px;padding:7px 11px;text-decoration:none;width:100%;text-align:center}
+  .auth-card{max-width:440px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 2px 10px rgba(15,23,42,.05)}
+  .auth-card.wide{max-width:620px}
+  .auth-card h2{font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px}
+  .auth-tabs{display:flex;gap:6px;margin-bottom:14px}
+  .auth-tab{flex:1;font:inherit;font-size:13px;font-weight:700;padding:8px;border:1.5px solid var(--line);border-radius:9px;background:#fff;color:var(--muted);cursor:pointer}
+  .auth-tab.active{border-color:var(--green);background:var(--green-bg);color:#146c43}
+  .auth-lb{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:11px 0 4px}
+  .auth-hint{font-weight:500;color:var(--muted)}
+  .auth-in{width:100%;font:inherit;font-size:14px;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px}
+  .auth-in:focus{outline:none;border-color:var(--blue)}
+  .auth-row{display:flex;gap:8px}
+  .auth-row .auth-in{flex:1}
+  .auth-submit{width:100%;margin-top:15px;text-align:center;padding:11px}
+  .auth-msg{display:none;margin-top:11px;background:var(--red-bg);border:1px solid var(--red-line);color:#7f1d1d;border-radius:9px;padding:9px 12px;font-size:12.5px}
+  .auth-note{font-size:11.5px;color:var(--muted);margin-top:11px;line-height:1.5}
+  .priv{list-style:none;display:flex;flex-direction:column;gap:9px;margin:14px 0 18px}
+  .priv li{font-size:13px;color:#334155;line-height:1.5;padding-left:16px;position:relative}
+  .priv li::before{content:"•";position:absolute;left:2px;color:var(--green);font-weight:800}
   .col{display:flex;flex-direction:column;gap:14px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
   .card h3{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:11px}
@@ -326,6 +350,7 @@
     </div>
     <div id="sidebarNav"></div>
     <div class="ext"><b>★ Higher Extension</b><span>Unlocks after Week 1</span></div>
+    <div id="authBox" class="auth-box"></div>
     <button class="teacher-link" onclick="location.hash='#/admin'">✎ Teacher: edit content</button>
   </nav>
 
@@ -496,6 +521,8 @@
 <div class="toast" id="toast"></div>
 
 <script src="mm-content.js"></script>
+<!-- Supabase JS for accounts (F1). If this fails to load, accounts degrade off and the app still runs. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* =====================================================================
    MASTERMATHS LEARNING PLATFORM — multi-lesson standalone app
@@ -579,6 +606,86 @@ const TEACHER_KEY_STORE = 'mm-teacher-key';
 const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
 const getTeacherKey = () => { try{ return localStorage.getItem(TEACHER_KEY_STORE) || ''; }catch(e){ return ''; } };
 const setTeacherKey = k => { try{ k ? localStorage.setItem(TEACHER_KEY_STORE, k) : localStorage.removeItem(TEACHER_KEY_STORE); }catch(e){} };
+
+/* =============================== accounts (F1) ===============================
+   Email + password via Supabase Auth (OTP deferred — see README). Degrades off
+   if the SDK/backend is unavailable; the app still runs and lesson 1a stays free. */
+const sbClient = (window.supabase && backendOn())
+  ? window.supabase.createClient(BACKEND.url, BACKEND.anonKey, { auth:{ persistSession:true, autoRefreshToken:true, storageKey:'mm-auth' } })
+  : null;
+let authUser = null, authProfile = null, authReady = false;
+function isFreeLesson(lid){ return (siteSettings.freeLessons||[]).indexOf(lid) >= 0; }
+function displayName(){ return (authProfile && authProfile.display_name) || 'Student'; }
+
+async function loadProfile(){
+  if(!sbClient || !authUser){ authProfile=null; return; }
+  try{ const { data } = await sbClient.from('profiles').select('*').eq('user_id', authUser.id).maybeSingle(); authProfile = data||null; }
+  catch(e){ authProfile = null; }
+}
+async function ensureProfile(name){
+  if(!sbClient || !authUser) return;
+  const row = { user_id: authUser.id }; if(name!=null) row.display_name = name;
+  try{ await sbClient.from('profiles').upsert(row, { onConflict:'user_id' }); }catch(e){}
+  await loadProfile();
+}
+async function authInit(){
+  if(!sbClient){ authReady = true; renderAuthBox(); return; }
+  try{ const { data } = await sbClient.auth.getSession(); authUser = (data&&data.session)?data.session.user:null; if(authUser) await loadProfile(); }catch(e){}
+  authReady = true;
+  sbClient.auth.onAuthStateChange((_e, session)=>{ authUser = session?session.user:null; if(!authUser) authProfile=null; renderAuthBox(); });
+  renderAuthBox();
+  route();   /* re-evaluate the current route now that we know the sign-in state */
+}
+function friendlyAuthErr(e){
+  const m = ((e&&e.message)||'').toLowerCase();
+  if(m.indexOf('already')>=0 && m.indexOf('regist')>=0) return 'That email already has an account — try signing in.';
+  if(m.indexOf('invalid login')>=0 || m.indexOf('invalid credentials')>=0) return 'Email or password is incorrect.';
+  if(m.indexOf('password')>=0) return 'Password must be at least 6 characters.';
+  if(m.indexOf('email')>=0) return 'Please enter a valid email address.';
+  return (e&&e.message) || 'Something went wrong — please try again.';
+}
+async function signUpEmail(email, password, name){
+  if(!sbClient) return { ok:false, msg:'Accounts are unavailable right now.' };
+  const { data, error } = await sbClient.auth.signUp({ email, password });
+  if(error) return { ok:false, msg:friendlyAuthErr(error) };
+  authUser = data.user || (data.session&&data.session.user) || null;
+  if(!authUser) return { ok:false, msg:'Account made, but email confirmation seems on — turn off “Confirm email” in Supabase.' };
+  await ensureProfile(name);
+  return { ok:true };
+}
+async function signInEmail(email, password){
+  if(!sbClient) return { ok:false, msg:'Accounts are unavailable right now.' };
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+  if(error) return { ok:false, msg:friendlyAuthErr(error) };
+  authUser = data.user; await loadProfile();
+  return { ok:true };
+}
+async function signOutAuth(){ if(sbClient){ try{ await sbClient.auth.signOut(); }catch(e){} } authUser=null; authProfile=null; renderAuthBox(); }
+async function deleteAccount(){
+  if(!sbClient || !authUser) return { ok:false, msg:'Not signed in.' };
+  try{ const { error } = await sbClient.functions.invoke('delete-account'); if(!error){ await signOutAuth(); return { ok:true }; } }catch(e){}
+  try{ await sbClient.from('progress').delete().eq('user_id', authUser.id);
+       await sbClient.from('events').delete().eq('user_id', authUser.id);
+       await sbClient.from('profiles').delete().eq('user_id', authUser.id); }catch(e){}
+  await signOutAuth();
+  return { ok:true, partial:true };   /* auth user needs the Edge Function to be fully removed */
+}
+/* Display name (D10): pseudonym only, light profanity filter, "suggest one". */
+const NAME_BANNED = ['fuck','shit','cunt','bitch','bastard','dick','piss','wank','slut','whore','nigger','faggot','retard','rape','porn','penis','vagina','twat','prick','bollock'];
+function nameClean(n){
+  n=(n||'').trim();
+  if(n.length<2) return { ok:false, msg:'Pick at least 2 characters.' };
+  if(n.length>24) return { ok:false, msg:'Keep it under 24 characters.' };
+  const low=n.toLowerCase().replace(/[^a-z]/g,'');
+  if(NAME_BANNED.some(w=>low.indexOf(w)>=0)) return { ok:false, msg:'Please choose a friendlier nickname.' };
+  return { ok:true, value:n };
+}
+function suggestName(){
+  const a=['Silver','Golden','Swift','Clever','Brave','Cosmic','Prime','Turbo','Mighty','Rapid','Sunny','Ace','Nova','Pixel','Zippy'];
+  const b=['Fox','Otter','Hawk','Comet','Maths','Wizard','Panda','Falcon','Dragon','Badger','Robin','Lynx','Owl','Tiger','Whale'];
+  const p=arr=>arr[Math.floor(Math.random()*arr.length)];
+  return p(a)+p(b)+(2+Math.floor(Math.random()*97));
+}
 
 const beBase = () => String(BACKEND.url||'').trim().replace(/\/+$/,'');   /* tolerate a trailing slash */
 async function fetchRemoteContent(){
@@ -744,6 +851,8 @@ function lessonHref(id){ return '#/'+currentCourseId+'/'+id; }
 function parseHash(){
   const h = location.hash || '';
   if(/^#\/?admin\b/.test(h))   return { view:'admin' };
+  if(/^#\/?login\b/.test(h))   return { view:'login' };
+  if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)/);
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2] };
@@ -754,6 +863,8 @@ function parseHash(){
 function route(){
   const r = parseHash();
   if(r.view==='admin')   return renderAdmin();
+  if(r.view==='login')   return renderLogin();
+  if(r.view==='privacy') return renderPrivacy();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -764,6 +875,11 @@ function route(){
     if(!target){ location.hash = '#/courses'; return; }
     if(location.hash !== '#/'+cid+'/'+target){ location.hash = '#/'+cid+'/'+target; return; }
     lid = target;
+  }
+  if(authReady && sbClient && !authUser && !isFreeLesson(lid) && !getTeacherKey()){   // F1 — sign-in required (teacher with editor key exempt)
+    toast('Create a free account to unlock this lesson.');
+    location.hash = '#/login';
+    return;
   }
   if(!isLessonUnlocked(lid)){                          // F3 — deep link to a locked lesson
     const t = furthestUnlockedId();
@@ -779,17 +895,20 @@ function route(){
 window.addEventListener('hashchange', route);
 
 /* =============================== courses dashboard (F15) =============================== */
-function renderCourses(){
+function pageChrome(){                                 /* shared shell for non-lesson pages */
   cur = null;
-  document.title = 'Choose your course — MasterMaths Tutoring';
   document.querySelector('.title-row').style.display='none';
   $('comingSoon').style.display='none';
   $('lessonGrid').style.display='none';
   $('adminRoot').style.display='none';
-  $('crumb').innerHTML = '<span class="here">Courses</span>';
   renderSidebar();
+  const root=$('coursesRoot'); root.style.display='block'; return root;
+}
+function renderCourses(){
+  document.title = 'Choose your course — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Courses</span>';
+  const root = pageChrome();
   const QUALS = ['GCSE','IGCSE','A-Level'];
-  const root = $('coursesRoot'); root.style.display='block';
   root.innerHTML = `
     <div class="courses-head"><h2>Choose your course</h2><p>Pick your qualification to start learning.</p></div>
     <div class="course-grid">
@@ -810,6 +929,79 @@ function renderCourses(){
     const first = (WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:null;
     location.hash = first ? '#/'+b.dataset.course+'/'+first : '#/courses';
   }));
+}
+function authMsg(m){ const e=$('authMsg'); if(e){ e.textContent=m||''; e.style.display=m?'block':'none'; } }
+function renderLogin(){
+  document.title = 'Sign in — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<a href="#/courses" style="color:inherit;text-decoration:none">Courses</a> <span class="sep">›</span> <span class="here">Account</span>';
+  const root = pageChrome();
+  if(authUser){ location.hash='#/courses'; return; }
+  if(!sbClient){ root.innerHTML = `<div class="auth-card"><h2>Accounts unavailable</h2><p class="auth-note">Sign-in isn't available right now — but you can still use the free lesson.</p><a class="btn solid" href="#/${currentCourseId}/${(WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:'1a'}">Go to the free lesson →</a></div>`; return; }
+  root.innerHTML = `
+    <div class="auth-card">
+      <div class="auth-tabs"><button class="auth-tab active" data-tab="in">Sign in</button><button class="auth-tab" data-tab="up">Create account</button></div>
+      <div id="authForm"></div>
+      <div class="auth-msg" id="authMsg" style="display:none"></div>
+    </div>`;
+  let tab='in';
+  function draw(){
+    const f=$('authForm');
+    if(tab==='in'){
+      f.innerHTML = `
+        <label class="auth-lb">Email</label><input class="auth-in" id="liEmail" type="email" autocomplete="email">
+        <label class="auth-lb">Password</label><input class="auth-in" id="liPass" type="password" autocomplete="current-password">
+        <button class="btn solid auth-submit" id="liGo">Sign in</button>
+        <p class="auth-note">Forgot your password? Email Ryan to reset it (email password reset is coming soon).</p>`;
+      $('liGo').addEventListener('click', async ()=>{ const r=await signInEmail($('liEmail').value.trim(), $('liPass').value); if(r.ok){ toast('Signed in 👋'); location.hash='#/courses'; } else authMsg(r.msg); });
+    } else {
+      f.innerHTML = `
+        <label class="auth-lb">Email</label><input class="auth-in" id="suEmail" type="email" autocomplete="email">
+        <label class="auth-lb">Password <span class="auth-hint">(at least 6 characters)</span></label><input class="auth-in" id="suPass" type="password" autocomplete="new-password">
+        <label class="auth-lb">Display name <span class="auth-hint">— a nickname; please don't use your real name</span></label>
+        <div class="auth-row"><input class="auth-in" id="suName" maxlength="24" placeholder="e.g. SilverFox42"><button class="btn ghost" id="suSuggest" type="button">Suggest one</button></div>
+        <button class="btn solid auth-submit" id="suGo">Create account</button>
+        <p class="auth-note">By creating an account you agree to our <a href="#/privacy">privacy notice</a>. We only store your email and nickname.</p>`;
+      $('suSuggest').addEventListener('click', ()=>{ $('suName').value = suggestName(); authMsg(''); });
+      $('suGo').addEventListener('click', async ()=>{ const nc=nameClean($('suName').value); if(!nc.ok) return authMsg(nc.msg); const r=await signUpEmail($('suEmail').value.trim(), $('suPass').value, nc.value); if(r.ok){ toast('Welcome to MasterMaths 🎉'); location.hash='#/courses'; } else authMsg(r.msg); });
+    }
+  }
+  root.querySelectorAll('.auth-tab').forEach(t=>t.addEventListener('click',()=>{ tab=t.dataset.tab; root.querySelectorAll('.auth-tab').forEach(x=>x.classList.toggle('active', x===t)); authMsg(''); draw(); }));
+  draw();
+}
+function renderPrivacy(){
+  document.title = 'Privacy — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<a href="#/courses" style="color:inherit;text-decoration:none">Courses</a> <span class="sep">›</span> <span class="here">Privacy</span>';
+  const root = pageChrome();
+  root.innerHTML = `
+    <div class="auth-card wide">
+      <h2>Privacy — the short version</h2>
+      <ul class="priv">
+        <li><b>What we store:</b> your email address, a nickname you choose, and your lesson progress. Nothing else.</li>
+        <li><b>No real names, no date of birth, no tracking or ads.</b> Please use a nickname, not your real name.</li>
+        <li><b>Why:</b> so your progress saves and follows you across devices when you sign in.</li>
+        <li><b>Who sees it:</b> only you — and your tutor Ryan, to help you learn. We never sell or share your data.</li>
+        <li><b>Delete anytime:</b> the button below removes your account and all your data permanently.</li>
+      </ul>
+      <div id="privDelete"></div>
+    </div>`;
+  const pd=$('privDelete');
+  if(authUser && sbClient){
+    pd.innerHTML = `<button class="btn" id="delAcc" style="background:var(--red);color:#fff">🗑 Delete my account &amp; data</button>`;
+    $('delAcc').addEventListener('click', async ()=>{ if(!confirm('Delete your account and ALL your data? This cannot be undone.')) return; const r=await deleteAccount(); toast(r.partial?'Your data was deleted. (Ask your tutor to finish removing the login.)':'Your account and data have been deleted.'); location.hash='#/courses'; });
+  } else {
+    pd.innerHTML = `<p class="auth-note"><a href="#/login">Sign in</a> to manage or delete your account.</p>`;
+  }
+}
+function renderAuthBox(){
+  const box=$('authBox'); if(!box) return;
+  if(!sbClient){ box.innerHTML=''; return; }
+  if(authUser){
+    box.innerHTML = `<span class="auth-nick" title="Signed in">👤 ${esc(displayName())}</span><button class="auth-link" id="authOut">Sign out</button>`;
+    const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
+  } else {
+    box.innerHTML = `<button class="auth-link solid" id="authIn">Sign in / Create account</button>`;
+    const i=$('authIn'); if(i) i.addEventListener('click', ()=>{ location.hash='#/login'; });
+  }
 }
 
 /* =============================== sidebar =============================== */
@@ -840,6 +1032,7 @@ function renderSidebar(){
       nav.appendChild(b);
     }
   });
+  renderAuthBox();
 }
 
 /* =============================== lesson render =============================== */
@@ -1935,6 +2128,7 @@ function downloadContent(){
 
 /* =============================== boot =============================== */
 route();
+authInit();                     /* restore session, then re-route with sign-in state known */
 bridgeSend({ type:'ready' });   /* ask the Wix page for saved progress */
 syncFromBackend();              /* pull the latest shared content from the cloud */
 </script>
