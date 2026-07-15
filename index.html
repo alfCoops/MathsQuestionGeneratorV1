@@ -630,7 +630,7 @@ async function ensureProfile(name){
 }
 async function authInit(){
   if(!sbClient){ authReady = true; renderAuthBox(); return; }
-  try{ const { data } = await sbClient.auth.getSession(); authUser = (data&&data.session)?data.session.user:null; if(authUser) await loadProfile(); }catch(e){}
+  try{ const { data } = await sbClient.auth.getSession(); authUser = (data&&data.session)?data.session.user:null; if(authUser) await onSignedIn(); }catch(e){}
   authReady = true;
   sbClient.auth.onAuthStateChange((_e, session)=>{ authUser = session?session.user:null; if(!authUser) authProfile=null; renderAuthBox(); });
   renderAuthBox();
@@ -651,13 +651,14 @@ async function signUpEmail(email, password, name){
   authUser = data.user || (data.session&&data.session.user) || null;
   if(!authUser) return { ok:false, msg:'Account made, but email confirmation seems on — turn off “Confirm email” in Supabase.' };
   await ensureProfile(name);
+  await syncProgressOnLogin(); flushOfflineQueue();   /* migrate any anonymous localStorage progress into the new account */
   return { ok:true };
 }
 async function signInEmail(email, password){
   if(!sbClient) return { ok:false, msg:'Accounts are unavailable right now.' };
   const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
   if(error) return { ok:false, msg:friendlyAuthErr(error) };
-  authUser = data.user; await loadProfile();
+  authUser = data.user; await onSignedIn();
   return { ok:true };
 }
 async function signOutAuth(){ if(sbClient){ try{ await sbClient.auth.signOut(); }catch(e){} } authUser=null; authProfile=null; renderAuthBox(); }
@@ -817,7 +818,74 @@ let allProgress = store.read();
 function courseProgress(cid){ cid = cid||currentCourseId; if(!allProgress[cid]) allProgress[cid]={}; return allProgress[cid]; }
 function progFor(cid, lid){ const cp=courseProgress(cid); return cp[lid]; }
 function prog(){ const cp=courseProgress(); if(!cp[cur.code]) cp[cur.code]={learn:false,quiz:false,worksheet:false,generate:false,complete:false}; return cp[cur.code]; }
-function saveProgress(){ store.write(allProgress); }
+function saveProgress(){ store.write(allProgress); if(cur && authUser) queueCloudSave(currentCourseId, cur.code); }
+
+/* ---------- F2: cloud progress sync (progress table, keyed user+course+lesson) ---------- */
+const PROGRESS_QUEUE = 'mm-progress-queue';
+function mergeLessonProg(a, b){                 /* completed-anywhere-wins; max mastery */
+  const r = Object.assign({}, a||{}, b||{});
+  ['learn','quiz','worksheet','generate','complete'].forEach(k=>{ r[k] = !!((a&&a[k])||(b&&b[k])); });
+  const mb = Math.max((a&&a.masteryBest)||0, (b&&b.masteryBest)||0); if(mb) r.masteryBest = mb;
+  return r;
+}
+async function cloudLoadProgress(){
+  if(!sbClient || !authUser) return null;
+  try{
+    const { data, error } = await sbClient.from('progress').select('course_id,lesson_id,steps').eq('user_id', authUser.id);
+    if(error) return null;
+    const out = {};
+    (data||[]).forEach(row=>{ (out[row.course_id]=out[row.course_id]||{})[row.lesson_id] = row.steps||{}; });
+    return out;
+  }catch(e){ return null; }
+}
+async function cloudUpsertLesson(cid, lid, obj){
+  if(!sbClient || !authUser) return false;
+  try{
+    const { error } = await sbClient.from('progress').upsert(
+      { user_id:authUser.id, course_id:cid, lesson_id:lid, steps:obj, updated_at:new Date().toISOString() },
+      { onConflict:'user_id,course_id,lesson_id' });
+    return !error;
+  }catch(e){ return false; }
+}
+let _cloudTimers = {};
+function queueCloudSave(cid, lid){                /* debounced per-lesson upsert */
+  if(!sbClient || !authUser) return;
+  const key = cid+'/'+lid; clearTimeout(_cloudTimers[key]);
+  _cloudTimers[key] = setTimeout(async ()=>{
+    const obj = (allProgress[cid]||{})[lid]; if(!obj) return;
+    if(!(await cloudUpsertLesson(cid, lid, obj))) enqueueOffline(cid, lid, obj);
+  }, 800);
+}
+function enqueueOffline(cid, lid, obj){ try{ const q=JSON.parse(localStorage.getItem(PROGRESS_QUEUE)||'{}'); q[cid+'/'+lid]={cid,lid,obj}; localStorage.setItem(PROGRESS_QUEUE, JSON.stringify(q)); }catch(e){} }
+async function flushOfflineQueue(){
+  if(!sbClient || !authUser) return;
+  let q={}; try{ q=JSON.parse(localStorage.getItem(PROGRESS_QUEUE)||'{}'); }catch(e){}
+  const keys=Object.keys(q); if(!keys.length) return;
+  for(const k of keys){ const it=q[k]; if(await cloudUpsertLesson(it.cid, it.lid, it.obj)) delete q[k]; }
+  try{ localStorage.setItem(PROGRESS_QUEUE, JSON.stringify(q)); }catch(e){}
+}
+/* On login: merge cloud + local (completed-wins), save locally, and push anything the
+   cloud didn't have — this migrates the pre-login localStorage progress into the account. */
+async function syncProgressOnLogin(){
+  if(!sbClient || !authUser) return;
+  const remote = await cloudLoadProgress(); if(remote===null) return;   /* offline/error → keep local, retry later */
+  const merged = {}, toPush = [];
+  const cids = new Set([...Object.keys(allProgress||{}), ...Object.keys(remote)]);
+  cids.forEach(cid=>{
+    merged[cid] = {};
+    const lids = new Set([...Object.keys(allProgress[cid]||{}), ...Object.keys(remote[cid]||{})]);
+    lids.forEach(lid=>{
+      const m = mergeLessonProg((allProgress[cid]||{})[lid], (remote[cid]||{})[lid]);
+      merged[cid][lid] = m;
+      if(JSON.stringify(m) !== JSON.stringify((remote[cid]||{})[lid]||{})) toPush.push([cid,lid,m]);
+    });
+  });
+  allProgress = merged; store.write(allProgress);
+  for(const it of toPush){ if(!(await cloudUpsertLesson(it[0],it[1],it[2]))) enqueueOffline(it[0],it[1],it[2]); }
+  if(cur){ renderProgress(); renderSidebar(); } else renderSidebar();
+}
+async function onSignedIn(){ await loadProfile(); await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
+window.addEventListener('online', flushOfflineQueue);
 
 const $ = id => document.getElementById(id);
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }

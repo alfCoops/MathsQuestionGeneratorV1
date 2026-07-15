@@ -30,7 +30,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F6 | Estimated time per section | Must | S | — | 0 | ✅ |
 | F1 | Student accounts (email + password; OTP deferred) **+ display names + privacy notice + deletion** | **Must** | M–L | — | 1 | ✅ |
 | F15 | **Course hierarchy & dashboard** (qualification → board → tier) | **Must** | M | with F1 | 1 | ✅ |
-| F2 | Cloud progress sync (now keyed by course + lesson) | **Must** | M | F1, F15 | 1 | ☐ |
+| F2 | Cloud progress sync (now keyed by course + lesson) | **Must** | M | F1, F15 | 1 | ✅ |
 | F5 | "Continue where you left off" | **Must** | S–M | F2 | 1 | ☐ |
 | F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ☐ |
 | F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ☐ |
