@@ -73,6 +73,14 @@
   .course-tile .ct-sub{font-size:12.5px;color:var(--muted);font-weight:600}
   .course-tile .ct-go{margin-top:auto;font-size:13px;font-weight:800;color:var(--green)}
   .course-tile .ct-lock{position:absolute;top:15px;right:16px;font-size:15px;opacity:.6}
+  /* F5 — continue banner */
+  .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
+  .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
+  .continue-banner .cb-icon{font-size:20px;color:var(--green);font-weight:800}
+  .continue-banner .cb-text{display:flex;flex-direction:column;gap:1px;flex:1}
+  .continue-banner .cb-label{font-size:11.5px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.4px}
+  .continue-banner .cb-lesson{font-size:15px;font-weight:800;color:var(--navy)}
+  .continue-banner .cb-go{font-size:13.5px;font-weight:800;color:var(--green)}
   /* F1 — auth UI */
   .auth-box{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .auth-nick{color:#c7d2e8;font-size:12px;font-weight:700}
@@ -884,8 +892,29 @@ async function syncProgressOnLogin(){
   for(const it of toPush){ if(!(await cloudUpsertLesson(it[0],it[1],it[2]))) enqueueOffline(it[0],it[1],it[2]); }
   if(cur){ renderProgress(); renderSidebar(); } else renderSidebar();
 }
-async function onSignedIn(){ await loadProfile(); await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
+async function onSignedIn(){ await loadProfile(); if(authProfile && authProfile.last_location){ lastLoc = authProfile.last_location; try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){} } await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
 window.addEventListener('online', flushOfflineQueue);
+
+/* ---------- F5: "continue where you left off" (last_location) ---------- */
+let lastLoc = (function(){ try{ return JSON.parse(localStorage.getItem('mm-last-loc')); }catch(e){ return null; } })();
+let _locTimer = null;
+function setLastLocation(cid, lid, section){
+  lastLoc = { course_id:cid, lesson_id:lid, section:section||'' };
+  try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){}
+  if(sbClient && authUser){ clearTimeout(_locTimer); _locTimer = setTimeout(()=>{ try{ sbClient.from('profiles').update({ last_location:lastLoc }).eq('user_id', authUser.id); }catch(e){} }, 800); }
+}
+function continueBannerHtml(){
+  if(!lastLoc || !lastLoc.lesson_id) return '';
+  const c = courseById(lastLoc.course_id); if(!c) return '';
+  const L = (c.LESSONS||{})[lastLoc.lesson_id]; if(!L) return '';
+  const map = { learn:'Video & Notes', quiz:'Quiz', worksheet:'Worksheet', generate:'Question Generator', complete:'Wrap-up' };
+  const sect = (lastLoc.section && map[lastLoc.section]) ? ' — '+map[lastLoc.section] : '';
+  return `<button class="continue-banner" data-continue="${lastLoc.course_id}/${lastLoc.lesson_id}">
+    <span class="cb-icon">↩</span>
+    <span class="cb-text"><span class="cb-label">Continue where you left off</span>
+      <span class="cb-lesson">${esc(L.title.replace(/^\d\w+\.\s*/,''))}${sect}</span></span>
+    <span class="cb-go">Resume →</span></button>`;
+}
 
 const $ = id => document.getElementById(id);
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
@@ -977,7 +1006,7 @@ function renderCourses(){
   $('crumb').innerHTML = '<span class="here">Courses</span>';
   const root = pageChrome();
   const QUALS = ['GCSE','IGCSE','A-Level'];
-  root.innerHTML = `
+  root.innerHTML = continueBannerHtml() + `
     <div class="courses-head"><h2>Choose your course</h2><p>Pick your qualification to start learning.</p></div>
     <div class="course-grid">
       ${QUALS.map(q=>{
@@ -997,6 +1026,7 @@ function renderCourses(){
     const first = (WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:null;
     location.hash = first ? '#/'+b.dataset.course+'/'+first : '#/courses';
   }));
+  const cb = root.querySelector('[data-continue]'); if(cb) cb.addEventListener('click', ()=>{ location.hash = '#/'+cb.dataset.continue; });
 }
 function authMsg(m){ const e=$('authMsg'); if(e){ e.textContent=m||''; e.style.display=m?'block':'none'; } }
 function renderLogin(){
@@ -1129,6 +1159,7 @@ function loadLesson(id){
   }
   $('comingSoon').style.display='none'; $('lessonGrid').style.display='grid';
   renderSectionTimes();   /* F6 — estimated time chip on each section card */
+  setLastLocation(currentCourseId, id, (lastLoc && lastLoc.lesson_id===id) ? lastLoc.section : '');   /* F5 */
 
   /* right column */
   $('rcSuccess').innerHTML = cur.success.map(s=>`<li>${s}</li>`).join('');
@@ -1204,7 +1235,7 @@ function renderProgress(){
 function completeStep(key){
   const p=prog();
   if(p[key]) return;
-  p[key]=true; saveProgress(); renderProgress(); renderSidebar();
+  p[key]=true; saveProgress(); setLastLocation(currentCourseId, cur.code, key); renderProgress(); renderSidebar();
   bridgeSend({ type:'progressUpdate', lessonId:cur.code, step:key, all:allProgress });
 }
 
