@@ -646,10 +646,12 @@ async function authInit(){
 }
 function friendlyAuthErr(e){
   const m = ((e&&e.message)||'').toLowerCase();
+  if((e&&e.status===429) || m.indexOf('rate limit')>=0) return 'Too many attempts right now — please try again in a few minutes.';
   if(m.indexOf('already')>=0 && m.indexOf('regist')>=0) return 'That email already has an account — try signing in.';
   if(m.indexOf('invalid login')>=0 || m.indexOf('invalid credentials')>=0) return 'Email or password is incorrect.';
+  if(m.indexOf('signup')>=0 || m.indexOf('not allowed')>=0) return 'Sign-ups are turned off at the moment.';
   if(m.indexOf('password')>=0) return 'Password must be at least 6 characters.';
-  if(m.indexOf('email')>=0) return 'Please enter a valid email address.';
+  if(m.indexOf('valid email')>=0 || (m.indexOf('invalid')>=0 && m.indexOf('email')>=0)) return 'Please enter a valid email address.';
   return (e&&e.message) || 'Something went wrong — please try again.';
 }
 async function signUpEmail(email, password, name){
