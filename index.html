@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MasterMaths Learning Platform — GCSE Foundation Pathway</title>
+<title>MasterMaths — GCSE Maths</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%232e7d32'/%3E%3Ctext%20x='16'%20y='24'%20font-family='Georgia,serif'%20font-size='22'%20fill='white'%20text-anchor='middle'%3E%E2%88%9A%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -545,12 +546,6 @@ const SETTINGS = {
   storageKey: 'mm-progress-v1'   /* localStorage key for progress (app config, not content) */
 };
 
-/* Background override: embed as  .../index.html?bg=ffffff#/1a
-   Use ?bg=transparent to let the Wix page background show through. */
-(function(){
-  const bg = new URLSearchParams(location.search).get('bg');
-  if(bg) document.body.style.background = bg==='transparent' ? 'transparent' : '#'+bg.replace('#','');
-})();
 
 /* ------ F15: course layer. Content gains COURSES; content WITHOUT a COURSES
    wrapper is treated as the single default course "gcse-edexcel-foundation".
@@ -1238,7 +1233,6 @@ function completeStep(key){
   const p=prog();
   if(p[key]) return;
   p[key]=true; saveProgress(); setLastLocation(currentCourseId, cur.code, key); renderProgress(); renderSidebar();
-  bridgeSend({ type:'progressUpdate', lessonId:cur.code, step:key, all:allProgress });
 }
 
 /* =============================== expand/collapse =============================== */
@@ -1515,34 +1509,8 @@ $('completeBtn').addEventListener('click', ()=>{
 $('nextBtn').addEventListener('click', ()=>{ if(cur.next) location.hash=lessonHref(cur.next); });
 $('prevBtn').addEventListener('click', ()=>{ if(cur.prev) location.hash=lessonHref(cur.prev); });
 
-/* =============================== Wix bridge =============================== */
-/* When embedded in a Wix HTML element, progress is synced with the
-   logged-in Wix member via postMessage — see wix-progress-bridge.js
-   for the page code + CMS collection. localStorage stays as the
-   offline / logged-out fallback. */
-function bridgeSend(msg){ try{ if(window.parent!==window) window.parent.postMessage(msg,'*'); }catch(e){} }
-
-window.addEventListener('message', e=>{
-  const d = e.data;
-  if(!d || typeof d !== 'object') return;
-  if(d.type === 'restoreProgress' && d.all){
-    /* merge (legacy Wix progress is lesson-keyed → default course; true wins) */
-    const cp = courseProgress(DEFAULT_COURSE_ID);
-    Object.keys(d.all).forEach(lid=>{
-      if(!cp[lid]) cp[lid] = d.all[lid];
-      else Object.keys(d.all[lid]).forEach(k=>{ if(d.all[lid][k]) cp[lid][k]=true; });
-    });
-    saveProgress();
-    if(cur){ renderProgress(); renderSidebar();
-      if(!cur.comingSoon){
-        const p=prog();
-        setBtn('learnBtn', p.learn, '✓ Started', 'Start ⊕', 'solid');
-        setBtn('quizBtn', p.quiz, '✓ Passed', 'Start Quiz', 'o-orange');
-        setBtn('wsBtn', p.worksheet, '✓ Completed', 'Download', 'o-purple');
-      }
-    }
-  }
-});
+/* Wix embed retired — the app runs standalone at learn.mastermathstutoring.co.uk.
+   Progress now syncs via Supabase accounts (F2); the old postMessage bridge is gone. */
 
 /* =============================== TEACHER EDITOR =============================== */
 /* Open with the "✎ Teacher: edit content" link or #/admin.
@@ -2230,7 +2198,6 @@ function downloadContent(){
 /* =============================== boot =============================== */
 route();
 authInit();                     /* restore session, then re-route with sign-in state known */
-bridgeSend({ type:'ready' });   /* ask the Wix page for saved progress */
 syncFromBackend();              /* pull the latest shared content from the cloud */
 </script>
 </body>

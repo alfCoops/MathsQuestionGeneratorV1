@@ -18,8 +18,8 @@ edit all content and save it to a shared Supabase backend.
   Keep it that way through Phases 0–2. Only propose splitting files if/when Phase 3–4 land.
 - **`mm-content.js`** — default lesson content (`window.MM_CONTENT = {WEEKS, LESSONS}`).
   Overridden at runtime by cloud content from Supabase when configured.
-- **Hosting:** GitHub Pages (static). The site is also embedded in a Wix page via iframe
-  (Website-address embed). Everything must work both standalone and inside that iframe.
+- **Hosting:** GitHub Pages (static), served **standalone** at `learn.mastermathstutoring.co.uk`.
+  The Wix site just links to it — the old Wix iframe embed is retired (postMessage bridge removed).
 - **Backend:** Supabase only (see `BACKEND-SETUP.md`).
   - `site_content` table row id=1: published content JSON. Public anon key = read-only (RLS).
   - Teacher writes currently use the service_role key pasted into the editor and held in
@@ -130,7 +130,7 @@ criteria pass.
 
 ## Verify checklist (run after every feature)
 
-- [ ] App loads with zero console errors, standalone AND with `?bg=transparent` in an iframe
+- [ ] App loads with zero console errors (standalone at learn.mastermathstutoring.co.uk)
 - [ ] Old content (current `mm-content.js`) still loads unmodified
 - [ ] Teacher Editor: open → edit → 💾 save → reload → edit persists
 - [ ] Quiz: fail path (<80) and pass path both behave; progress % updates
