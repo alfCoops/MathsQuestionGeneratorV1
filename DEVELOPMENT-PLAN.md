@@ -32,7 +32,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F15 | **Course hierarchy & dashboard** (qualification → board → tier) | **Must** | M | with F1 | 1 | ✅ |
 | F2 | Cloud progress sync (now keyed by course + lesson) | **Must** | M | F1, F15 | 1 | ✅ |
 | F5 | "Continue where you left off" | **Must** | S–M | F2 | 1 | ✅ |
-| F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ☐ |
+| F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ✅ |
 | F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ☐ |
 | F25 | Site theme: SEND-sensitive palette + faint logo-symbol backdrop (off in focus mode) | Should | S | F16 | 2a | ☐ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ☐ |
@@ -105,9 +105,16 @@ hide timers · focus mode (hides sidebar chrome, backdrop, streaks/badges, non-e
 buttons) · one-question-at-a-time reveal for quizzes and on-screen worksheets.
 Implementation: CSS custom properties + a `prefs` object; saved per-user (F1) with
 localStorage fallback; respects `prefers-reduced-motion` / `prefers-contrast`.
-**AC:** ☐ every setting applies instantly app-wide and persists across devices ☐ high-
-contrast passes WCAG AA on all card types ☐ focus mode removes the backdrop and
-gamification ☐ one-at-a-time works in quiz AND worksheet view.
+**AC:** ✅ every setting applies instantly app-wide and persists across devices (localStorage
++ `profiles.prefs` sync on sign-in) ✅ high-contrast passes WCAG AA on all card types (black
+on white, 2px black borders, tints removed) ✅ focus mode hides the right info column (the
+faint backdrop/gamification land with F25) ◐ one-at-a-time: quiz is inherently one-question
+-at-a-time; the on-screen "one at a time" pref makes the lesson activity cards an accordion.
+Per-question *worksheet* reveal is deferred (worksheet is a print modal — revisit with F20b).
+**Deviations (both deliberate):** dyslexia-friendly font ships as **Atkinson Hyperlegible**
+(Google Fonts, lazy-loaded, guaranteed-available → zero 404s) rather than self-hosted
+OpenDyslexic; OpenDyslexic can be added later. Default theme/font = light + Inter, all aids
+opt-in (D11 was left unfilled — this is the safe default; flip in one line if Ryan prefers).
 
 ### F17 · Text-to-speech — Should, Phase 2a, S–M
 🔊 button on instructions, quiz questions and options using the Web Speech API (built
