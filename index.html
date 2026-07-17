@@ -215,6 +215,17 @@
   .diff{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
   .diff.easy{background:#dcfce7;color:#15803d} .diff.med{background:var(--blue-soft);color:var(--blue)} .diff.hard{background:#fee2e2;color:#b91c1c}
   .q-text{font-size:14.5px;font-weight:700;margin-bottom:12px}
+  /* F8 — Quick Help staged hints */
+  .q-hints{margin:0 0 12px}
+  .q-hint{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;line-height:1.5;color:#78560a}
+  .q-hint b{display:block;margin-bottom:3px;color:#b45309}
+  .q-hint img{max-width:100%;border-radius:8px;margin-top:5px}
+  .hint-btn{font:inherit;font-size:12px;font-weight:700;color:#b45309;background:#fef3c7;border:1.5px solid #fde68a;border-radius:999px;padding:6px 13px;cursor:pointer}
+  .hint-btn:hover{border-color:#f59e0b}
+  .hint-count{font-weight:600;opacity:.75}
+  .q-hint-done{font-size:12px;font-weight:600;color:var(--muted);padding:2px 2px}
+  html[data-theme="dark"] .q-hint{background:#2a2410;border-color:#5a4a1c;color:#e8d9a8}
+  html[data-theme="dark"] .q-hint b{color:#f0c66b}
   .q-opt{display:flex;align-items:center;gap:11px;width:100%;text-align:left;font-size:13px;padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer;background:var(--card)}
   .q-opt .letter{width:24px;height:24px;border-radius:50%;border:1.5px solid #cbd5e1;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted);flex-shrink:0}
   .q-opt:hover{border-color:var(--blue)}
@@ -747,7 +758,7 @@ function sanitizeCourses(courses){
       if(L.prior)          L.prior = arr(L.prior);
       if(L.misconceptions) L.misconceptions = arr(L.misconceptions);
       if(L.wsTip!=null)    L.wsTip = sanitizeHtml(L.wsTip);
-      (L.quiz||[]).forEach(q=>{ if(q.q!=null) q.q=sanitizeHtml(q.q); if(q.opts) q.opts=arr(q.opts); if(q.fb!=null) q.fb=sanitizeHtml(q.fb); });
+      (L.quiz||[]).forEach(q=>{ if(q.q!=null) q.q=sanitizeHtml(q.q); if(q.opts) q.opts=arr(q.opts); if(q.fb!=null) q.fb=sanitizeHtml(q.fb); if(q.hints) q.hints=arr(q.hints); });
       (L.worksheet||[]).forEach(s=>{ if(s.qs) s.qs=arr(s.qs); if(s.markScheme!=null) s.markScheme=sanitizeHtml(s.markScheme); });
       (L.genBank||[]).forEach(g=>{ if(g.q!=null) g.q=sanitizeHtml(g.q); if(g.ms!=null) g.ms=sanitizeHtml(g.ms); });
       (L.videos||[]).forEach(v=>{
@@ -1596,7 +1607,7 @@ document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',
 }));
 
 /* =============================== quiz engine =============================== */
-const quiz={ i:0, answers:[], flags:new Set(), attemptId:null, recorded:false };
+const quiz={ i:0, answers:[], flags:new Set(), attemptId:null, recorded:false, hintsUsed:{} };
 const DIFF={ easy:['Easy','easy'], med:['Medium','med'], hard:['Hard','hard'] };
 
 /* F11 — per-question results. A new attempt_id groups one sitting's rows (and each retry). */
@@ -1606,7 +1617,7 @@ function uuid4(){
   const h=[...b].map(x=>x.toString(16).padStart(2,'0'));
   return h[0]+h[1]+h[2]+h[3]+'-'+h[4]+h[5]+'-'+h[6]+h[7]+'-'+h[8]+h[9]+'-'+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];
 }
-function startQuizAttempt(){ quiz.attemptId = uuid4(); quiz.recorded = false; }
+function startQuizAttempt(){ quiz.attemptId = uuid4(); quiz.recorded = false; quiz.hintsUsed = {}; }   /* hintsUsed: F8 */
 /* Pure row-builder (no user_id) so the mapping is unit-testable. A wrong answer maps to the
    named misconception of the option the student chose; correct/untagged → null. */
 function quizResultRows(attempt){
@@ -1614,11 +1625,13 @@ function quizResultRows(attempt){
     const chosen = quiz.answers[idx];
     const correct = chosen===q.a;
     const misc = (!correct && q.misc && q.misc[chosen]) ? q.misc[chosen] : null;
+    const hintsUsed = (quiz.hintsUsed && quiz.hintsUsed[idx]) || 0;   /* F8 — scaffolding signal for F10/F21 */
     return {
       course_id: currentCourseId, lesson_id: cur.code, attempt_id: attempt,
       q_index: idx, q_id: q.id||null, topic: q.topic||null,
       misconception: misc, grade_band: q.gradeBand||null, variant_group: q.variantGroup||null,
-      chosen: (chosen==null?null:chosen), correct: correct
+      chosen: (chosen==null?null:chosen), correct: correct,
+      meta: { hints_used: hintsUsed }
     };
   });
 }
@@ -1709,8 +1722,21 @@ function renderQuiz(){
 
   const answered=quiz.answers[quiz.i];
   const area=$('qArea');
+  /* F8 — Quick Help: staged hints revealed one at a time (before answering). */
+  const hints = Q.hints || [];
+  const shownHints = quiz.hintsUsed[quiz.i] || 0;
+  let hintsHtml = '';
+  if(hints.length && answered==null){
+    hintsHtml = `<div class="q-hints">`
+      + hints.slice(0, shownHints).map((h,hi)=>`<div class="q-hint"><b>💡 Hint ${hi+1}</b>${h}</div>`).join('')
+      + (shownHints < hints.length
+          ? `<button class="hint-btn" id="qHint">💡 ${shownHints? 'Show another hint':'Need a hint?'} <span class="hint-count">(${shownHints}/${hints.length})</span></button>`
+          : `<div class="q-hint-done">That’s all the hints — give it your best go! ✏️</div>`)
+      + `</div>`;
+  }
   area.innerHTML=`<div class="q-text">${Q.q}</div>`+
     (TTS.supported?`<button class="tts-btn" id="qSpeak">🔊 Read aloud</button>`:'')+
+    hintsHtml+
     Q.opts.map((o,i)=>{
       let cls='q-opt';
       if(answered!=null){
@@ -1729,6 +1755,8 @@ function renderQuiz(){
   }));
   const qs=$('qSpeak');
   if(qs){ const readText = Q.q + '. ' + Q.opts.map((o,i)=>'Option '+'ABCD'[i]+'. '+o).join('. '); qs.addEventListener('click',()=>TTS.speak(readText, qs)); }
+  const hb=$('qHint');
+  if(hb) hb.addEventListener('click',()=>{ quiz.hintsUsed[quiz.i]=(quiz.hintsUsed[quiz.i]||0)+1; renderQuiz(); });   /* F8 */
 }
 
 /* F4 — mastery thresholds (content-configurable per lesson; defaults 80 / 50). */
@@ -2396,6 +2424,14 @@ function quizEditor(q,qi){
       </div>`).join('')}
     <label class="ad-lb">Feedback / explanation</label>
     ${rich('q-fb', q.fb)}
+    <label class="ad-lb" style="margin-top:9px">💡 Quick Help hints <span class="ad-note">(F8 — shown one at a time, in order; go from a gentle nudge to nearly the method. Images allowed.)</span></label>
+    <div class="q-hints-ed">${(q.hints||[]).map((h,hi)=>`
+      <div class="ad-row" style="align-items:flex-start;margin-top:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);margin-top:9px;white-space:nowrap">Hint ${hi+1}</span>
+        <div style="flex:1">${rich('q-hint-ed', h)}</div>
+        <button class="btn ghost ad-mini" data-act="delQuizHint" data-qi="${qi}" data-hi="${hi}">🗑</button>
+      </div>`).join('')}</div>
+    <button class="btn ghost ad-mini" style="margin-top:6px" data-act="addQuizHint" data-qi="${qi}">＋ Add hint</button>
   </div>`;
 }
 
@@ -2511,6 +2547,9 @@ function collectAdminForm(){
     const gb = (el.querySelector('.q-gband')||{}).value; if(gb && gb.trim()) row.gradeBand = gb.trim(); else delete row.gradeBand;
     const misc = [...el.querySelectorAll('.q-misc')].sort((a,b)=>(+a.dataset.oi)-(+b.dataset.oi)).map(m=>m.value.trim());
     if(misc.some(Boolean)) row.misc = misc; else delete row.misc;
+    /* F8 — staged hints (rich; kept only when non-empty, aligned to authoring order) */
+    const hints = [...el.querySelectorAll('.q-hint-ed')].map(h=>richValue(h)).filter(h=>h && h.trim());
+    if(hints.length) row.hints = hints; else delete row.hints;
     return row;
   });
 
@@ -2563,6 +2602,8 @@ function onFormClick(e){
   if(act==='delQuiz') L.quiz.splice(qi,1);
   if(act==='qUp' && qi>0){ const t=L.quiz[qi-1]; L.quiz[qi-1]=L.quiz[qi]; L.quiz[qi]=t; }
   if(act==='qDown' && qi<L.quiz.length-1){ const t=L.quiz[qi+1]; L.quiz[qi+1]=L.quiz[qi]; L.quiz[qi]=t; }
+  if(act==='addQuizHint'){ (L.quiz[qi].hints = L.quiz[qi].hints || []).push(''); }        /* F8 */
+  if(act==='delQuizHint'){ if(L.quiz[qi].hints){ L.quiz[qi].hints.splice(+b.dataset.hi,1); if(!L.quiz[qi].hints.length) delete L.quiz[qi].hints; } }
   if(act==='addWs') L.worksheet.push({name:'New section', grade:'Grade 1', g3:false, qs:['<b>1.</b> ']});
   if(act==='delWs') L.worksheet.splice(si,1);
   if(act==='addWsQ') L.worksheet[si].qs.push('<b>'+(L.worksheet[si].qs.length+1)+'.</b> ');

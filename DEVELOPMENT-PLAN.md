@@ -63,7 +63,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ✅ |
 | F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ✅ |
 | F7 | Resume at exact point | Should | M | F2 | 2c | ✅ |
-| F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
+| F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ✅ |
 | F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ☐ |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ☐ |
@@ -94,8 +94,17 @@ F31 CTA. All Ryan-visible; ship as they land.
 
 **Phase 2c — Learning data & experience.**
 F11 ✅ (schema designed for F19: topic, misconception, grade band, variant group from day
-one) → F7 ✅ exact-point resume → F8 staged hints (AI-drafted per D3, authored via F26's
+one) → F7 ✅ exact-point resume → F8 ✅ staged hints (AI-drafted per D3, authored via F26's
 editor) → F9 badges & streaks (in-app only; emails are F30).
+
+**F8 build note (done).** Each Diagnostic Quiz question can carry an ordered `hints[]` (rich
+HTML via F26, so images are allowed), authored in the editor with add/remove hint fields. On
+the quiz a "💡 Need a hint?" button reveals them one at a time (gentle → nearly-the-method),
+shown before answering and hidden once answered; a "that's all the hints" line closes the set.
+Hint usage rides into F11 as `quiz_results.meta.hints_used` per question — a scaffolding signal
+for F10/F21. All optional/back-compatible: a question with no hints shows no button and gains
+no key; verified a lesson without hints round-trips byte-identical. The AI-drafting of hint
+text is F32's job; F8 is the authoring + staged-reveal surface.
 
 **F7 build note (done).** URL-based and reload-safe: the lesson hash gains an optional
 `/section` segment (`#/<course>/<lesson>/<section>`). As the student opens an activity
