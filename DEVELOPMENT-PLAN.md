@@ -35,7 +35,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ✅ |
 | F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ✅ |
 | F25 | Site theme: SEND-sensitive palette + faint logo-symbol backdrop (off in focus mode) | Should | S | F16 | 2a | ✅ |
-| F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ☐ |
+| F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ✅ |
 | F11 | Per-question results + topic + **misconception tags** | Should | M | F2 | 2b | ☐ |
 | F7 | Resume at exact point | Should | M | F2 | 2b | ☐ |
 | F8 | Quick Help — **staged/scaffolded hints** (+ pictures at hint level) | Should | M | authoring | 2b | ☐ |

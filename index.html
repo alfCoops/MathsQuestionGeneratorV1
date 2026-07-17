@@ -461,7 +461,7 @@
           <div class="steps">
             <div class="step" data-step="learn"><div class="node">1</div><div class="lbl">1. Watch Lesson &amp; Read Notes</div></div>
             <div class="step" data-step="quiz"><div class="node">2</div><div class="lbl">2. Quiz</div></div>
-            <div class="step" data-step="worksheet"><div class="node">3</div><div class="lbl">3. Practice Worksheet</div></div>
+            <div class="step" data-step="worksheet"><div class="node">3</div><div class="lbl">3. From Method to Meaning</div></div>
             <div class="step" data-step="generate"><div class="node">4</div><div class="lbl">4. Question Generator</div></div>
             <div class="step" data-step="complete"><div class="node star">☆</div><div class="lbl">Lesson Complete</div></div>
           </div>
@@ -505,7 +505,7 @@
         <section class="card" id="secWs">
           <div class="act-head">
             <div class="ico" style="background:var(--purple)">✏️</div>
-            <div class="txt"><b>3. Practice Worksheet</b><span>Downloadable worksheet containing exam style questions.</span></div>
+            <div class="txt"><b>3. From Method to Meaning</b><span>A printable worksheet of exam-style questions that take you from the method to what it means.</span></div>
             <span class="time-chip" id="timeWs"></span>
             <button class="btn o-purple" id="wsBtn">Download</button>
           </div>
@@ -988,7 +988,7 @@ function continueBannerHtml(){
   if(!lastLoc || !lastLoc.lesson_id) return '';
   const c = courseById(lastLoc.course_id); if(!c) return '';
   const L = (c.LESSONS||{})[lastLoc.lesson_id]; if(!L) return '';
-  const map = { learn:'Video & Notes', quiz:'Quiz', worksheet:'Worksheet', generate:'Question Generator', complete:'Wrap-up' };
+  const map = { learn:'Video & Notes', quiz:'Quiz', worksheet:'From Method to Meaning', generate:'Question Generator', complete:'Wrap-up' };
   const sect = (lastLoc.section && map[lastLoc.section]) ? ' — '+map[lastLoc.section] : '';
   return `<button class="continue-banner" data-continue="${lastLoc.course_id}/${lastLoc.lesson_id}">
     <span class="cb-icon">↩</span>
@@ -1268,7 +1268,7 @@ function loadLesson(id){
 
   /* worksheet modal */
   $('wsTitle').textContent = cur.title.replace(/^\d\w+\.\s*/,'');
-  $('wsSub').textContent = cur.grade.replace('Grade:','Grade') + ' Worksheet';
+  $('wsSub').textContent = cur.grade.replace('Grade:','Grade') + ' · From Method to Meaning';
   $('wsTip').textContent = 'Tip: ' + cur.wsTip;
   const WS_THEME=[
     {acc:'#7d9e57', wm:'%'},
@@ -1563,7 +1563,7 @@ $('wsDone').addEventListener('click', ()=>{
   completeStep('worksheet');
   setBtn('wsBtn', true, '✓ Completed', 'Download', 'o-purple');
   $('wsModal').classList.remove('show');
-  toast('Worksheet marked as completed');
+  toast('Marked as completed ✓');
 });
 
 /* =============================== generator =============================== */
@@ -1882,7 +1882,7 @@ function buildAdminForm(){
     <button class="btn ghost ad-mini" data-act="addQuiz">＋ Add quiz question</button>
   </div>
 
-  <div class="ad-panel"><h4>✏️ Worksheet</h4>
+  <div class="ad-panel"><h4>✏️ From Method to Meaning <span class="ad-note">(the printable worksheet)</span></h4>
     <div class="ad-steps" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;${L.worksheetFile?'background:var(--green-bg);border-color:var(--green-line)':''}">
       <b>📎 Attach a worksheet file</b>
       <span class="ad-note" style="margin:0">PDF or image — if attached, students download <b>this</b> instead of the sections below.</span>
