@@ -33,7 +33,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F2 | Cloud progress sync (now keyed by course + lesson) | **Must** | M | F1, F15 | 1 | ✅ |
 | F5 | "Continue where you left off" | **Must** | S–M | F2 | 1 | ✅ |
 | F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ✅ |
-| F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ☐ |
+| F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ✅ |
 | F25 | Site theme: SEND-sensitive palette + faint logo-symbol backdrop (off in focus mode) | Should | S | F16 | 2a | ☐ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ☐ |
 | F11 | Per-question results + topic + **misconception tags** | Should | M | F2 | 2b | ☐ |
@@ -120,8 +120,14 @@ opt-in (D11 was left unfilled — this is the safe default; flip in one line if 
 🔊 button on instructions, quiz questions and options using the Web Speech API (built
 into browsers, no service, no cost). Reads maths sensibly ("−3" → "negative three";
 "<" → "is less than") via a small symbol-to-words pass before speaking.
-**AC:** ☐ any question/instruction can be played, paused, replayed ☐ symbols read
-correctly ☐ degrades gracefully where the API is unavailable.
+**AC:** ✅ any question/instruction can be played, stopped and replayed (🔊 Read aloud on the
+quiz question — which also reads all four options — and on the generated question; clicking
+again stops, and changing lesson stops playback) ✅ symbols read correctly (unit-tested:
+−3→"negative three", <→"is less than", ≠ ≥ ≤ × ÷ √ ² ³ % ° π, and a/b→"a over b"; HTML tags
+and entities are stripped first) ✅ degrades gracefully — buttons are hidden entirely when
+`speechSynthesis` is unavailable.
+**Note:** pause/resume was implemented as stop/replay (simpler and more predictable for
+students than the Web Speech API's flaky pause on some browsers).
 
 ### F19 · Quiz engine v2 — Should, Phase 4, L + authoring
 Diagnostic-style questions (inspiration: diagnosticquestions.com): every distractor maps

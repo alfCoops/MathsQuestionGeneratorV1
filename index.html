@@ -398,6 +398,11 @@
   .seg button{flex:1;min-width:62px;font:inherit;font-size:12.5px;font-weight:700;padding:8px 10px;border:1.5px solid var(--line);border-radius:9px;background:var(--card);color:var(--muted);cursor:pointer}
   .seg button.on{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
   .pref-reset{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;font-weight:700;text-decoration:underline;cursor:pointer;margin-top:4px}
+
+  /* F17 — read-aloud (text-to-speech) button */
+  .tts-btn{font:inherit;font-size:11.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;margin-bottom:11px;display:inline-flex;align-items:center;gap:5px}
+  .tts-btn:hover{border-color:var(--blue)}
+  .tts-btn.speaking{color:#b45309;background:#fef3c7;border-color:#fde68a}
 </style>
 </head>
 <body>
@@ -525,6 +530,7 @@
                 <div class="ms" id="genMs"></div>
                 <div class="gen-actions" id="genActions" style="display:none">
                   <button class="btn o-pink" id="msBtn">📋 Show Mark Scheme</button>
+                  <button class="btn ghost" id="genSpeak">🔊 Read aloud</button>
                   <button class="btn ghost" id="timerBtn">⏸ Pause Timer</button>
                   <button class="btn ghost" id="genAgain">↻ Try a New Question</button>
                 </div>
@@ -1201,6 +1207,7 @@ function renderSectionTimes(){
   set('timeLearn','learn'); set('timeQuiz','quiz'); set('timeWs','worksheet'); set('timeGen','generate');
 }
 function loadLesson(id){
+  if(typeof TTS!=='undefined') TTS.stop();   /* F17 — stop any read-aloud when changing lessons */
   $('adminRoot').style.display='none';
   $('coursesRoot').style.display='none';
   document.querySelector('.title-row').style.display='flex';
@@ -1398,6 +1405,43 @@ function numberLineSVG(nl){
     <circle cx="${x(nl.mark)}" cy="18" r="5" fill="#16a34a"/></svg>`;
 }
 
+/* =============================== F17 — text-to-speech (Web Speech API) ===============================
+   Reads instructions/questions aloud. A small symbol-to-words pass makes maths speak sensibly.
+   Degrades silently: if the browser has no speechSynthesis, the 🔊 buttons are hidden. */
+function mathsToWords(html){
+  let t = String(html).replace(/<br\s*\/?>/gi,'. ').replace(/<[^>]+>/g,' ')
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
+  return t
+    .replace(/²/g,' squared ').replace(/³/g,' cubed ')
+    .replace(/√\s*/g,' square root of ')
+    .replace(/≠/g,' is not equal to ').replace(/≥/g,' is greater than or equal to ').replace(/≤/g,' is less than or equal to ')
+    .replace(/</g,' is less than ').replace(/>/g,' is greater than ')
+    .replace(/(\d)\s*\/\s*(\d)/g,'$1 over $2')                 /* simple fractions a/b */
+    .replace(/(^|[\s(:=+×÷])[-−](\d)/g,'$1negative $2')        /* leading sign → "negative" */
+    .replace(/[-−]/g,' minus ')
+    .replace(/×/g,' times ').replace(/÷/g,' divided by ').replace(/±/g,' plus or minus ')
+    .replace(/π/g,' pi ').replace(/°/g,' degrees ').replace(/%/g,' percent ')
+    .replace(/\+/g,' plus ').replace(/=/g,' equals ')
+    .replace(/\s+/g,' ').trim();
+}
+const TTS = (function(){
+  const synth = window.speechSynthesis;
+  const supported = !!(synth && window.SpeechSynthesisUtterance);
+  let curBtn=null;
+  function reset(){ if(curBtn){ curBtn.classList.remove('speaking'); curBtn.textContent=curBtn.dataset.idle||'🔊 Read aloud'; } curBtn=null; }
+  function speak(text, btn){
+    if(!supported) return;
+    const same = (btn && btn===curBtn);
+    if(synth.speaking || synth.pending){ synth.cancel(); reset(); if(same) return; }   /* click again = stop */
+    const u = new SpeechSynthesisUtterance(mathsToWords(text));
+    u.rate=0.95; u.pitch=1; u.lang='en-GB'; u.onend=reset; u.onerror=reset;
+    curBtn = btn||null;
+    if(btn){ btn.dataset.idle = btn.dataset.idle || btn.textContent; btn.classList.add('speaking'); btn.textContent='⏹ Stop'; }
+    synth.speak(u);
+  }
+  return { supported, speak, stop(){ if(supported){ synth.cancel(); reset(); } } };
+})();
+
 function renderQuiz(){
   const Q=cur.quiz[quiz.i];
   $('qNum').textContent=`Question ${quiz.i+1} of ${cur.quiz.length}`;
@@ -1417,6 +1461,7 @@ function renderQuiz(){
   const answered=quiz.answers[quiz.i];
   const area=$('qArea');
   area.innerHTML=`<div class="q-text">${Q.q}</div>`+
+    (TTS.supported?`<button class="tts-btn" id="qSpeak">🔊 Read aloud</button>`:'')+
     Q.opts.map((o,i)=>{
       let cls='q-opt';
       if(answered!=null){
@@ -1433,6 +1478,8 @@ function renderQuiz(){
   area.querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>{
     quiz.answers[quiz.i]=+b.dataset.opt; renderQuiz();
   }));
+  const qs=$('qSpeak');
+  if(qs){ const readText = Q.q + '. ' + Q.opts.map((o,i)=>'Option '+'ABCD'[i]+'. '+o).join('. '); qs.addEventListener('click',()=>TTS.speak(readText, qs)); }
 }
 
 /* F4 — mastery thresholds (content-configurable per lesson; defaults 80 / 50). */
@@ -1566,6 +1613,8 @@ $('msBtn').addEventListener('click', ()=>{
   $('msBtn').textContent=open?'📋 Hide Mark Scheme':'📋 Show Mark Scheme';
 });
 $('genAgain').addEventListener('click', ()=> $('genBtn').click());
+if(!TTS.supported){ const gs=$('genSpeak'); if(gs) gs.style.display='none'; }
+$('genSpeak').addEventListener('click', ()=>{ const g=cur&&cur.genBank&&cur.genBank[lastGen]; if(g) TTS.speak(g.q, $('genSpeak')); });
 
 /* =============================== footer nav =============================== */
 $('completeBtn').addEventListener('click', ()=>{
