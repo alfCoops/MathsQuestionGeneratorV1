@@ -6,7 +6,7 @@
 <title>MasterMaths — GCSE Maths</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%232e7d32'/%3E%3Ctext%20x='16'%20y='24'%20font-family='Georgia,serif'%20font-size='22'%20fill='white'%20text-anchor='middle'%3E%E2%88%9A%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#14263c; --blue:#2e7d32; --blue-soft:#eaf4ec;
@@ -75,6 +75,13 @@
   .title-row .book-cta{margin-left:auto}
   html.pf-focus .book-cta{display:none}
   .course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:15px;margin-top:18px}
+  /* T6 — qualification groups on the dashboard (full board grid, greyed where not yet live) */
+  .cat-group{margin-top:22px}
+  .cat-head{display:flex;align-items:baseline;gap:10px}
+  .cat-head h3{font-size:18px;font-weight:800;color:var(--navy)}
+  .cat-tierlabel{font-size:12px;font-weight:600;color:var(--muted)}
+  .cat-group .course-grid{margin-top:11px}
+  .cat-note{font-size:12px;color:var(--muted);margin-top:18px}
   .course-tile{display:flex;flex-direction:column;gap:5px;align-items:flex-start;text-align:left;border:1.5px solid var(--line);border-radius:16px;padding:18px 18px 16px;background:var(--card);min-height:132px;cursor:pointer;font:inherit;position:relative}
   .course-tile.live{border-color:var(--green-line);background:var(--green-bg)}
   .course-tile.live:hover{border-color:var(--green);box-shadow:0 3px 12px rgba(20,108,67,.14)}
@@ -284,6 +291,14 @@
   .gen-timer.done{color:#b91c1c;background:var(--red-bg);border-color:var(--red-line);animation:timerflash .9s ease-in-out 3}
   @keyframes timerflash{0%,100%{opacity:1}50%{opacity:.45}}
   .gen-qcard .qq{font-size:13.5px;font-weight:600}
+  /* T4 — exam-paper look for the generated question: a free Gill-Sans-family lookalike (Lato) +
+     a ruled answer feel. ACCESSIBILITY WINS: this only applies when the reader hasn't chosen a
+     SEND reading font — data-font="readable"/"opendyslexic" fall through to var(--ff). */
+  html[data-font="default"] .gen-qcard{font-family:'Lato','Gill Sans','Gill Sans MT',var(--ff)}
+  html[data-font="default"] .gen-qcard .qq{font-size:14.5px;font-weight:400;line-height:1.75;letter-spacing:.15px}
+  html[data-font="default"] .gen-qcard .qq b{font-weight:700}
+  .gen-qcard .qq{background-image:repeating-linear-gradient(transparent,transparent 27px,var(--line) 27px,var(--line) 28px);background-position:0 6px;padding-bottom:4px}
+  html[data-theme="dark"] .gen-qcard .qq,html[data-theme="hc"] .gen-qcard .qq{background-image:none}
   .gen-qcard .tot{font-size:11px;color:var(--muted);text-align:right;margin-top:8px}
   .ms{display:none;background:var(--green-bg);border:1px solid var(--green-line);border-radius:11px;padding:12px 14px;font-size:12.5px;color:#14532d}
   .ms.show{display:block}
@@ -1313,26 +1328,42 @@ function pageChrome(){                                 /* shared shell for non-l
   renderSidebar();
   const root=$('coursesRoot'); root.style.display='block'; return root;
 }
+/* T6 — Ryan's intended catalogue: qualification → board → tier/strand. The third level is a
+   GENERIC string on the course object (course.tier); its LABEL is per-qualification ("Tier" for
+   GCSE = Foundation/Higher; "Strand" for A-Level = Pure/Stats/Mechanics). The full grid renders
+   greyed; only courses that actually exist in COURSES are live (today: GCSE · Edexcel · Foundation).
+   D15 (rollout order / shared-core vs per-board content) is still open — see plan §7. */
+const COURSE_CATALOGUE = [
+  { qualification:'GCSE',    tierLabel:'Tier',   boards:['Edexcel','OCR','AQA','WJEC'], strands:['Foundation','Higher'] },
+  { qualification:'A-Level', tierLabel:'Strand', boards:['Edexcel','OCR','AQA','WJEC'], strands:['Pure','Statistics','Mechanics'] },
+];
 function renderCourses(){
   document.title = 'Choose your course — MasterMaths Tutoring';
   $('crumb').innerHTML = '<span class="here">Courses</span>';
   const root = pageChrome();
-  const QUALS = ['GCSE','IGCSE','A-Level'];
-  root.innerHTML = continueBannerHtml() + achievementsHtml() + `
-    <div class="courses-head"><div><h2>Choose your course</h2><p>Pick your qualification to start learning.</p></div>${bookingCtaHtml()}</div>
-    <div class="course-grid">
-      ${QUALS.map(q=>{
-        const cs = COURSES.filter(c=>c.qualification===q);
-        if(cs.length){
-          return cs.map(c=>`<button class="course-tile live" data-course="${c.id}">
-            <span class="ct-q">${c.qualification}</span>
-            <span class="ct-sub">${[c.board,c.tier].filter(Boolean).join(' · ')}</span>
-            <span class="ct-go">Start →</span></button>`).join('');
-        }
-        return `<div class="course-tile locked" title="Coming soon">
-          <span class="ct-q">${q}</span><span class="ct-sub">Coming soon</span><span class="ct-lock">🔒</span></div>`;
-      }).join('')}
+  const groups = COURSE_CATALOGUE.map(q=>{
+    const tiles = q.boards.map(board=>{
+      const live = COURSES.filter(c=>c.qualification===q.qualification && c.board===board);
+      if(live.length){
+        return live.map(c=>`<button class="course-tile live" data-course="${c.id}">
+          <span class="ct-q">${esc(board)}</span>
+          <span class="ct-sub">${esc(c.tier||q.tierLabel)}</span>
+          <span class="ct-go">Start →</span></button>`).join('');
+      }
+      return `<div class="course-tile locked" title="Coming soon">
+        <span class="ct-q">${esc(board)}</span>
+        <span class="ct-sub">${esc(q.strands.join(' · '))}</span>
+        <span class="ct-lock">🔒</span></div>`;
+    }).join('');
+    return `<div class="cat-group">
+      <div class="cat-head"><h3>${esc(q.qualification)}</h3><span class="cat-tierlabel">Choose a ${esc(q.tierLabel.toLowerCase())}</span></div>
+      <div class="course-grid">${tiles}</div>
     </div>`;
+  }).join('');
+  root.innerHTML = continueBannerHtml() + achievementsHtml() + `
+    <div class="courses-head"><div><h2>Choose your course</h2><p>Pick your qualification and board to start learning.</p></div>${bookingCtaHtml()}</div>
+    ${groups}
+    <p class="cat-note">More boards and tiers are on the way — anything greyed out is coming soon.</p>`;
   root.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>{
     setCourse(b.dataset.course);
     const first = (WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:null;
@@ -1579,13 +1610,15 @@ function completeStep(key){
 }
 
 /* =============================== expand/collapse =============================== */
-function syncVideoFocus(){ $('lessonGrid').classList.toggle('focus', $('secLearn').classList.contains('open')); }
+/* T5 — the right info column collapses while the video OR the Question Generator is open
+   (mirrors the watch-video behaviour; consistent with the focus ethos). */
+function syncVideoFocus(){ $('lessonGrid').classList.toggle('focus', $('secLearn').classList.contains('open') || $('secGen').classList.contains('open')); }
 /* F16 — "one at a time" makes the activity cards behave as an accordion (opening one closes the
    others). With the pref off these behave exactly as before. */
 const ACT_SECTIONS = ['secLearn','secQuiz','secGen'];
 const CARD_SECTION = { secLearn:'learn', secQuiz:'quiz', secGen:'generate' };   /* F7 */
-function openAct(id){ if(prefs.oneAtATime) ACT_SECTIONS.forEach(s=>{ if(s!==id) $(s).classList.remove('open'); }); $(id).classList.add('open'); if(id==='secLearn') syncVideoFocus(); if(CARD_SECTION[id]) noteSection(CARD_SECTION[id]); }
-function toggleAct(id){ if($(id).classList.contains('open')){ $(id).classList.remove('open'); if(id==='secLearn') syncVideoFocus(); } else openAct(id); }
+function openAct(id){ if(prefs.oneAtATime) ACT_SECTIONS.forEach(s=>{ if(s!==id) $(s).classList.remove('open'); }); $(id).classList.add('open'); syncVideoFocus(); if(CARD_SECTION[id]) noteSection(CARD_SECTION[id]); }
+function toggleAct(id){ if($(id).classList.contains('open')){ $(id).classList.remove('open'); syncVideoFocus(); } else openAct(id); }
 document.querySelectorAll('[data-toggle]').forEach(h=>{
   h.addEventListener('click', e=>{
     if(e.target.closest('.btn')) return;
@@ -1940,7 +1973,7 @@ function pickGeneratedQuestion(){
   lastGen=i; return cur.genBank[i];
 }
 $('genBtn').addEventListener('click', ()=>{
-  $('secGen').classList.add('open'); noteSection('generate');   /* F7 */
+  $('secGen').classList.add('open'); noteSection('generate'); syncVideoFocus();   /* F7 + T5 */
   const g=pickGeneratedQuestion(); genCount++;
   $('genCard').style.display='block'; $('genActions').style.display='flex';
   $('genLabel').textContent='Question '+genCount;
