@@ -36,6 +36,7 @@
   .brand h1{font-size:15px;color:#fff;line-height:1.2;font-weight:800}
   .brand h1 span{display:block;font-size:10.5px;font-weight:500;color:#94a3b8}
   .week-label{font-size:11px;font-weight:700;color:#e2e8f0;padding:8px 7px 6px}
+  .week-quote{font-size:10.5px;font-style:italic;color:#93a3b8;line-height:1.4;padding:0 8px 7px}
   .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-weight:600;font-size:12.5px;color:#c7d2e8;cursor:pointer;border:none;background:none;width:100%;text-align:left}
   .nav-item:hover{background:rgba(255,255,255,.06)}
   .nav-item.active{background:var(--blue);color:#fff}
@@ -59,6 +60,7 @@
   .chip{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px}
   .chip.grade{background:#dcfce7;color:#15803d}
   .chip.time{background:#eef2f7;color:#14263c}
+  .chip.calc{background:var(--surf2);color:var(--text2);border:1px solid var(--line)}
   .grid{display:grid;grid-template-columns:1.65fr 1fr;gap:16px;align-items:start}
   /* focus mode — hide the right info column while watching the lesson so the video/notes fill the width */
   #lessonGrid.focus{grid-template-columns:1fr}
@@ -167,6 +169,7 @@
 
   /* video rows */
   .vid-row{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}
+  .vid-locked{font-size:12px;color:var(--muted);text-align:center;padding:10px;border:1px dashed var(--line);border-radius:11px;background:var(--surf2)}
   .vid-row .vr-head{display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer;background:var(--card)}
   .vid-row .vr-head b{flex:1;font-size:12.5px}
   .vid-row .vr-head .vic{color:var(--blue);font-size:14px}
@@ -464,6 +467,7 @@
       <h2 class="title" id="lessonTitle"></h2>
       <span class="chip grade" id="chipGrade"></span>
       <span class="chip time" id="chipTime"></span>
+      <span class="chip calc" id="chipCalc" style="display:none"></span>
     </div>
 
     <div id="comingSoon" style="display:none" class="card">
@@ -1316,6 +1320,8 @@ function renderSidebar(){
     const hasLessons = w.lessons && w.lessons.filter(id=>LESSONS[id]).length;
     if(hasLessons){
       const lbl=document.createElement('div'); lbl.className='week-label'; lbl.textContent=w.label; nav.appendChild(lbl);
+      /* F29 — motivational quote per week (absent = nothing shown) */
+      if(w.quote){ const q=document.createElement('div'); q.className='week-quote'; q.innerHTML='“'+w.quote+'”'; nav.appendChild(q); }
       w.lessons.forEach(id=>{
         const L=LESSONS[id]; if(!L) return;
         const unlocked = isLessonUnlocked(id);
@@ -1359,6 +1365,11 @@ function loadLesson(id){
   $('lessonTitle').textContent = cur.title;
   $('chipGrade').textContent = '📊 ' + cur.grade;
   $('chipTime').textContent = '🕐 ' + cur.duration;
+  /* F29 — calculator / non-calculator chip (Edexcel-authentic; absent = no chip) */
+  const calcEl=$('chipCalc');
+  if(cur.calculator==='allowed'){ calcEl.textContent='🧮 Calculator'; calcEl.style.display=''; }
+  else if(cur.calculator==='not-allowed'){ calcEl.textContent='🚫 Non-calculator'; calcEl.style.display=''; }
+  else calcEl.style.display='none';
   renderSidebar();
 
   if(cur.comingSoon){
@@ -1465,7 +1476,13 @@ $('hiwBtn').addEventListener('click', ()=> toggleAct('secGen'));
 /* =============================== videos =============================== */
 function buildVideos(){
   const vl=$('videoList'); vl.innerHTML='';
+  /* F29 — sequential reveal: show only the first `reveal` videos; the next appears once the
+     student watches the latest. Reveal count lives in progress, so it persists/syncs. */
+  const total=cur.videos.length;
+  const seq=!!cur.sequentialVideos;
+  const reveal = seq ? Math.min(total, Math.max(1, prog().videoReveal||1)) : total;
   cur.videos.forEach((v,vi)=>{
+    if(vi>=reveal) return;
     const row=document.createElement('div'); row.className='vid-row'+(vi===0?' open':'');
     let notesHtml='';
     if(v.notes){
@@ -1499,16 +1516,27 @@ function buildVideos(){
     });
     vl.appendChild(row);
   });
+  if(seq && reveal<total){
+    const hint=document.createElement('div'); hint.className='vid-locked';
+    hint.textContent='🔒 Watch the video above to unlock the next one.';
+    vl.appendChild(hint);
+  }
 }
 $('videoList').addEventListener('click', e=>{
   const vbtn=e.target.closest('[data-video]');
   if(vbtn){
-    const v=cur.videos[+vbtn.dataset.video];
+    const idx=+vbtn.dataset.video;
+    const v=cur.videos[idx];
     $('videoTitle').textContent=v.title;
     $('videoHolder').innerHTML = videoEmbedHtml(v.url);
     $('videoModal').classList.add('show');
     completeStep('learn');
     setBtn('learnBtn', true, '✓ Started', 'Start ⊕', 'solid');
+    /* F29 — watching the latest-revealed video reveals the next */
+    if(cur.sequentialVideos){
+      const p=prog(), rc=Math.max(1, p.videoReveal||1);
+      if(idx>=rc-1 && rc<cur.videos.length){ p.videoReveal=rc+1; saveProgress(); buildVideos(); }
+    }
   }
   const yt=e.target.closest('[data-yt]');
   if(yt){ const open=$('ytAns'+yt.dataset.yt).classList.toggle('show'); yt.textContent=open?'Hide 👁':'Answers 👁'; }
@@ -2009,6 +2037,13 @@ function buildAdminForm(){
       <span><label class="ad-lb" style="margin:0 0 4px">Quiz pass mark %</label><input id="ad-pass" class="ad-in" type="number" min="0" max="100" value="${L.quizPass}" style="width:90px"></span>
       <span><label class="ad-lb" style="margin:0 0 4px">Mastery 🟢 ≥ %</label><input id="ad-mconf" class="ad-in" type="number" min="0" max="100" value="${(L.masteryThresholds&&L.masteryThresholds.confident!=null)?L.masteryThresholds.confident:80}" style="width:90px" title="Confident at or above this score"></span>
       <span><label class="ad-lb" style="margin:0 0 4px">Mastery 🟡 ≥ %</label><input id="ad-mprac" class="ad-in" type="number" min="0" max="100" value="${(L.masteryThresholds&&L.masteryThresholds.practice!=null)?L.masteryThresholds.practice:50}" style="width:90px" title="Needs practice at or above this score; below it is Review"></span>
+      <span><label class="ad-lb" style="margin:0 0 4px">Calculator <span class="ad-note">(F29)</span></label>
+        <select id="ad-calc" class="ad-in" style="width:auto">
+          <option value="" ${!L.calculator?'selected':''}>— none —</option>
+          <option value="allowed" ${L.calculator==='allowed'?'selected':''}>🧮 Calculator</option>
+          <option value="not-allowed" ${L.calculator==='not-allowed'?'selected':''}>🚫 Non-calculator</option>
+        </select></span>
+      <label class="ad-lb" style="margin:14px 0 0"><input type="checkbox" id="ad-seqvid" ${L.sequentialVideos?'checked':''}> 🎬 Reveal videos one at a time</label>
       <label class="ad-lb" style="margin:14px 0 0"><input type="checkbox" id="ad-soon"> Mark as "coming soon"</label>
     </div>
     <div class="ad-row" style="margin-top:12px;gap:14px;flex-wrap:wrap">
@@ -2315,6 +2350,7 @@ function collectAdminForm(){
 
   /* week labels (from the Weeks panel — present on every editor screen) */
   f.querySelectorAll('.wk-label').forEach(inp=>{ const wi=+inp.dataset.wk; if(WEEKS[wi]) WEEKS[wi].label = inp.value; });
+  f.querySelectorAll('.wk-quote').forEach(inp=>{ const wi=+inp.dataset.wk; if(WEEKS[wi]){ const q=inp.value.trim(); if(q) WEEKS[wi].quote=q; else delete WEEKS[wi].quote; } });   /* F29 */
 
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
@@ -2325,6 +2361,9 @@ function collectAdminForm(){
   L.title = g('ad-title').value;
   L.grade = g('ad-grade').value;
   L.duration = g('ad-duration').value;
+  /* F29 — calculator flag + sequential-video reveal (absent/false = default behaviour) */
+  if(g('ad-calc')){ const cv=g('ad-calc').value; if(cv) L.calculator=cv; else delete L.calculator; }
+  if(g('ad-seqvid')){ if(g('ad-seqvid').checked) L.sequentialVideos=true; else delete L.sequentialVideos; }
   L.week = g('ad-week').value;
   L.strand = g('ad-strand').value;
   L.prev = g('ad-prev').value || null;
@@ -2450,6 +2489,7 @@ function weeksPanel(){
           <button class="btn ghost ad-mini" data-act="addLessonToWeek" data-wk="${wi}" title="Add a lesson to this week">＋ Lesson</button>
           <button class="btn ghost ad-mini" data-act="delWeek" data-wk="${wi}" title="Remove this week" style="color:var(--red);border-color:var(--red-line)">🗑</button>
         </div>
+        <input class="ad-in wk-quote" data-wk="${wi}" style="margin-top:6px;font-size:12px" value="${esc(w.quote||'')}" placeholder="💬 Motivational quote for this week (optional) — shown above its lessons">
         <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">${(w.lessons&&w.lessons.filter(id=>LESSONS[id]).length)
           ? w.lessons.filter(id=>LESSONS[id]).map(id=>`<button class="btn ${id===adminSel?'solid':'ghost'} ad-mini" data-act="gotoLesson" data-id="${id}">${id}${id===adminSel?' ✎':''}</button>`).join('')
           : '<span class="ad-note">no lessons yet — click ＋ Lesson</span>'}</div>

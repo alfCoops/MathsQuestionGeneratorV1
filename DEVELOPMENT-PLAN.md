@@ -58,7 +58,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ✅ |
 | F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ✅ |
 | F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ✅ |
-| F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ☐ |
+| F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ✅ |
 | F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ☐ |
 | F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ☐ |
 | F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ☐ |
@@ -187,8 +187,15 @@ Three small schema+UI additions, all editable in the Teacher Editor:
    (Edexcel-authentic); chip shows next to grade/duration.
 3. **Sequential video reveal** — within a lesson, video n+1 appears only after video n is
    opened (less on the page, per Ryan's SEND ethos; plays well with F16's one-at-a-time).
-**AC:** ☐ all three editable per week/lesson ☐ back-compatible (absent fields = no quote,
-no icon, all videos shown) ☐ reveal state persists via progress.
+**AC:** ✅ all three editable per week/lesson (week quote in the Weeks panel; calculator select
++ "reveal videos one at a time" checkbox in Basics) ✅ back-compatible — absent/false fields
+mean no quote, no chip, all videos shown; verified a lesson without them opens→saves
+byte-identical and gains no keys ✅ reveal state persists via progress (`videoReveal` in the
+lesson's steps, so it syncs to the cloud too).
+**Build notes:** calculator chip renders 🧮 Calculator / 🚫 Non-calculator beside grade+duration;
+quote shows as an italic line under the week label in the sidebar (sanitised via F26). Sequential
+reveal shows only the first video plus a "🔒 Watch the video above to unlock the next one" hint;
+watching the latest revealed video reveals the next.
 
 ### F32 · Spec-grounded generation service — Should, Phase 2c–3, L
 The FastAPI backend that makes AI-generated content *authentically Edexcel Foundation*
