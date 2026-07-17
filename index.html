@@ -323,6 +323,15 @@
   .rich-tb button:hover,.rich-tb label:hover{background:var(--surf2);border-color:var(--blue)}
   .rich{min-height:48px;font:inherit;font-size:13px;padding:8px 11px;border:1.5px solid var(--line);border-radius:9px;width:100%;line-height:1.55;background:var(--card);overflow:auto}
   .rich:focus{outline:none;border-color:var(--blue)}
+  /* F26 — one shared, sticky toolbar for whichever field has the caret */
+  .rich-tb-main{position:sticky;top:0;z-index:5;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:6px 9px;align-items:center;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .rich-tb-hint{font-size:11px;font-weight:700;color:var(--muted);margin-right:2px}
+  .rich-tb .rich-sw{width:19px;height:19px;padding:0;border-radius:50%;border:1.5px solid var(--line)}
+  .rich-tb .rich-sw:hover{border-color:var(--ink)}
+  .rich-sep{width:1px;background:var(--line);margin:1px 3px}
+  .rich figure,.fact-list figure{margin:6px 0}
+  .rich figcaption,.fact-list figcaption{font-size:11px;font-weight:700;color:var(--muted);margin-top:3px}
   .rich table{border-collapse:collapse;margin:6px 0;font-size:12px}
   .rich td,.rich th{border:1px solid #94a3b8;padding:3px 9px}
   .rich img{max-width:200px;border-radius:6px;margin:4px 0}
@@ -634,12 +643,102 @@ const SETTINGS = {
 /* ------ F15: course layer. Content gains COURSES; content WITHOUT a COURSES
    wrapper is treated as the single default course "gcse-edexcel-foundation".
    WEEKS/LESSONS stay as globals pointing at the *current* course's arrays. ------ */
+/* =============================== F26 — HTML sanitiser ===============================
+   The Teacher Editor stores rich HTML in the content fields, so neither end may trust its
+   input: we sanitise on SAVE (richValue) and on LOAD (buildCourses — the single funnel every
+   content source flows through: packaged mm-content.js, localStorage, draft and cloud).
+   DOM-based on purpose — regex "sanitisers" are trivially bypassed. DOMParser builds an inert
+   document: nothing executes and no images load while we clean.
+   The allow-list is deliberately short (CLAUDE.md/plan §6) and covers exactly what the
+   toolbar can emit plus what Ryan has already authored. Unknown tags are UNWRAPPED rather
+   than deleted, so his words are never silently lost. */
+const SAN_ALLOW = {
+  b:[], strong:[], i:[], em:[], u:[], br:[], sub:[], sup:[],
+  span:['style'], p:[], div:[],
+  ul:[], ol:[], li:[],
+  table:[], thead:[], tbody:[], tr:[], td:['colspan','rowspan'], th:['colspan','rowspan'],
+  img:['src','alt'], figure:[], figcaption:[]
+};
+const SAN_DROP     = { script:1, style:1, iframe:1, object:1, embed:1, link:1, meta:1, noscript:1, template:1 };
+const SAN_STYLE_OK = { 'color':1, 'font-size':1, 'font-weight':1, 'font-style':1, 'text-decoration':1, 'background-color':1 };
+function sanStyle(v){                       /* rebuild style from an allow-list; never pass it through */
+  const keep=[];
+  String(v).split(';').forEach(d=>{
+    const i=d.indexOf(':'); if(i<0) return;
+    const p=d.slice(0,i).trim().toLowerCase(), val=d.slice(i+1).trim();
+    if(!SAN_STYLE_OK[p] || !val) return;
+    if(/url\(|expression|javascript:|@import/i.test(val)) return;
+    keep.push(p+':'+val);
+  });
+  return keep.join(';');
+}
+function sanSrc(u){ u=String(u).trim(); return /^https:\/\//i.test(u) || /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(u); }
+function sanitizeHtml(html){
+  const s = (html==null) ? '' : String(html);
+  /* Skip only genuinely plain text. `>` must NOT be skipped: a contenteditable serialises a
+     bare ">" as "&gt;", so if load-time sanitising left it alone the two paths would disagree
+     and every lesson would look "changed" the first time Ryan opened it. One normal form. */
+  if(s.indexOf('<')<0 && s.indexOf('>')<0 && s.indexOf('&')<0) return s;
+  const doc = new DOMParser().parseFromString('<body>'+s+'</body>', 'text/html');
+  (function walk(node){
+    [...node.childNodes].forEach(n=>{
+      if(n.nodeType===3) return;                               /* text is fine */
+      if(n.nodeType!==1){ n.remove(); return; }                /* comments, etc. */
+      const tag = n.tagName.toLowerCase();
+      if(SAN_DROP[tag]){ n.remove(); return; }                 /* drop these WITH their contents */
+      walk(n);
+      if(!SAN_ALLOW[tag]){                                     /* unknown tag → unwrap, keep the text */
+        while(n.firstChild) n.parentNode.insertBefore(n.firstChild, n);
+        n.remove(); return;
+      }
+      [...n.attributes].forEach(a=>{                           /* drops every on* handler by construction */
+        const an = a.name.toLowerCase();
+        if(SAN_ALLOW[tag].indexOf(an) < 0){ n.removeAttribute(a.name); return; }
+        if(an==='style'){ const st=sanStyle(a.value); st ? n.setAttribute('style', st) : n.removeAttribute('style'); }
+        if(an==='src' && !sanSrc(a.value)) n.removeAttribute('src');
+      });
+    });
+  })(doc.body);
+  return doc.body.innerHTML;
+}
+/* Sanitise every HTML-bearing content field. Invariant worth keeping: the fields listed here
+   are exactly the fields edited through rich() — plain-text fields (title, grade, url,
+   keywords) are NOT sanitised, because they're displayed via esc() in the editor and
+   escaping them again would show "&lt;" to the teacher. */
+function sanitizeCourses(courses){
+  const arr = a => Array.isArray(a) ? a.map(sanitizeHtml) : a;
+  (courses||[]).forEach(c=>{
+    Object.values(c.LESSONS||{}).forEach(L=>{
+      if(!L || typeof L!=='object') return;
+      if(L.success)        L.success = arr(L.success);
+      if(L.prior)          L.prior = arr(L.prior);
+      if(L.misconceptions) L.misconceptions = arr(L.misconceptions);
+      if(L.wsTip!=null)    L.wsTip = sanitizeHtml(L.wsTip);
+      (L.quiz||[]).forEach(q=>{ if(q.q!=null) q.q=sanitizeHtml(q.q); if(q.opts) q.opts=arr(q.opts); if(q.fb!=null) q.fb=sanitizeHtml(q.fb); });
+      (L.worksheet||[]).forEach(s=>{ if(s.qs) s.qs=arr(s.qs); if(s.markScheme!=null) s.markScheme=sanitizeHtml(s.markScheme); });
+      (L.genBank||[]).forEach(g=>{ if(g.q!=null) g.q=sanitizeHtml(g.q); if(g.ms!=null) g.ms=sanitizeHtml(g.ms); });
+      (L.videos||[]).forEach(v=>{
+        const n = v && v.notes; if(!n) return;
+        if(n.key)     n.key = arr(n.key);
+        if(n.symbols) n.symbols = arr(n.symbols);
+        if(n.tips)    n.tips = arr(n.tips);
+        if(n.yourTurn){
+          if(n.yourTurn.questions) n.yourTurn.questions = arr(n.yourTurn.questions);
+          if(n.yourTurn.answers!=null) n.yourTurn.answers = sanitizeHtml(n.yourTurn.answers);
+        }
+      });
+    });
+    (c.WEEKS||[]).forEach(w=>{ if(w.quote!=null) w.quote = sanitizeHtml(w.quote); });   /* F29-ready */
+  });
+  return courses;
+}
+
 const DEFAULT_COURSE_ID = 'gcse-edexcel-foundation';
 function buildCourses(mc){
   mc = mc || {};
-  if(Array.isArray(mc.COURSES) && mc.COURSES.length) return mc.COURSES;
-  return [{ id:DEFAULT_COURSE_ID, qualification:'GCSE', board:'Edexcel', tier:'Foundation',
-            WEEKS: mc.WEEKS||[], LESSONS: mc.LESSONS||{} }];
+  if(Array.isArray(mc.COURSES) && mc.COURSES.length) return sanitizeCourses(mc.COURSES);
+  return sanitizeCourses([{ id:DEFAULT_COURSE_ID, qualification:'GCSE', board:'Edexcel', tier:'Foundation',
+            WEEKS: mc.WEEKS||[], LESSONS: mc.LESSONS||{} }]);
 }
 let COURSES = buildCourses(window.MM_CONTENT);
 if(!COURSES.length || !COURSES[0].LESSONS){ document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;max-width:560px"><h2>Content file missing</h2><p>mm-content.js was not found. Upload it to the same folder as this file (they must sit side by side in the GitHub repository).</p></div>'; throw new Error('MM_CONTENT missing'); }
@@ -1686,28 +1785,48 @@ function lines(v){ return v.split('\n').map(s=>s.trim()).filter(Boolean); }
 
 /* ---------- rich-text (WYSIWYG) fields ----------
    The teacher edits formatted text; the stored value stays HTML. */
-function rich(cls, html, opts){
-  opts = opts || {};
-  const tools = `<button type="button" data-rcmd="bold" title="Bold"><b>B</b></button>` + (opts.extra||'');
-  return `<div class="rich-wrap">
-    <div class="rich-tb">${tools}</div>
-    <div class="ad-in rich ${cls}" contenteditable="true">${html||''}</div>
+/* F26 — the toolbar. Colours are the brand set; sizes map to execCommand's 1–7 scale, which
+   with styleWithCSS=true emits <span style="font-size:…"> (allowed by the sanitiser). */
+const RICH_COLOURS = [['#0f172a','Black'],['#2e7d32','Green'],['#c62828','Red'],['#d9a521','Gold'],['#2563eb','Blue']];
+const RICH_SIZES   = [['2','Small'],['3','Normal'],['5','Large'],['6','Huge']];
+/* ONE shared toolbar for every rich field, rendered once and acting on whichever field has
+   the caret. A toolbar per field looked tempting but doesn't scale: the quiz alone is 10
+   questions × 6 rich fields, which would mean ~780 toolbar buttons in the form and made
+   rebuilding the editor crawl. Field-specific tools (Table / image upload) stay per-field. */
+function richToolbarHtml(){
+  return `<div class="rich-tb rich-tb-main" id="richTb">
+    <span class="rich-tb-hint">Formatting:</span>
+    <button type="button" data-rcmd="bold" title="Bold"><b>B</b></button>
+    <button type="button" data-rcmd="italic" title="Italic"><i>I</i></button>
+    <button type="button" data-rcmd="underline" title="Underline"><u>U</u></button>
+    <button type="button" data-rcmd="insertUnorderedList" title="Bullet list">• List</button>
+    <span class="rich-sep"></span>
+    ${RICH_SIZES.map(s=>`<button type="button" data-rsize="${s[0]}" title="${s[1]} text">${s[1]}</button>`).join('')}
+    <span class="rich-sep"></span>
+    ${RICH_COLOURS.map(c=>`<button type="button" class="rich-sw" data-rcolor="${c[0]}" title="${c[1]}" style="background:${c[0]}"></button>`).join('')}
+    <button type="button" data-rcmd="removeFormat" title="Clear formatting">✕ Clear</button>
   </div>`;
 }
-/* Read a rich field back to clean HTML (turn contenteditable's block soup into <br>). */
+function rich(cls, html, opts){
+  opts = opts || {};
+  return `<div class="rich-wrap">
+    ${opts.extra ? `<div class="rich-tb">${opts.extra}</div>` : ''}
+    <div class="ad-in rich ${cls}" contenteditable="true"${opts.attrs||''}>${html||''}</div>
+  </div>`;
+}
+/* Read a rich field back to storable HTML: flatten contenteditable's block soup to <br>,
+   then SANITISE (F26). The old version stripped every style attribute, which would now throw
+   away the colour/size the toolbar exists to add — the sanitiser's style allow-list replaces it. */
 function richValue(el){
   if(!el) return '';
-  let h = el.innerHTML
+  const flattened = el.innerHTML
     .replace(/<div><br\s*\/?><\/div>/gi,'<br>')
     .replace(/<div[^>]*>/gi,'<br>').replace(/<\/div>/gi,'')
     .replace(/<p[^>]*>/gi,'<br>').replace(/<\/p>/gi,'')
-    .replace(/<strong>/gi,'<b>').replace(/<\/strong>/gi,'</b>')
-    .replace(/<(?:em|i)>/gi,'<i>').replace(/<\/(?:em|i)>/gi,'</i>')
-    .replace(/\sstyle="[^"]*"/gi,'')
-    .replace(/<br\s*\/?>/gi,'<br>')
+    .replace(/<br\s*\/?>/gi,'<br>');
+  return sanitizeHtml(flattened)
     .replace(/<(b|i|u)>\s*<\/\1>/gi,'')
     .replace(/^(?:<br>|\s|&nbsp;)+/,'').replace(/(?:<br>|\s|&nbsp;)+$/,'');
-  return h;
 }
 /* Split a rich list field (bullets / questions) into an array on line breaks. */
 function splitBr(h){ return String(h||'').split(/<br\s*\/?>/i).map(s=>s.trim()).filter(Boolean); }
@@ -1804,6 +1923,7 @@ function renderAdmin(){
       <button class="btn ghost ad-mini" id="adDownload">⬇ Download content file</button>
       <button class="btn solid ad-mini" id="adSave">💾 Save changes</button>
     </div>
+    ${richToolbarHtml()}
     <div id="adForm"></div>
   </div>`;
 
@@ -1909,7 +2029,8 @@ function buildAdminForm(){
       <label for="wsfileinput" class="btn ${L.worksheetFile?'ghost':'solid'} ad-mini">${L.worksheetFile?'Replace file':'📎 Attach file'}</label>
     </div>
     <div class="ad-lb" style="margin-top:14px">Or build the worksheet from sections ${L.worksheetFile?'<span class="ad-note">(currently ignored — a file is attached)</span>':''}</div>
-    ${ta('Worksheet tip (footer)','ad-wstip',L.wsTip)}
+    <label class="ad-lb">Worksheet tip (footer)</label>
+    ${rich('ad-wstip', L.wsTip)}
     <div id="adWs" style="margin-top:10px${L.worksheetFile?';opacity:.5':''}">${L.worksheet.map((s,si)=>wsEditor(s,si)).join('')}</div>
     <button class="btn ghost ad-mini" data-act="addWs">＋ Add worksheet section</button>
   </div>
@@ -1920,10 +2041,13 @@ function buildAdminForm(){
   </div>
 
   <div class="ad-panel"><h4>🎯 Side panels <span class="ad-note">(one item per line)</span></h4>
-    ${ta('Success criteria','ad-success',L.success.join('\n'))}
-    ${ta('Prior knowledge checklist','ad-prior',L.prior.join('\n'))}
-    ${ta('Keywords','ad-keywords',L.keywords.join(', '),'separate with commas')}
-    ${ta('Common misconceptions','ad-misc',L.misconceptions.join('\n'))}
+    <label class="ad-lb">Success criteria <span class="ad-note">— one per line (press Enter)</span></label>
+    ${rich('ad-success', L.success.join('<br>'))}
+    <label class="ad-lb">Prior knowledge checklist <span class="ad-note">— one per line (press Enter)</span></label>
+    ${rich('ad-prior', L.prior.join('<br>'))}
+    ${ta('Keywords','ad-keywords',L.keywords.join(', '),'separate with commas — plain text')}
+    <label class="ad-lb">Common misconceptions <span class="ad-note">— one per line (press Enter)</span></label>
+    ${rich('ad-misc', L.misconceptions.join('<br>'))}
   </div>`;
 
   wireForm(f);
@@ -1944,9 +2068,40 @@ function wireForm(f){
   f.addEventListener('drop', onVideoDrop);
   f.addEventListener('mousedown', onRichBold);
   f.addEventListener('focusout', onRichBlur);
+  f.addEventListener('paste', onRichPaste);
+  f.addEventListener('focusin', onRichFocus);
+  /* the shared toolbar lives outside #adForm, so wire it separately */
+  const tb = $('richTb');
+  if(tb && !tb._wired){ tb._wired = true; tb.addEventListener('mousedown', onRichBold); }
 }
-/* Bold button: mousedown+preventDefault keeps the caret/selection in the rich field. */
-function onRichBold(e){ const b=e.target.closest('[data-rcmd]'); if(!b) return; e.preventDefault(); document.execCommand(b.dataset.rcmd, false, null); }
+/* Toolbar: mousedown+preventDefault keeps the caret/selection in the rich field (F26).
+   styleWithCSS makes colour/size come back as <span style="…"> rather than legacy <font>. */
+let lastRichField = null;
+function onRichFocus(e){ const r = e.target.closest && e.target.closest('.rich'); if(r) lastRichField = r; }
+function onRichBold(e){
+  const b = e.target.closest('[data-rcmd],[data-rcolor],[data-rsize]');
+  if(!b) return;
+  e.preventDefault();                       /* keeps the caret/selection in the focused field */
+  if(!lastRichField || !document.body.contains(lastRichField)){ toast('Click into a text box first, then use the toolbar.'); return; }
+  if(document.activeElement !== lastRichField) lastRichField.focus();
+  try{ document.execCommand('styleWithCSS', false, true); }catch(_){}
+  if(b.dataset.rcmd)        document.execCommand(b.dataset.rcmd, false, null);
+  else if(b.dataset.rcolor) document.execCommand('foreColor', false, b.dataset.rcolor);
+  else if(b.dataset.rsize)  document.execCommand('fontSize', false, b.dataset.rsize);
+  collectAdminForm();
+}
+/* Paste: clean it before it lands, so Word/web pastes arrive as tidy text, not junk markup. */
+function onRichPaste(e){
+  const field = e.target && e.target.closest && e.target.closest('.rich');
+  if(!field) return;
+  e.preventDefault();
+  const cb = e.clipboardData;
+  const html = cb && cb.getData('text/html');
+  const text = cb ? cb.getData('text/plain') : '';
+  const clean = html ? sanitizeHtml(html.replace(/<\/(p|div|tr)>/gi,'<br>'))
+                     : esc(text).replace(/\r?\n/g,'<br>');
+  document.execCommand('insertHTML', false, clean);
+}
 /* Capture a rich field's content into the data model when the teacher clicks away. */
 function onRichBlur(e){ if(e.target && e.target.classList && e.target.classList.contains('rich')) collectAdminForm(); }
 const TABLE_TPL = '\n<table>\n  <tr><th>Header 1</th><th>Header 2</th><th>Header 3</th></tr>\n  <tr><td> </td><td> </td><td> </td></tr>\n  <tr><td> </td><td> </td><td> </td></tr>\n</table>\n';
@@ -1987,13 +2142,19 @@ async function doImageUpload(vi, file){
   if(!L || !L.videos[vi] || !L.videos[vi].notes) return;
   if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload images.'); return; }
   if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  /* F26 — give the image a label so questions can refer to it ("as shown in Figure 1"). */
+  const nextFig = (L.videos[vi].notes.key||[]).filter(k=>/<figure/i.test(k)).length + 1;
+  const label = (window.prompt('Label for this image — students will see it under the picture, and questions can refer to it.\n\nLeave blank for no label.', 'Figure '+nextFig) || '').trim();
   toast('Uploading image…');
   const res = await storageUpload(file, `${adminSel}-v${vi+1}-img`, null, 'image');
   if(res.ok){
-    L.videos[vi].notes.key.push(`<img src="${res.url}" alt="" style="max-width:100%;border-radius:8px;margin-top:4px">`);
+    L.videos[vi].notes.key.push(label
+      ? `<figure><img src="${res.url}" alt="${esc(label)}"><figcaption>${esc(label)}</figcaption></figure>`
+      : `<img src="${res.url}" alt="">`);
     saveDraft();
     buildAdminForm();
-    toast('✓ Image added to the key notes. Press 💾 Save changes to publish.');
+    toast(label ? `✓ ${label} added to the key notes. Drag it where you want it, then press 💾 Save changes.`
+                : '✓ Image added to the key notes. Press 💾 Save changes to publish.');
   } else {
     toast('⚠ '+res.msg);
   }
@@ -2057,10 +2218,10 @@ function videoEditor(v,vi){
         <label for="imgfile${vi}" class="btn ghost ad-mini" title="Upload an image and add it to the key facts">🖼 Add image</label>
       </div>
       ${rich('v-key', v.notes.key.join('<br>'))}
-      <label class="ad-lb">Comparison symbols / formulas <span class="ad-note">— one per line</span></label>
-      <textarea class="ad-in ad-ta v-sym">${esc(v.notes.symbols.join('\n'))}</textarea>
-      <label class="ad-lb">Quick tips <span class="ad-note">— one per line</span></label>
-      <textarea class="ad-in ad-ta v-tips">${esc(v.notes.tips.join('\n'))}</textarea>
+      <label class="ad-lb">Comparison symbols / formulas <span class="ad-note">— one per line (press Enter)</span></label>
+      ${rich('v-sym', v.notes.symbols.join('<br>'))}
+      <label class="ad-lb">Quick tips <span class="ad-note">— one per line (press Enter)</span></label>
+      ${rich('v-tips', v.notes.tips.join('<br>'))}
       <label class="ad-lb">"Your Turn" questions <span class="ad-note">— one per line (press Enter)</span></label>
       ${rich('v-ytq', v.notes.yourTurn.questions.join('<br>'))}
       <label class="ad-lb">"Your Turn" answers <span class="ad-note">— shown when the student clicks Check Answers</span></label>
@@ -2082,15 +2243,16 @@ function quizEditor(q,qi){
       <button class="btn ghost ad-mini" data-act="qDown" data-qi="${qi}">↓</button>
       <button class="btn ghost ad-mini" data-act="delQuiz" data-qi="${qi}">🗑</button>
     </div>
-    <input class="ad-in q-text" placeholder="Question" value="${esc(q.q)}">
+    <label class="ad-lb">Question</label>
+    ${rich('q-text', q.q)}
     ${q.opts.map((o,oi)=>`
-      <div class="ad-row" style="margin-top:6px">
-        <input type="radio" name="cor-${qi}" value="${oi}" ${q.a===oi?'checked':''} title="correct answer">
-        <span style="font-size:11px;font-weight:700;color:var(--muted)">${'ABCD'[oi]}</span>
-        <input class="ad-in q-opt" data-oi="${oi}" value="${esc(o)}">
+      <div class="ad-row" style="margin-top:6px;align-items:flex-start">
+        <input type="radio" name="cor-${qi}" value="${oi}" ${q.a===oi?'checked':''} title="correct answer" style="margin-top:11px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);margin-top:9px">${'ABCD'[oi]}</span>
+        <div style="flex:1">${rich('q-opt', o, {attrs:` data-oi="${oi}"`})}</div>
       </div>`).join('')}
     <label class="ad-lb">Feedback / explanation</label>
-    <textarea class="ad-in ad-ta q-fb" style="min-height:48px">${esc(q.fb)}</textarea>
+    ${rich('q-fb', q.fb)}
   </div>`;
 }
 
@@ -2137,6 +2299,7 @@ function collectAdminForm(){
   const f = $('adForm');
   if(!f || !f.children.length) return;
   const g = id => f.querySelector('#'+id);
+  const rq = cls => f.querySelector('.'+cls);      /* F26 — rich fields are class-based */
 
   /* week labels (from the Weeks panel — present on every editor screen) */
   f.querySelectorAll('.wk-label').forEach(inp=>{ const wi=+inp.dataset.wk; if(WEEKS[wi]) WEEKS[wi].label = inp.value; });
@@ -2155,8 +2318,18 @@ function collectAdminForm(){
   L.prev = g('ad-prev').value || null;
   L.next = g('ad-next').value || null;
   L.quizPass = +g('ad-pass').value || 80;
-  if(g('ad-mconf')) L.masteryThresholds = { confident:+g('ad-mconf').value||80, practice:+g('ad-mprac').value||50 };
-  if(g('ad-tlearn')) L.sectionTimes = { learn:g('ad-tlearn').value.trim(), quiz:g('ad-tquiz').value.trim(), worksheet:g('ad-tws').value.trim(), generate:g('ad-tgen').value.trim() };
+  /* Only persist these when they say something. Writing defaults/blanks into every lesson the
+     teacher merely opened is schema noise, and the code already defaults them when absent
+     (CLAUDE.md rule 1) — it also made an untouched lesson look edited in the content diff. */
+  if(g('ad-mconf')){
+    const mt = { confident:+g('ad-mconf').value||80, practice:+g('ad-mprac').value||50 };
+    if(mt.confident!==80 || mt.practice!==50) L.masteryThresholds = mt; else delete L.masteryThresholds;
+  }
+  if(g('ad-tlearn')){
+    const st = { learn:g('ad-tlearn').value.trim(), quiz:g('ad-tquiz').value.trim(), worksheet:g('ad-tws').value.trim(), generate:g('ad-tgen').value.trim() };
+    Object.keys(st).forEach(k=>{ if(!st[k]) delete st[k]; });
+    if(Object.keys(st).length) L.sectionTimes = st; else delete L.sectionTimes;
+  }
   if(g('ad-soon').checked) L.comingSoon = true;
 
   L.videos = [...f.querySelectorAll('#adVideos .ad-q')].map((el,vi)=>{
@@ -2166,8 +2339,8 @@ function collectAdminForm(){
     if(key){
       v.notes = {
         key: splitBr(richValue(key)),
-        symbols: lines(el.querySelector('.v-sym').value),
-        tips: lines(el.querySelector('.v-tips').value),
+        symbols: splitBr(richValue(el.querySelector('.v-sym'))),
+        tips: splitBr(richValue(el.querySelector('.v-tips'))),
         yourTurn: { questions: splitBr(richValue(el.querySelector('.v-ytq'))), answers: richValue(el.querySelector('.v-yta')) }
       };
     }
@@ -2179,14 +2352,14 @@ function collectAdminForm(){
     const cor = el.querySelector(`input[name^="cor-"]:checked`);
     return { ...old,
       d: el.querySelector('.q-diff').value,
-      q: el.querySelector('.q-text').value,
-      opts: [...el.querySelectorAll('.q-opt')].map(o=>o.value),
+      q: richValue(el.querySelector('.q-text')),
+      opts: [...el.querySelectorAll('.q-opt')].map(o=>richValue(o)),
       a: cor ? +cor.value : (old.a||0),
-      fb: el.querySelector('.q-fb').value
+      fb: richValue(el.querySelector('.q-fb'))
     };
   });
 
-  L.wsTip = g('ad-wstip').value;
+  L.wsTip = richValue(rq('ad-wstip'));
   L.worksheet = [...f.querySelectorAll('#adWs .ad-q')].map(el=>({
     name: el.querySelector('.s-name').value,
     grade: el.querySelector('.s-grade').value,
@@ -2201,10 +2374,10 @@ function collectAdminForm(){
     ms: richValue(el.querySelector('.g-ms'))
   }));
 
-  L.success = lines(g('ad-success').value);
-  L.prior = lines(g('ad-prior').value);
+  L.success = splitBr(richValue(rq('ad-success')));
+  L.prior = splitBr(richValue(rq('ad-prior')));
   L.keywords = g('ad-keywords').value.split(',').map(s=>s.trim()).filter(Boolean);
-  L.misconceptions = lines(g('ad-misc').value);
+  L.misconceptions = splitBr(richValue(rq('ad-misc')));
 
   saveDraft();
 }

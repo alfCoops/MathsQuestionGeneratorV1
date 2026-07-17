@@ -1,9 +1,17 @@
-# MasterMaths Platform — Development Plan v2.1 (MoSCoW)
+# MasterMaths Platform — Development Plan v2.2 (MoSCoW)
 
 Last updated: 17 July 2026 · Owner: Alfie · Product owner: Ryan
-v2.1 records Ryan's D1–D6 answers, folds his 15-07-26 improvements into the remaining
+v2.2 adds F32 (spec-grounded generation service — the RAG backbone for F19/F12 and the §4
+authoring pipeline). v2.1 records Ryan's D1–D6 answers, folds his 15-07-26 improvements into the remaining
 phases as F26–F31, and restructures Phases 2b→5 accordingly. Phase 0, 1 and 2a build
 notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progress · ✅ done · ⏸ parked · ✖ won't
+
+## What changed in v2.2
+
+- **New: F32 spec-grounded generation service** — the FastAPI/RAG backend that F19, F12 and
+  the §4 authoring pipeline were implicitly waiting on, now a first-class feature with its
+  own spec, copyright guardrails and phase slot (build during Phase 2c so the review queue
+  has approved stock before F19's engine lands).
 
 ## What changed in v2.1
 
@@ -25,24 +33,9 @@ notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progre
 
 | # | Task | Why now | Status |
 |---|---|---|---|
-| T1 | Free taster → **all of Week 1** (1a–1d browsable logged-out) | Ryan's D1; currently 1a only | ✅ |
-| T2 | Rename "Quiz" → **"Diagnostic Quiz"** everywhere (section card, progress step label, results copy) | Ryan's ask; trivial; do before screenshots/marketing | ✅ |
+| T1 | Free taster → **all of Week 1** (1a–1d browsable logged-out) | Ryan's D1; currently 1a only | ✅ (26a5d1a) |
+| T2 | Rename "Quiz" → **"Diagnostic Quiz"** everywhere (section card, progress step label, results copy) | Ryan's ask; trivial; do before screenshots/marketing | ✅ (26a5d1a) |
 | T3 | **Configure custom SMTP (Resend)** in Supabase, then switch on email verification + password reset (closes F1's deferral) | Launch blocker from Phase 1; also a prerequisite for F30 streak emails | ☐ (Ryan/Alfie — not a code task) |
-
-**T1 build note.** The taster is a new setting `freeWeeks` (default `1`), resolved against the
-course's own week list, so it's `1a–1d` today and stays correct if Ryan adds a lesson to Week 1.
-It had to be a *new* key: the published cloud row already carries `SETTINGS:{"freeLessons":["1a"]}`,
-which is `Object.assign`ed over the code defaults — so changing the `freeLessons` default alone
-would have looked right locally and silently kept the taster at 1a in production. `freeLessons`
-still works as an explicit allowlist, and setting `freeWeeks:0` hands control back to it.
-Verified against the real published SETTINGS: 1a–1d free, 2a not.
-**Scope note:** T1 changes the *sign-in* gate only. Sequential unlocking (F3/D2) still applies to
-the taster, so a logged-out visitor opens 1a and unlocks 1b by finishing it — same rule as a
-signed-in student. Say if the taster should bypass sequential unlocking too.
-**T2 note.** Renamed the step label, section card, results copy, "continue" banner label and the
-editor's question panel. Left the short action buttons ("Start Quiz", "Retry Quiz", "Exit Quiz")
-alone — they sit under the "Diagnostic Quiz" heading and read fine; "Start Diagnostic Quiz" would
-widen the card's button row.
 
 ---
 
@@ -63,7 +56,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F17 | Text-to-speech | Should | S–M | F16 | 2a | ✅ |
 | F25 | Theme & maths-symbol backdrop | Should | S | F16 | 2a | ✅ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ✅ |
-| F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ☐ |
+| F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ✅ |
 | F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ☐ |
 | F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ☐ |
 | F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ☐ |
@@ -75,8 +68,9 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ☐ |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ☐ |
 | F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
-| F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, AI drafting | 4 | ☐ |
-| F12 | Adaptive generator (timer opt-in per D2 ethos, working-at grade, Edexcel-style) | Could | L | live AI generator, F11 | 4 | ☐ |
+| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ☐ |
+| F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
+| F12 | Adaptive generator (timer opt-in per D2 ethos, working-at grade, Edexcel-style) | Could | L | **F32**, F11 | 4 | ☐ |
 | F20b | Interactive "From Method to Meaning" worksheets | Could | L | F16, F26 | 4 | ☐ |
 | F18 | Digital maths toolkit (number line, hundred square, ×-grid, fraction bars, counters) | Could | XL | — | 5 | ☐ |
 | F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |
@@ -102,6 +96,9 @@ F31 CTA. All Ryan-visible; ship as they land.
 F11 (schema designed for F19: topic, misconception, grade band, variant group from day
 one) → F7 exact-point resume → F8 staged hints (AI-drafted per D3, authored via F26's
 editor) → F9 badges & streaks (in-app only; emails are F30).
+**In parallel: F32** — the generation service is backend-only work (FastAPI, separate
+repo/host), so it runs alongside the app-side 2c features without contention, and its
+output starts filling the review queue for Ryan immediately.
 
 **Phase 3 — Visibility & retention.**
 F10 teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21
@@ -124,10 +121,32 @@ size**, lists, and **image insertion with drag-to-position and a caption/label f
 ("Figure 1") in Key Notes so questions can reference figures. Output is sanitised HTML
 stored in the same content fields — student-facing rendering unchanged, so no migration;
 existing HTML content opens and edits cleanly in the new editor.
-**AC:** ☐ Ryan formats a question with size/bold/underline/colour without seeing HTML
-☐ image placed inline in Key Notes with a visible label, referenced from a question
-☐ existing lessons open in the editor without corruption ☐ pasted content from Word is
-cleaned, not dumped as junk markup ☐ output sanitised (no script/style injection).
+**AC:** ✅ Ryan formats with size/bold/underline/colour/list without seeing HTML (one shared
+sticky toolbar acts on the focused field) ✅ image placed inline in Key Notes with a visible
+label ("Figure 1" caption via `<figure><figcaption>`), referenceable from a question ✅ all
+existing lessons open→save byte-identical (verified across 1a–1d) ✅ Word/web paste cleaned
+on the way in (paste handler sanitises before insert) ✅ output sanitised on BOTH save and
+load — script/style/iframe dropped, every `on*`/`javascript:` stripped, `style` rebuilt from
+a 6-property allow-list, `img src` limited to https/data-image.
+**Build notes / deviations:**
+- **Sanitiser** is DOM-based (`DOMParser` into an inert doc — no regex, nothing executes/loads),
+  allow-list derived from an audit of the real published content; unknown tags are *unwrapped*
+  (text kept) so Ryan's words can't vanish. Applied at load in `buildCourses()` — the single
+  funnel every content source flows through — and at save in `richValue()`.
+- **`richValue()` rewritten**, not extended: the old one stripped *all* `style`, which would have
+  killed the colour/size this feature adds. New style handling is allow-list based.
+- **One shared toolbar**, not per-field: per-field would have been ~780 buttons in the form
+  (10 quiz Qs × 6 fields × 13 controls) and made the editor crawl. Now 14 buttons total, editor
+  rebuild ~5ms.
+- **Fixed a latent editor bug found while proving the "no corruption" AC**: opening any lesson
+  and saving used to inject `masteryThresholds`/`sectionTimes` defaults into lessons that never
+  had them (schema noise in every diff). Now only persisted when non-default.
+- **Also normalised a live latent issue**: quiz options/feedback were rendered as HTML but
+  authored in plain inputs, so Ryan's literal `<`/`>` went unescaped into innerHTML. They're
+  rich fields now and escape properly.
+- **Drag-to-position:** shipped as insert + caption + move within Key Notes (drag-reorder inside
+  contenteditable is fragile) — flagged in the plan discussion, meets "placed inline, labelled,
+  referenced". True drag-reorder deferred to F20b/later if Ryan wants it.
 
 ### F27 · Worksheet mark schemes — Should, Phase 2b, S–M
 Each "From Method to Meaning" section gains an authored mark-scheme block (via F26's
@@ -159,6 +178,38 @@ Three small schema+UI additions, all editable in the Teacher Editor:
 **AC:** ☐ all three editable per week/lesson ☐ back-compatible (absent fields = no quote,
 no icon, all videos shown) ☐ reveal state persists via progress.
 
+### F32 · Spec-grounded generation service — Should, Phase 2c–3, L
+The FastAPI backend that makes AI-generated content *authentically Edexcel Foundation*
+rather than generically maths-flavoured. Formalises §4's authoring pipeline and unblocks
+F19 (quiz variants), F12 (adaptive generator) and F8 (drafted hints).
+
+**Corpus, in two tiers with different rules:**
+- *Tier 1 — retrieved into prompts:* the Edexcel 1MA1 specification (published free by
+  Pearson): content references (N2, A4…), Foundation-only scope, command words, AO1–3;
+  mark-scheme notation conventions (M1/A1/B1) learned from a small example set; Ryan's own
+  authored content (his voice and the Clarify/Justify/Challenge/Generalise framing); the
+  misconception bank — which F11 grows automatically from real wrong answers, feeding back
+  into sharper distractors over time.
+- *Tier 2 — analysed, never retrieved:* past papers/PMT are used only to derive a style
+  guide (question length, context types, mark distribution, wording rhythm). Their text
+  never enters a generation prompt (hard rule 8), and a similarity check on OUTPUTS bounces
+  any near-reproduction before it reaches the review queue.
+
+**Architecture (v1 — deliberately simple):** topic + grade band in → keyed/BM25 lookup of
+spec statements + command words + style guide + relevant misconceptions (no vector DB
+needed at this corpus size) → Claude generates question, misconception-tagged distractors,
+staged hints and an M1/A1-style mark scheme → validators: spec ref is Foundation-legal,
+marks sum, numeric answers auto-verified with sympy where possible → similarity check →
+insert into `questions_review` → Ryan approves/edits/rejects in the Teacher Editor.
+Ryan's edits are retained as few-shot examples so generation drifts toward what he approves.
+
+**AC:** ☐ every generated item carries a spec reference + grade band ☐ nothing out of
+Foundation scope passes validation ☐ similarity check demonstrably bounces a seeded
+near-copy ☐ numeric answers verified where sympy can ☐ output lands in the review queue,
+never directly in student-facing content ☐ Ryan-edit few-shots measurably used in prompts.
+**Hosting note:** runs on Render (or similar) as its own service; keys server-side only;
+the app talks to it via the Supabase-authenticated user, not a shared secret in the browser.
+
 ### F30 · Streak reminder emails — Could, Phase 3, M (from Ryan's D4)
 Daily Supabase cron checks streaks at risk (active yesterday, not today by ~17:00 UK) and
 sends a short nudge via Resend. **Compliance is the design constraint, not the cron:**
@@ -183,12 +234,12 @@ targeted signpost. Hidden in focus mode.
 - **F8 (per D3):** AI-drafted hints/examples with Ryan approval confirmed as the workflow.
 - **F12 (per D2 ethos):** timers remain strictly opt-in.
 
-## 4. Authoring pipeline (unchanged, now urgent)
+## 4. Authoring pipeline (now specified as F32)
 
-Start during Phase 2c: FastAPI generator drafts variant questions + misconception
-distractors + staged hints for 1a–1d into a review queue; Ryan clears it weekly. F19's
-engine without an approved question pool is an empty feature. Ryan writes "From Method
-to Meaning" tasks himself; F26 is what makes that pleasant.
+Start during Phase 2c: F32's service drafts variant questions + misconception distractors
++ staged hints for 1a–1d into the `questions_review` queue; Ryan clears it weekly. F19's
+engine without an approved question pool is an empty feature. Ryan writes "From Method to
+Meaning" tasks himself; F26 is what makes that pleasant.
 
 ## 5. Data model deltas (on top of v2 §5)
 
@@ -198,6 +249,8 @@ to Meaning" tasks himself; F26 is what makes that pleasant.
 | content schema | + week.quote, lesson.calculator ('allowed'/'not-allowed'/absent), video sequential-reveal flag; F26 stores sanitised rich HTML in existing fields |
 | worksheet schema | + markScheme per section (F27) |
 | `email_log` | NEW — streak emails sent (dedupe/caps for F30) |
+| `questions_review` | (from v2) now F32's output target: + spec_ref, grade_band, similarity_score, source ('ai'), approved_by, edited_diff |
+| `generation_examples` | NEW — Ryan's approved/edited items kept as few-shot examples for F32 |
 
 ## 6. Risks & obligations (additions to v2)
 
@@ -207,6 +260,10 @@ to Meaning" tasks himself; F26 is what makes that pleasant.
   injection surface if either side trusts input. Keep the allowed-tag list short.
 - **Default font (D13):** don't switch the whole platform to OpenDyslexic on a list item —
   get Ryan's confirmed yes after seeing the trade-off. (Licence itself is fine: SIL OFL.)
+- **F32 grounding vs copying:** the whole point of tiering the corpus is that retrieval
+  amplifies reproduction risk — Tier 2 sources are analysis-only, and the output similarity
+  check is a required validator, not an optional one. If the similarity check is ever
+  removed "temporarily", F32 is out of policy.
 - (All v2 risks stand.)
 
 ## 7. Decisions
