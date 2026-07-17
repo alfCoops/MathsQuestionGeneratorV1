@@ -43,3 +43,36 @@ create policy "own profile"  on public.profiles for all using (auth.uid() = user
 create policy "own progress" on public.progress for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own events"   on public.events   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- teacher read-all comes with F10 (security-definer fn or role policy) — not now.
+
+
+-- ============================================================================
+-- Phase 2c — F11: per-question quiz results.
+-- One row per answered question. The tag columns (topic/misconception/grade_band/
+-- variant_group) are designed for F19 from day one; they are NULLABLE so existing
+-- untagged questions record fine and the tags fill in as content is authored.
+-- ============================================================================
+create table if not exists public.quiz_results (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  course_id     text not null default 'gcse-edexcel-foundation',
+  lesson_id     text not null,
+  attempt_id    uuid not null,                 -- one quiz sitting = one attempt_id (groups its rows); supports F19 retries
+  q_index       int  not null,                 -- position of the question in the quiz
+  q_id          text,                          -- stable question id once questions have one (F19 variant pools)
+  topic         text,                          -- topic tag of the question (for F10/F21 analytics)
+  misconception text,                          -- named misconception the chosen distractor maps to; NULL if correct
+  grade_band    text,                          -- e.g. '1-3' (for F19 fail-2-down / pass-2-up grade stepping)
+  variant_group text,                          -- variant pool the question came from (F19)
+  chosen        int,                           -- option index the student picked (NULL if skipped)
+  correct       boolean not null,
+  answered_at   timestamptz not null default now(),
+  meta          jsonb not null default '{}'::jsonb
+);
+create index if not exists quiz_results_user_lesson_idx  on public.quiz_results (user_id, course_id, lesson_id);
+create index if not exists quiz_results_attempt_idx      on public.quiz_results (attempt_id);
+create index if not exists quiz_results_misconception_idx on public.quiz_results (misconception) where misconception is not null;
+
+alter table public.quiz_results enable row level security;
+drop policy if exists "own quiz_results" on public.quiz_results;
+create policy "own quiz_results" on public.quiz_results for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- teacher read-all lands with F10 (same security-definer/role approach as the tables above).
