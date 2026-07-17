@@ -383,6 +383,18 @@
 
   /* readable (dyslexia-friendly) font — lazy-loaded only when chosen */
   html[data-font="readable"]{--ff:'Atkinson Hyperlegible','Inter',system-ui,sans-serif}
+  /* F28 — OpenDyslexic (lazy-loaded when chosen; falls back to Atkinson then Inter) */
+  html[data-font="opendyslexic"]{--ff:'OpenDyslexic','Atkinson Hyperlegible','Inter',system-ui,sans-serif}
+
+  /* F28 — coloured overlay for visual stress (Irlen-style). A translucent layer over ALL
+     content incl. images; pointer-events:none so it never blocks interaction. Off by default. */
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9990;background:var(--overlay-c,transparent);transition:background .2s}
+  html[data-overlay="yellow"]{--overlay-c:rgba(255,235,90,.18)}
+  html[data-overlay="cream"]{--overlay-c:rgba(255,246,214,.34)}
+  html[data-overlay="blue"]{--overlay-c:rgba(120,175,255,.17)}
+  html[data-overlay="pink"]{--overlay-c:rgba(255,140,195,.16)}
+  html[data-overlay="grey"]{--overlay-c:rgba(110,110,125,.18)}
+  @media print{ body::after{display:none} }
 
   /* hide countdown timers / time chips (some students find them stressful) */
   html.pf-hidetimers .gen-timer,html.pf-hidetimers .time-chip{display:none!important}
@@ -2519,7 +2531,7 @@ function downloadContent(){
    signed-in user's profiles.prefs so they follow across devices. Light + standard font is the
    default, so nothing changes unless a student opts into an aid. */
 const PREFS_KEY = 'mm-prefs';
-const PREF_DEFAULTS = { theme:'light', font:'default', textSize:1, spacing:0, motion:'auto', focus:false, hideTimers:false, oneAtATime:false };
+const PREF_DEFAULTS = { theme:'light', font:'default', textSize:1, spacing:0, motion:'auto', focus:false, hideTimers:false, oneAtATime:false, overlay:'none' };
 let prefs = (function(){ try{ return Object.assign({}, PREF_DEFAULTS, JSON.parse(localStorage.getItem(PREFS_KEY))||{}); }catch(e){ return Object.assign({}, PREF_DEFAULTS); } })();
 const ZOOM=[1,1.12,1.26], LN=[1.5,1.75,2.05], LS=['normal','.02em','.05em'];
 function ensureReadableFont(){                     /* lazy-load Atkinson Hyperlegible only when chosen */
@@ -2528,10 +2540,19 @@ function ensureReadableFont(){                     /* lazy-load Atkinson Hyperle
   l.href='https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap';
   document.head.appendChild(l);
 }
+/* F28 — OpenDyslexic, lazy-loaded only when chosen (SIL OFL; same opt-in pattern as Atkinson).
+   D13: this is a selectable option; the default font is unchanged (Inter). */
+function ensureDyslexicFont(){
+  if(document.getElementById('mmDysFont')) return;
+  const l=document.createElement('link'); l.id='mmDysFont'; l.rel='stylesheet';
+  l.href='https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5/400.css';
+  document.head.appendChild(l);
+}
 function applyPrefs(){
   const el=document.documentElement;
   el.setAttribute('data-theme', prefs.theme||'light');
   el.setAttribute('data-font', prefs.font||'default');
+  el.setAttribute('data-overlay', prefs.overlay||'none');   /* F28 */
   el.style.setProperty('--ui-zoom', ZOOM[prefs.textSize]||1);
   el.style.setProperty('--ln', LN[prefs.spacing]||1.5);
   el.style.setProperty('--ls', LS[prefs.spacing]||'normal');
@@ -2539,7 +2560,8 @@ function applyPrefs(){
   el.classList.toggle('pf-focus', !!prefs.focus);
   el.classList.toggle('pf-reduce', prefs.motion==='reduce');
   el.classList.toggle('pf-one', !!prefs.oneAtATime);
-  if(prefs.font==='readable') ensureReadableFont();
+  if(prefs.font==='readable')     ensureReadableFont();
+  if(prefs.font==='opendyslexic') ensureDyslexicFont();
 }
 let _prefsCloudT=null;
 function savePrefs(){
@@ -2558,7 +2580,8 @@ const PREF_CONTROLS = [
   {k:'theme',      lb:'Colour theme',              opts:[['light','Light'],['dark','Dark'],['hc','High contrast']]},
   {k:'textSize',   lb:'Text size',                 opts:[[0,'Small'],[1,'Normal'],[2,'Large']]},
   {k:'spacing',    lb:'Line spacing',              opts:[[0,'Normal'],[1,'Relaxed'],[2,'Loose']]},
-  {k:'font',       lb:'Font',                      opts:[['default','Standard'],['readable','Reading font']]},
+  {k:'font',       lb:'Font',                      opts:[['default','Standard'],['readable','Atkinson'],['opendyslexic','OpenDyslexic']]},
+  {k:'overlay',    lb:'Colour overlay (visual stress)', opts:[['none','Off'],['yellow','Yellow'],['cream','Cream'],['blue','Blue'],['pink','Pink'],['grey','Grey']]},
   {k:'motion',     lb:'Motion',                    opts:[['auto','Normal'],['reduce','Reduced']]},
   {k:'focus',      lb:'Focus mode (hide side panel)', opts:[[false,'Off'],[true,'On']]},
   {k:'hideTimers', lb:'Countdown timers',          opts:[[false,'Show'],[true,'Hide']]},

@@ -57,7 +57,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F25 | Theme & maths-symbol backdrop | Should | S | F16 | 2a | ✅ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ✅ |
 | F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ✅ |
-| F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ☐ |
+| F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ✅ |
 | F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ☐ |
 | F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ☐ |
 | F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ☐ |
@@ -165,8 +165,20 @@ Atkinson Hyperlegible.
 on OpenDyslexic is mixed and some students read it *slower*; current shipped default is
 Inter with dyslexia fonts one tap away. Flagged back to Ryan as D13 — if he confirms
 after that context, flipping the default is a one-line change. Don't flip silently.
-**AC:** ☐ overlays apply over all content incl. images, per-user persisted ☐ OpenDyslexic
-selectable and licence-checked (it's SIL OFL — bundling is fine) ☐ default follows D13.
+**AC:** ✅ overlays apply over all content incl. images (fixed `body::after`, pointer-events:none
+so it never blocks clicks), per-user persisted (localStorage + profiles.prefs via F16's sync)
+✅ OpenDyslexic selectable (SIL OFL), lazy-loaded from jsDelivr only when chosen ✅ default
+follows D13 — unchanged (Inter); OpenDyslexic is a third font option, not the default.
+**Build notes:**
+- **Overlay** = a translucent full-page layer (Irlen-style visual-stress tint), tints: yellow,
+  cream, blue, pink, grey. Kept low-alpha so text stays legible. This subsumes the separately
+  listed "yellow page-background" — a yellow overlay and a yellow page tint are the same felt
+  effect for the reader, so one control rather than two near-duplicates (say if a distinct
+  behind-the-text paper tint is wanted instead).
+- **Fonts** now: Standard (Inter) · Atkinson · OpenDyslexic — both dyslexia fonts lazy-load from
+  their CDN only when selected (same opt-in pattern as F16's Atkinson), zero cost otherwise.
+- **D13 answered** (Ryan, via Alfie): ship OpenDyslexic as a selectable option, leave the
+  default as-is → done. See §7.
 
 ### F29 · Content extras — Should, Phase 2b, S–M
 Three small schema+UI additions, all editable in the Teacher Editor:
@@ -288,5 +300,5 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | D9 | Leaderboard opt-in default OFF — confirm | Phase 5 |
 | D10 | Display-name policy (moderation/suggestions) — confirm shipped behaviour is fine | soon (accounts live) |
 | D12 | Q&A platform (YouTube Live vs Zoom) + cadence | Phase 5 |
-| **D13** | **Default font: keep Inter with dyslexia fonts one tap away, or OpenDyslexic everywhere?** (see F28 note) | Phase 2b |
+| ~~D13~~ | **ANSWERED:** ship OpenDyslexic as a selectable option, keep the default as-is (Inter). Done in F28. | ~~Phase 2b~~ |
 | **D14** | **Streak email details: send time (17:00?), copy tone, max misses before stopping** | Phase 3 |
