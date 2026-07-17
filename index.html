@@ -1426,7 +1426,7 @@ function loadLesson(id){
   stopGenTimer(); genCount=0; lastGen=-1;
 
   /* quiz reset */
-  quiz.i=0; quiz.answers=Array(cur.quiz.length).fill(null); quiz.flags=new Set();
+  quiz.i=0; quiz.answers=Array(cur.quiz.length).fill(null); quiz.flags=new Set(); startQuizAttempt();
 
   /* worksheet modal */
   $('wsTitle').textContent = cur.title.replace(/^\d\w+\.\s*/,'');
@@ -1576,8 +1576,38 @@ document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',
 }));
 
 /* =============================== quiz engine =============================== */
-const quiz={ i:0, answers:[], flags:new Set() };
+const quiz={ i:0, answers:[], flags:new Set(), attemptId:null, recorded:false };
 const DIFF={ easy:['Easy','easy'], med:['Medium','med'], hard:['Hard','hard'] };
+
+/* F11 — per-question results. A new attempt_id groups one sitting's rows (and each retry). */
+function uuid4(){
+  if(typeof crypto!=='undefined' && crypto.randomUUID) return crypto.randomUUID();
+  const b=crypto.getRandomValues(new Uint8Array(16)); b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+  const h=[...b].map(x=>x.toString(16).padStart(2,'0'));
+  return h[0]+h[1]+h[2]+h[3]+'-'+h[4]+h[5]+'-'+h[6]+h[7]+'-'+h[8]+h[9]+'-'+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];
+}
+function startQuizAttempt(){ quiz.attemptId = uuid4(); quiz.recorded = false; }
+/* Pure row-builder (no user_id) so the mapping is unit-testable. A wrong answer maps to the
+   named misconception of the option the student chose; correct/untagged → null. */
+function quizResultRows(attempt){
+  return cur.quiz.map((q,idx)=>{
+    const chosen = quiz.answers[idx];
+    const correct = chosen===q.a;
+    const misc = (!correct && q.misc && q.misc[chosen]) ? q.misc[chosen] : null;
+    return {
+      course_id: currentCourseId, lesson_id: cur.code, attempt_id: attempt,
+      q_index: idx, q_id: q.id||null, topic: q.topic||null,
+      misconception: misc, grade_band: q.gradeBand||null, variant_group: q.variantGroup||null,
+      chosen: (chosen==null?null:chosen), correct: correct
+    };
+  });
+}
+async function recordQuizResults(){
+  if(!sbClient || !authUser) return;          /* signed-in students only; best-effort analytics */
+  if(quiz.recorded) return; quiz.recorded = true;
+  const rows = quizResultRows(quiz.attemptId || uuid4()).map(r=>Object.assign({ user_id:authUser.id }, r));
+  try{ await sbClient.from('quiz_results').insert(rows); }catch(e){}
+}
 
 $('quizBtn').addEventListener('click', ()=>{ openAct('secQuiz'); renderQuiz(); });
 $('qExit').addEventListener('click', ()=> $('secQuiz').classList.remove('open'));
@@ -1701,6 +1731,7 @@ function renderQuizResult(){
   const m=masteryRating(pct);
   /* F4 — store latest + best mastery in the existing progress object */
   const p=prog(); p.masteryLatest=pct; p.masteryBest=Math.max(p.masteryBest||0, pct); saveProgress();
+  recordQuizResults();   /* F11 — write per-question rows (best-effort; signed-in students) */
   /* Copy keys off BOTH pass and mastery so an amber/green PASS celebrates and treats retry as optional. */
   const conf = masteryThresholds().confident;
   let guidance;
@@ -1722,7 +1753,7 @@ function renderQuizResult(){
     </div>`;
   if(passed){ completeStep('quiz'); setBtn('quizBtn', true, '✓ Passed', 'Start Quiz', 'o-orange'); }
   const retry=$('qRetry'); if(retry) retry.addEventListener('click',()=>{
-    quiz.i=0; quiz.answers=Array(total).fill(null); quiz.flags.clear(); renderQuiz();
+    quiz.i=0; quiz.answers=Array(total).fill(null); quiz.flags.clear(); startQuizAttempt(); renderQuiz();
   });
   const rev=$('qReview'); if(rev) rev.addEventListener('click',()=>{ quiz.i=0; renderQuiz(); });
   const rl=$('qReviewLesson'); if(rl) rl.addEventListener('click',()=>{
@@ -2324,6 +2355,8 @@ function quizEditor(q,qi){
         <option value="med" ${q.d==='med'?'selected':''}>Medium</option>
         <option value="hard" ${q.d==='hard'?'selected':''}>Hard</option>
       </select>
+      <input class="ad-in q-topic" style="width:150px" value="${esc(q.topic||'')}" placeholder="Topic tag (F11)" title="Topic — used for progress analytics">
+      <input class="ad-in q-gband" style="width:90px" value="${esc(q.gradeBand||'')}" placeholder="Grade" title="Grade band e.g. 1-3 (for F19 grade stepping)">
       <span class="spacer" style="flex:1"></span>
       <button class="btn ghost ad-mini" data-act="qUp" data-qi="${qi}">↑</button>
       <button class="btn ghost ad-mini" data-act="qDown" data-qi="${qi}">↓</button>
@@ -2335,7 +2368,10 @@ function quizEditor(q,qi){
       <div class="ad-row" style="margin-top:6px;align-items:flex-start">
         <input type="radio" name="cor-${qi}" value="${oi}" ${q.a===oi?'checked':''} title="correct answer" style="margin-top:11px">
         <span style="font-size:11px;font-weight:700;color:var(--muted);margin-top:9px">${'ABCD'[oi]}</span>
-        <div style="flex:1">${rich('q-opt', o, {attrs:` data-oi="${oi}"`})}</div>
+        <div style="flex:1">
+          ${rich('q-opt', o, {attrs:` data-oi="${oi}"`})}
+          <input class="ad-in q-misc" data-oi="${oi}" style="margin-top:4px;font-size:11.5px" value="${esc((q.misc&&q.misc[oi])||'')}" placeholder="↳ if a student picks this wrong answer, what's the misconception? (optional)">
+        </div>
       </div>`).join('')}
     <label class="ad-lb">Feedback / explanation</label>
     ${rich('q-fb', q.fb)}
@@ -2442,13 +2478,19 @@ function collectAdminForm(){
   L.quiz = [...f.querySelectorAll('#adQuiz .ad-q')].map((el,qi)=>{
     const old = L.quiz[qi] || {};
     const cor = el.querySelector(`input[name^="cor-"]:checked`);
-    return { ...old,
+    const row = { ...old,
       d: el.querySelector('.q-diff').value,
       q: richValue(el.querySelector('.q-text')),
       opts: [...el.querySelectorAll('.q-opt')].map(o=>richValue(o)),
       a: cor ? +cor.value : (old.a||0),
       fb: richValue(el.querySelector('.q-fb'))
     };
+    /* F11 — topic / grade band / per-option misconception tags (kept only when authored) */
+    const topic = (el.querySelector('.q-topic')||{}).value; if(topic && topic.trim()) row.topic = topic.trim(); else delete row.topic;
+    const gb = (el.querySelector('.q-gband')||{}).value; if(gb && gb.trim()) row.gradeBand = gb.trim(); else delete row.gradeBand;
+    const misc = [...el.querySelectorAll('.q-misc')].sort((a,b)=>(+a.dataset.oi)-(+b.dataset.oi)).map(m=>m.value.trim());
+    if(misc.some(Boolean)) row.misc = misc; else delete row.misc;
+    return row;
   });
 
   L.wsTip = richValue(rq('ad-wstip'));

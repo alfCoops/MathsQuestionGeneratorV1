@@ -61,7 +61,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ✅ |
 | F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ✅ |
 | F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ✅ |
-| F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ☐ |
+| F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ✅ |
 | F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
 | F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
 | F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
@@ -93,9 +93,21 @@ week is potential rework. Then F28 overlays/fonts, F29 content extras, F27 mark 
 F31 CTA. All Ryan-visible; ship as they land.
 
 **Phase 2c — Learning data & experience.**
-F11 (schema designed for F19: topic, misconception, grade band, variant group from day
+F11 ✅ (schema designed for F19: topic, misconception, grade band, variant group from day
 one) → F7 exact-point resume → F8 staged hints (AI-drafted per D3, authored via F26's
 editor) → F9 badges & streaks (in-app only; emails are F30).
+
+**F11 build note (done).** `quiz_results` table (migration in `supabase/migrations.sql`, run
+by Alfie). On finishing the Diagnostic Quiz, a signed-in student writes one row per question
+(best-effort insert; RLS own-row) under a per-sitting `attempt_id` (regenerated on each
+retry). A wrong answer records the chosen distractor's named misconception; correct/untagged
+→ null. Teacher Editor gained per-question **Topic** + **Grade** fields and a per-option
+**misconception** field; all optional and only stored when authored, so existing questions and
+all lessons round-trip byte-identical. The row-builder is a pure function (`quizResultRows`)
+and was unit-tested for the topic/misconception/correct mapping; the DB insert no-ops safely
+when signed out. Tags travel with published content. **Not yet live-tested against the DB**
+(needs a signed-in sitting) — structurally verified and RLS-compatible; take one quiz signed
+in and check the `quiz_results` table to confirm end-to-end.
 **In parallel: F32** — the generation service is backend-only work (FastAPI, separate
 repo/host), so it runs alongside the app-side 2c features without contention, and its
 output starts filling the review queue for Ryan immediately.
