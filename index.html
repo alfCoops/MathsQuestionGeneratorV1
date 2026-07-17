@@ -83,6 +83,15 @@
   .course-tile .ct-sub{font-size:12.5px;color:var(--muted);font-weight:600}
   .course-tile .ct-go{margin-top:auto;font-size:13px;font-weight:800;color:var(--green)}
   .course-tile .ct-lock{position:absolute;top:15px;right:16px;font-size:15px;opacity:.6}
+  /* F9 — achievements strip (streak + badges) on the dashboard */
+  .ach{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border:1.5px solid var(--line);background:var(--surf2);border-radius:14px;padding:11px 16px;margin-bottom:18px}
+  .ach-streak{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--navy)}
+  .ach-streak b{font-size:17px;color:var(--orange)}
+  .ach-streak .ach-fire{font-size:16px}
+  .ach-best{font-weight:600;color:var(--muted);font-size:12px}
+  .ach-badges{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+  .ach-badge{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:var(--card);border:1.5px solid var(--line);filter:grayscale(1);opacity:.4;cursor:default}
+  .ach-badge.on{filter:none;opacity:1;border-color:var(--gold);box-shadow:0 1px 4px rgba(245,158,11,.25)}
   /* F5 — continue banner */
   .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
   .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
@@ -1167,6 +1176,58 @@ function continueBannerHtml(){
     <span class="cb-go">Resume →</span></button>`;
 }
 
+/* =============================== F9 — badges & streaks (in-app) ===============================
+   Badges are DERIVED from progress (which already syncs via F2), so they're cross-device with no
+   new table. The daily streak is a small localStorage counter (device-local for now; F30 will
+   formalise it server-side when it needs to email). No trackers — this is all local/first-party.
+   Email reminders are explicitly F30 (Phase 3), not here. */
+const BADGES = [
+  { id:'first-lesson', icon:'🎯', name:'First Lesson',    desc:'Finish your first lesson',        earned:s=>s.lessonsComplete>=1 },
+  { id:'perfect-quiz', icon:'💯', name:'Perfect Quiz',    desc:'Score 100% on a quiz',            earned:s=>s.perfect },
+  { id:'quiz-master',  icon:'🧠', name:'Quiz Ace',        desc:'Pass 3 quizzes',                  earned:s=>s.quizzesPassed>=3 },
+  { id:'week-done',    icon:'📅', name:'Week Complete',   desc:'Finish every lesson in a week',   earned:s=>s.weeksComplete>=1 },
+  { id:'streak-3',     icon:'🔥', name:'On a Roll',       desc:'Learn 3 days running',            earned:s=>s.streakBest>=3 },
+  { id:'streak-7',     icon:'⚡', name:'Unstoppable',     desc:'Learn 7 days running',            earned:s=>s.streakBest>=7 },
+  { id:'course-done',  icon:'🎓', name:'Course Complete', desc:'Complete every lesson',           earned:s=>s.total>0 && s.lessonsComplete>=s.total },
+];
+const STREAK_KEY='mm-streak', BADGE_ACK_KEY='mm-badges-ack';
+let streak = (function(){ try{ return Object.assign({last:'',current:0,best:0}, JSON.parse(localStorage.getItem(STREAK_KEY))||{}); }catch(e){ return {last:'',current:0,best:0}; } })();
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function touchStreak(){
+  const today = ymd(new Date());
+  if(streak.last===today) return;                 // already counted today
+  const y=new Date(); y.setDate(y.getDate()-1);
+  streak.current = (streak.last===ymd(y)) ? (streak.current||0)+1 : 1;   // consecutive day → ++, else reset
+  streak.last=today; streak.best=Math.max(streak.best||0, streak.current);
+  try{ localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); }catch(e){}
+}
+function progressStats(){
+  const cp = allProgress[currentCourseId] || {};
+  let lessonsComplete=0, quizzesPassed=0, perfect=false, weeksComplete=0;
+  Object.keys(LESSONS).forEach(id=>{ const p=cp[id]||{}; if(p.complete) lessonsComplete++; if(p.quiz) quizzesPassed++; if((p.masteryBest||0)>=100) perfect=true; });
+  WEEKS.forEach(w=>{ const ls=(w.lessons||[]).filter(id=>LESSONS[id]); if(ls.length && ls.every(id=>(cp[id]||{}).complete)) weeksComplete++; });
+  return { total:Object.keys(LESSONS).length, lessonsComplete, quizzesPassed, perfect, weeksComplete, streakCurrent:streak.current||0, streakBest:streak.best||0 };
+}
+function earnedBadges(){ const s=progressStats(); return BADGES.filter(b=>b.earned(s)); }
+function checkNewBadges(){
+  let ack=[]; try{ ack=JSON.parse(localStorage.getItem(BADGE_ACK_KEY))||[]; }catch(e){}
+  const earned = earnedBadges().map(b=>b.id);
+  const fresh = earned.filter(id=>ack.indexOf(id)<0);
+  if(!fresh.length) return;
+  try{ localStorage.setItem(BADGE_ACK_KEY, JSON.stringify(earned)); }catch(e){}
+  if(fresh.length===1){ const b=BADGES.find(x=>x.id===fresh[0]); toast('🏅 Badge earned — '+b.icon+' '+b.name+'!'); }
+  else toast('🏅 '+fresh.length+' new badges earned!');
+}
+function noteLearningActivity(){ touchStreak(); checkNewBadges(); }
+function achievementsHtml(){
+  const s = progressStats();
+  const earned = new Set(earnedBadges().map(b=>b.id));
+  return `<div class="ach">
+    <div class="ach-streak" title="Days learning in a row"><span class="ach-fire">🔥</span><b>${s.streakCurrent}</b> day streak${s.streakBest>s.streakCurrent?` <span class="ach-best">· best ${s.streakBest}</span>`:''}</div>
+    <div class="ach-badges">${BADGES.map(b=>`<span class="ach-badge${earned.has(b.id)?' on':''}" title="${esc(b.name)} — ${esc(b.desc)}${earned.has(b.id)?' ✓':''}">${b.icon}</span>`).join('')}</div>
+  </div>`;
+}
+
 const $ = id => document.getElementById(id);
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
 function lessonDone(id){ const p=progFor(currentCourseId,id); return !!(p&&p.complete); }
@@ -1257,7 +1318,7 @@ function renderCourses(){
   $('crumb').innerHTML = '<span class="here">Courses</span>';
   const root = pageChrome();
   const QUALS = ['GCSE','IGCSE','A-Level'];
-  root.innerHTML = continueBannerHtml() + `
+  root.innerHTML = continueBannerHtml() + achievementsHtml() + `
     <div class="courses-head"><div><h2>Choose your course</h2><p>Pick your qualification to start learning.</p></div>${bookingCtaHtml()}</div>
     <div class="course-grid">
       ${QUALS.map(q=>{
@@ -1514,6 +1575,7 @@ function completeStep(key){
   const p=prog();
   if(p[key]) return;
   p[key]=true; saveProgress(); setLastLocation(currentCourseId, cur.code, key); renderProgress(); renderSidebar();
+  noteLearningActivity();   /* F9 — streak + badge check */
 }
 
 /* =============================== expand/collapse =============================== */
@@ -1779,7 +1841,8 @@ function renderQuizResult(){
   const m=masteryRating(pct);
   /* F4 — store latest + best mastery in the existing progress object */
   const p=prog(); p.masteryLatest=pct; p.masteryBest=Math.max(p.masteryBest||0, pct); saveProgress();
-  recordQuizResults();   /* F11 — write per-question rows (best-effort; signed-in students) */
+  recordQuizResults();      /* F11 — write per-question rows (best-effort; signed-in students) */
+  noteLearningActivity();   /* F9 — finishing a quiz counts; catches Perfect Quiz on a retry */
   /* Copy keys off BOTH pass and mastery so an amber/green PASS celebrates and treats retry as optional. */
   const conf = masteryThresholds().confident;
   let guidance;

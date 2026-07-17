@@ -64,7 +64,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ✅ |
 | F7 | Resume at exact point | Should | M | F2 | 2c | ✅ |
 | F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ✅ |
-| F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
+| F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ✅ |
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ☐ |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ☐ |
 | F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
@@ -95,7 +95,21 @@ F31 CTA. All Ryan-visible; ship as they land.
 **Phase 2c — Learning data & experience.**
 F11 ✅ (schema designed for F19: topic, misconception, grade band, variant group from day
 one) → F7 ✅ exact-point resume → F8 ✅ staged hints (AI-drafted per D3, authored via F26's
-editor) → F9 badges & streaks (in-app only; emails are F30).
+editor) → F9 ✅ badges & streaks (in-app only; emails are F30). **Phase 2c app-side complete;
+only F32 (backend) remains for this phase.**
+
+**F9 build note (done).** Badges are DERIVED from progress (which already syncs via F2), so
+they're cross-device with no new table: 🎯 First Lesson · 💯 Perfect Quiz · 🧠 Quiz Ace (pass 3)
+· 📅 Week Complete · 🔥 On a Roll (3-day streak) · ⚡ Unstoppable (7-day) · 🎓 Course Complete.
+A "🔥 N day streak (· best M)" counter is a small localStorage record (device-local for now;
+F30 will formalise it server-side when it needs to email). An achievements strip (streak +
+earned/locked badges) sits atop the dashboard; newly-earned badges toast once (tracked in a
+localStorage ack list). **Starter badge set + thresholds are my pick — flag for Ryan to
+adjust.** No trackers, all first-party. Emails are F30, not here. Verified: streak transitions
+(new / same-day / consecutive / gap-reset with best kept), badge derivation, one-shot toast +
+ack, dashboard render. Note: `quiz-master` was lowered 5→3 so it's reachable in the current
+4-lesson course.
+**D14 (streak email time/tone/caps) still open** — only bites at F30 (Phase 3).
 
 **F8 build note (done).** Each Diagnostic Quiz question can carry an ordered `hints[]` (rich
 HTML via F26, so images are allowed), authored in the editor with add/remove hint fields. On
