@@ -1133,18 +1133,23 @@ window.addEventListener('online', flushOfflineQueue);
 /* ---------- F5: "continue where you left off" (last_location) ---------- */
 let lastLoc = (function(){ try{ return JSON.parse(localStorage.getItem('mm-last-loc')); }catch(e){ return null; } })();
 let _locTimer = null;
+function lessonHrefSec(cid, lid, section){ return '#/'+cid+'/'+lid+(section?('/'+section):''); }
 function setLastLocation(cid, lid, section){
   lastLoc = { course_id:cid, lesson_id:lid, section:section||'' };
   try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){}
+  /* F7 — reflect the exact spot in the URL (replaceState = no history spam) so a reload lands here */
+  try{ if(parseHash().view==='lesson') history.replaceState(null, '', lessonHrefSec(cid, lid, section)); }catch(e){}
   if(sbClient && authUser){ clearTimeout(_locTimer); _locTimer = setTimeout(()=>{ try{ sbClient.from('profiles').update({ last_location:lastLoc }).eq('user_id', authUser.id); }catch(e){} }, 800); }
 }
+/* F7 — record which activity the student is viewing (not just which they've completed) */
+function noteSection(sec){ if(cur) setLastLocation(currentCourseId, cur.code, sec); }
 function continueBannerHtml(){
   if(!lastLoc || !lastLoc.lesson_id) return '';
   const c = courseById(lastLoc.course_id); if(!c) return '';
   const L = (c.LESSONS||{})[lastLoc.lesson_id]; if(!L) return '';
   const map = { learn:'Video & Notes', quiz:'Diagnostic Quiz', worksheet:'From Method to Meaning', generate:'Question Generator', complete:'Wrap-up' };
   const sect = (lastLoc.section && map[lastLoc.section]) ? ' — '+map[lastLoc.section] : '';
-  return `<button class="continue-banner" data-continue="${lastLoc.course_id}/${lastLoc.lesson_id}">
+  return `<button class="continue-banner" data-continue="${lastLoc.course_id}/${lastLoc.lesson_id}${lastLoc.section?('/'+lastLoc.section):''}">
     <span class="cb-icon">↩</span>
     <span class="cb-text"><span class="cb-label">Continue where you left off</span>
       <span class="cb-lesson">${esc(L.title.replace(/^\d\w+\.\s*/,''))}${sect}</span></span>
@@ -1186,8 +1191,8 @@ function parseHash(){
   if(/^#\/?login\b/.test(h))   return { view:'login' };
   if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
-  let m = h.match(/^#\/?([\w-]+)\/([\w-]+)/);
-  if(m) return { view:'lesson', courseId:m[1], lessonId:m[2] };
+  let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
+  if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
   m = h.match(/^#\/?([\w-]+)/);
   if(m) return { view:'lesson', courseId:null, lessonId:m[1], legacy:true };
   return { view:'courses' };                        // empty hash → dashboard
@@ -1222,7 +1227,7 @@ function route(){
       return;
     }
   }
-  loadLesson(lid);
+  loadLesson(lid, r.section);
 }
 window.addEventListener('hashchange', route);
 
@@ -1378,7 +1383,7 @@ function renderSectionTimes(){
   const set=(id,key)=>{ const el=$(id); if(el) el.textContent='🕒 '+sectionTime(key); };
   set('timeLearn','learn'); set('timeQuiz','quiz'); set('timeWs','worksheet'); set('timeGen','generate');
 }
-function loadLesson(id){
+function loadLesson(id, section){
   if(typeof TTS!=='undefined') TTS.stop();   /* F17 — stop any read-aloud when changing lessons */
   $('adminRoot').style.display='none';
   $('coursesRoot').style.display='none';
@@ -1403,7 +1408,7 @@ function loadLesson(id){
   }
   $('comingSoon').style.display='none'; $('lessonGrid').style.display='grid';
   renderSectionTimes();   /* F6 — estimated time chip on each section card */
-  setLastLocation(currentCourseId, id, (lastLoc && lastLoc.lesson_id===id) ? lastLoc.section : '');   /* F5 */
+  setLastLocation(currentCourseId, id, section || ((lastLoc && lastLoc.lesson_id===id) ? lastLoc.section : ''));   /* F5/F7 — URL section wins */
 
   /* right column */
   $('rcSuccess').innerHTML = cur.success.map(s=>`<li>${s}</li>`).join('');
@@ -1459,6 +1464,20 @@ function loadLesson(id){
 
   renderProgress();
   window.scrollTo(0,0);
+  if(section) resumeToSection(section);   /* F7 — jump to the exact activity when the URL carries one */
+}
+
+/* F7 — resume at exact point: open the activity card from the URL section and scroll to it.
+   Only runs when a section is present (banner / deep link / reload), so plain navigation to a
+   lesson still lands at the top as before. */
+const SECTION_CARDS = { learn:'secLearn', quiz:'secQuiz', worksheet:'secWs', generate:'secGen' };
+function resumeToSection(sec){
+  const cardId = SECTION_CARDS[sec]; if(!cardId) return;
+  const card = $(cardId); if(!card) return;
+  if(cardId==='secQuiz'){ openAct('secQuiz'); renderQuiz(); }
+  else if(cardId==='secGen'){ openAct('secGen'); }
+  else if(cardId==='secLearn'){ openAct('secLearn'); }
+  setTimeout(()=>{ try{ card.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }, 60);
 }
 
 function setBtn(id, done, doneLabel, label, base){
@@ -1491,7 +1510,8 @@ function syncVideoFocus(){ $('lessonGrid').classList.toggle('focus', $('secLearn
 /* F16 — "one at a time" makes the activity cards behave as an accordion (opening one closes the
    others). With the pref off these behave exactly as before. */
 const ACT_SECTIONS = ['secLearn','secQuiz','secGen'];
-function openAct(id){ if(prefs.oneAtATime) ACT_SECTIONS.forEach(s=>{ if(s!==id) $(s).classList.remove('open'); }); $(id).classList.add('open'); if(id==='secLearn') syncVideoFocus(); }
+const CARD_SECTION = { secLearn:'learn', secQuiz:'quiz', secGen:'generate' };   /* F7 */
+function openAct(id){ if(prefs.oneAtATime) ACT_SECTIONS.forEach(s=>{ if(s!==id) $(s).classList.remove('open'); }); $(id).classList.add('open'); if(id==='secLearn') syncVideoFocus(); if(CARD_SECTION[id]) noteSection(CARD_SECTION[id]); }
 function toggleAct(id){ if($(id).classList.contains('open')){ $(id).classList.remove('open'); if(id==='secLearn') syncVideoFocus(); } else openAct(id); }
 document.querySelectorAll('[data-toggle]').forEach(h=>{
   h.addEventListener('click', e=>{
@@ -1764,6 +1784,7 @@ function renderQuizResult(){
 
 /* =============================== worksheet =============================== */
 $('wsBtn').addEventListener('click', ()=>{
+  noteSection('worksheet');   /* F7 */
   if(cur.worksheetFile){                       /* an uploaded file replaces the built worksheet */
     window.open(cur.worksheetFile, '_blank');
     completeStep('worksheet');
@@ -1828,7 +1849,7 @@ function pickGeneratedQuestion(){
   lastGen=i; return cur.genBank[i];
 }
 $('genBtn').addEventListener('click', ()=>{
-  $('secGen').classList.add('open');
+  $('secGen').classList.add('open'); noteSection('generate');   /* F7 */
   const g=pickGeneratedQuestion(); genCount++;
   $('genCard').style.display='block'; $('genActions').style.display='flex';
   $('genLabel').textContent='Question '+genCount;

@@ -62,7 +62,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ✅ |
 | F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ✅ |
 | F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ✅ |
-| F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
+| F7 | Resume at exact point | Should | M | F2 | 2c | ✅ |
 | F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
 | F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ☐ |
@@ -94,8 +94,17 @@ F31 CTA. All Ryan-visible; ship as they land.
 
 **Phase 2c — Learning data & experience.**
 F11 ✅ (schema designed for F19: topic, misconception, grade band, variant group from day
-one) → F7 exact-point resume → F8 staged hints (AI-drafted per D3, authored via F26's
+one) → F7 ✅ exact-point resume → F8 staged hints (AI-drafted per D3, authored via F26's
 editor) → F9 badges & streaks (in-app only; emails are F30).
+
+**F7 build note (done).** URL-based and reload-safe: the lesson hash gains an optional
+`/section` segment (`#/<course>/<lesson>/<section>`). As the student opens an activity
+(learn/quiz/worksheet/generate) the URL is kept current via `history.replaceState` (no history
+spam) and mirrored to `last_location`, so a raw reload — or the F5 "Continue where you left
+off" banner, which now links to the exact section — reopens that activity and scrolls to it.
+Plain navigation to a lesson (no section) still lands at the top, unchanged. Extends F5 rather
+than replacing it: F5 only knew your section once you *completed* a step; F7 tracks what you're
+*viewing*. Verified: parse, resume-on-load, URL sync, clean plain-load, banner link.
 
 **F11 build note (done).** `quiz_results` table (migration in `supabase/migrations.sql`, run
 by Alfie). On finishing the Diagnostic Quiz, a signed-in student writes one row per question
