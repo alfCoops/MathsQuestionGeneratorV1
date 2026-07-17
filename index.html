@@ -66,8 +66,14 @@
   #lessonGrid.focus{grid-template-columns:1fr}
   #lessonGrid.focus #lessonAside{display:none}
   /* F15 — courses dashboard */
+  .courses-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
   .courses-head h2{font-size:22px;font-weight:800;color:var(--navy)}
   .courses-head p{color:var(--muted);font-size:13.5px;margin-top:3px}
+  /* F31 — standing "Book 1-to-1 tutoring" CTA (understated; hidden in focus mode) */
+  .book-cta{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--mm-green);background:var(--green-bg);border:1.5px solid var(--green-line);border-radius:999px;padding:6px 13px;text-decoration:none;white-space:nowrap}
+  .book-cta:hover{border-color:var(--green);box-shadow:0 2px 8px rgba(20,108,67,.14)}
+  .title-row .book-cta{margin-left:auto}
+  html.pf-focus .book-cta{display:none}
   .course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:15px;margin-top:18px}
   .course-tile{display:flex;flex-direction:column;gap:5px;align-items:flex-start;text-align:left;border:1.5px solid var(--line);border-radius:16px;padding:18px 18px 16px;background:var(--card);min-height:132px;cursor:pointer;font:inherit;position:relative}
   .course-tile.live{border-color:var(--green-line);background:var(--green-bg)}
@@ -476,6 +482,7 @@
       <span class="chip grade" id="chipGrade"></span>
       <span class="chip time" id="chipTime"></span>
       <span class="chip calc" id="chipCalc" style="display:none"></span>
+      <span id="bookCtaSlot"></span>
     </div>
 
     <div id="comingSoon" style="display:none" class="card">
@@ -777,7 +784,7 @@ function setCourse(id){ if(courseById(id)) currentCourseId=id; const c=currentCo
 
 /* Site-wide settings travel with the content (so the tutor can toggle them and
    publish). Back-compatible: content without a SETTINGS block uses these defaults. */
-let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLessons:[] }, (window.MM_CONTENT&&window.MM_CONTENT.SETTINGS)||{});
+let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLessons:[], bookingUrl:'https://www.mastermathstutoring.co.uk' }, (window.MM_CONTENT&&window.MM_CONTENT.SETTINGS)||{});
 
 /* Central content shape used by every save/load path. */
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings }; }
@@ -834,6 +841,13 @@ let authUser = null, authProfile = null, authReady = false;
    default has to live under a key the old cloud row doesn't have — otherwise the taster
    would silently stay at 1a in production. Sign-in is still required beyond the taster, and
    sequential unlocking (F3) applies to the taster exactly as before. */
+/* F31 — standing "Book 1-to-1 tutoring" CTA (dashboard + lesson header). Understated, links
+   to the Wix booking page (editable in the Teacher Editor), hidden in focus mode. Empty URL
+   hides it entirely. Complements F21's targeted signpost rather than replacing it. */
+function bookingCtaHtml(){
+  const u=(siteSettings.bookingUrl||'').trim();
+  return u ? `<a class="book-cta no-print" href="${esc(u)}" target="_blank" rel="noopener">📞 Book 1-to-1 tutoring →</a>` : '';
+}
 function isFreeLesson(lid){
   if((siteSettings.freeLessons||[]).indexOf(lid) >= 0) return true;
   const n = (typeof siteSettings.freeWeeks === 'number') ? siteSettings.freeWeeks : 1;
@@ -1228,7 +1242,7 @@ function renderCourses(){
   const root = pageChrome();
   const QUALS = ['GCSE','IGCSE','A-Level'];
   root.innerHTML = continueBannerHtml() + `
-    <div class="courses-head"><h2>Choose your course</h2><p>Pick your qualification to start learning.</p></div>
+    <div class="courses-head"><div><h2>Choose your course</h2><p>Pick your qualification to start learning.</p></div>${bookingCtaHtml()}</div>
     <div class="course-grid">
       ${QUALS.map(q=>{
         const cs = COURSES.filter(c=>c.qualification===q);
@@ -1380,6 +1394,7 @@ function loadLesson(id){
   if(cur.calculator==='allowed'){ calcEl.textContent='🧮 Calculator'; calcEl.style.display=''; }
   else if(cur.calculator==='not-allowed'){ calcEl.textContent='🚫 Non-calculator'; calcEl.style.display=''; }
   else calcEl.style.display='none';
+  $('bookCtaSlot').innerHTML = bookingCtaHtml();   /* F31 */
   renderSidebar();
 
   if(cur.comingSoon){
@@ -1972,6 +1987,7 @@ function renderAdmin(){
     <div class="ad-steps"><b>How saving works:</b> Edit below, then press <b>💾 Save changes</b>. If a cloud backend is connected, your edits publish to <b>every student instantly</b>. Otherwise they save in this browser — and you can still <b>Download content file</b> to publish via GitHub. <b>Preview</b> shows it as a student; <b>Reset to file</b> clears this browser's saved edits.</div>
     ${backendBar()}
     <div class="ad-steps"><label class="ad-lb" style="margin:0"><input type="checkbox" id="adSeq" ${siteSettings.requireSequential?'checked':''}> 🔒 <b>Sequential unlocking</b> — students must finish each lesson (all four steps) before the next unlocks. Turn off for revision periods. <span class="ad-note">(applies to all lessons; press Save to publish)</span></label></div>
+    <div class="ad-steps"><label class="ad-lb" style="margin:0 0 4px">📞 <b>Book 1-to-1 tutoring link</b> <span class="ad-note">(F31 — shown on the dashboard &amp; every lesson header; leave blank to hide)</span></label><input id="adBooking" class="ad-in" value="${esc(siteSettings.bookingUrl||'')}" placeholder="https://www.mastermathstutoring.co.uk/… (your Wix booking page)"></div>
     <div class="ad-bar">
       <label class="ad-lb" style="margin:0">Course:</label>
       <select id="adCourse" class="ad-in" style="width:auto">${COURSES.map(c=>`<option value="${c.id}" ${c.id===currentCourseId?'selected':''}>${esc(courseLabel(c))}</option>`).join('')}</select>
@@ -2009,6 +2025,7 @@ function renderAdmin(){
     siteSettings.requireSequential = e.target.checked; saveDraft(); renderSidebar();
     toast(e.target.checked ? 'Sequential unlocking ON — press Save to publish.' : 'Sequential unlocking OFF — press Save to publish.');
   });
+  if($('adBooking')) $('adBooking').addEventListener('input', e=>{ siteSettings.bookingUrl = e.target.value.trim(); saveDraft(); });   /* F31 (setting lives outside #adForm) */
   $('adSave').addEventListener('click', saveLive);
   $('adResetLive').addEventListener('click', resetLive);
   $('adPreview').addEventListener('click', ()=>{ collectAdminForm(); location.hash=lessonHref(adminSel); });

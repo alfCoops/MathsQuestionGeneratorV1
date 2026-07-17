@@ -60,7 +60,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ✅ |
 | F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ✅ |
 | F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ✅ |
-| F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ☐ |
+| F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ✅ |
 | F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ☐ |
 | F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
 | F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
@@ -243,10 +243,18 @@ that encourages rather than pressures.
 **AC:** ☐ only opted-in students ever receive one ☐ unsubscribe works from the email
 itself ☐ caps enforced ☐ Ryan can see opt-in rates (F10).
 
-### F31 · Standing 1-to-1 CTA — Should, Phase 2b, S
+### F31 · Standing 1-to-1 CTA — Should, Phase 2b, S — ✅ done
 Persistent, understated "Book one-to-one tutoring →" button on the course dashboard and
 lesson header, linking to the Wix booking page. Complements (doesn't replace) F21's
 targeted signpost. Hidden in focus mode.
+**Built:** a `bookingUrl` **site setting** (editable in the Teacher Editor, publishes with the
+content), defaulting to `https://www.mastermathstutoring.co.uk`. Renders an understated green
+pill on the dashboard header and each lesson's title row; `no-print`; hidden in focus mode
+(`html.pf-focus .book-cta{display:none}`); blank URL hides it everywhere.
+**⚠ Needs from Ryan:** the exact Wix **booking** page URL — the default points at the site root,
+not the booking flow. One field in the editor (📞 Book 1-to-1 tutoring link), then Save. Like
+`freeWeeks`, `bookingUrl` is a new SETTINGS key so the current published cloud row (which lacks
+it) won't override the default.
 
 ### Amendments
 - **F14 (per D5):** price **£19.99/month**; free tier = **Week 1** (matches T1); plus a
