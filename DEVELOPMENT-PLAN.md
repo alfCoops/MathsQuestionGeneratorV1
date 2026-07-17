@@ -34,7 +34,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F5 | "Continue where you left off" | **Must** | S–M | F2 | 1 | ✅ |
 | F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ✅ |
 | F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ✅ |
-| F25 | Site theme: SEND-sensitive palette + faint logo-symbol backdrop (off in focus mode) | Should | S | F16 | 2a | ☐ |
+| F25 | Site theme: SEND-sensitive palette + faint logo-symbol backdrop (off in focus mode) | Should | S | F16 | 2a | ✅ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ☐ |
 | F11 | Per-question results + topic + **misconception tags** | Should | M | F2 | 2b | ☐ |
 | F7 | Resume at exact point | Should | M | F2 | 2b | ☐ |
@@ -166,11 +166,18 @@ Points from module completion, quiz performance, streaks (extends F9). Leaderboa
 ("Foundation Master" etc.). SEND note: public ranking is exactly what anxious students
 don't need — opt-in default OFF, and hidden entirely in focus mode.
 
-### F25 · Theme & backdrop — Should, Phase 2a, S
+### F25 · Theme & backdrop — Should, Phase 2a, S — ✅ done
 Faint maths-symbol backdrop (from the logo: + × π √) as a body watermark, brand palette
 aligned to mastermathstutoring.co.uk, colours chosen for SEND sensitivity (avoid harsh
 saturation; verified contrast). The backdrop is a theme layer that **focus mode and
 high-contrast mode remove** — Ryan's two wishes conflict here, and focus wins.
+**Built:** an inline-SVG tile (+ × π √ in the logo's green/gold/red) repeated as a
+`body::before` layer at `z-index:-1; pointer-events:none`, so it sits behind every card and
+can never be clicked. Opacity is a token (`--wm`) driven by theme/focus — measured:
+light `.05` · dark `.08` · high-contrast `0` · focus `0` (in both light and dark) · hidden
+in print. **Palette:** left as-is deliberately — the existing green/navy/white already match
+the brand site and CLAUDE.md rule 5 says keep the visual language, so F25 adds the backdrop
+layer only rather than re-tinting a palette that already passes contrast.
 
 ### Amendments to v1 specs
 - **F1:** + display-name field at sign-up (no real names), privacy notice route,
