@@ -1,9 +1,17 @@
 # MasterMaths Learning Platform
 
 A GCSE Maths learning platform for MasterMaths Tutoring. Single‑file static app
-(`index.html`) + content file (`mm-content.js`), hosted on GitHub Pages and embedded
-in a Wix page via iframe. See `CLAUDE.md` for architecture and `DEVELOPMENT-PLAN.md`
-for the roadmap.
+(`index.html`) + content file (`mm-content.js`), hosted on GitHub Pages and served
+**standalone** at `learn.mastermathstutoring.co.uk` — the Wix site just links to it
+(the old iframe embed is retired). See `CLAUDE.md` for architecture and
+`DEVELOPMENT-PLAN.md` for the roadmap.
+
+## Accessibility (F16/F17)
+Students can open **⚙ Display & reading** in the sidebar to set colour theme (light /
+dark / high‑contrast), text size, line spacing, a reading font, reduced motion, focus
+mode, hidden timers, and one‑section‑at‑a‑time. Settings save to the device and follow
+the student across devices once signed in. Quiz and generated questions have a **🔊 Read
+aloud** button (browser Web Speech API — no service, no cost).
 
 ## Run it
 Open `index.html` (or the GitHub Pages URL). No build step, no npm.
