@@ -290,6 +290,11 @@
   .ws-q .qbox{border:2px solid var(--acc);border-radius:16px;padding:11px 14px;font-size:12px;line-height:1.45;color:#1f2937;text-align:center;min-height:58px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.86)}
   .ws-q .qbox b{font-weight:700}
   .ws-lines{margin-top:12px;flex:1;min-height:150px;background:repeating-linear-gradient(transparent,transparent 20px,#eecfdd 20px,#eecfdd 21px)}
+  /* F27 — per-section mark scheme (hidden until revealed; print-gated by the checkbox) */
+  .ws-ms-btn{margin-top:12px;position:relative;z-index:1}
+  .ws-ms{display:none;position:relative;z-index:1;margin-top:12px;border:1.5px solid var(--acc);border-radius:12px;padding:11px 14px;font-size:12px;line-height:1.5;color:#1f2937;background:rgba(255,255,255,.9)}
+  .ws-ms.show{display:block}
+  .ws-ms b{display:block;margin-bottom:4px;color:var(--acc)}
   .ws-foot{text-align:center;font-size:16px;font-weight:800;color:var(--mm-green);margin-top:12px;padding-top:14px;border-top:2px solid #1f2937;letter-spacing:.3px}
   .ws-foot .tip{display:block;font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:0;margin-top:5px}
 
@@ -308,6 +313,9 @@
     .ws-qs{grid-template-columns:1fr 1fr 1fr!important}
     .ws-lines{min-height:120px}
     .no-print{display:none!important}
+    /* F27 — answers print only when "Include answers when printing" is ticked */
+    .ws-ms{display:none!important}
+    #wsPrintArea.with-answers .ws-ms{display:block!important;visibility:visible}
   }
 
 
@@ -619,7 +627,9 @@
       <div id="wsSections"></div>
       <div class="ws-foot">MasterMathsTutoring™<span class="tip" id="wsTip"></span></div>
     </div>
-    <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:14px" class="no-print">
+    <div style="display:flex;gap:9px;align-items:center;margin-top:14px" class="no-print">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)"><input type="checkbox" id="wsInclAns"> Include answers when printing</label>
+      <span style="flex:1"></span>
       <button class="btn o-purple" id="wsPrint">🖨 Print / Save as PDF</button>
       <button class="btn solid" id="wsDone">Mark as Completed ✓</button>
     </div>
@@ -1418,7 +1428,11 @@ function loadLesson(id){
     const t=WS_THEME[si % WS_THEME.length];
     const d=document.createElement('div'); d.className='ws-sec'; d.style.setProperty('--acc', t.acc);
     d.innerHTML=`<div class="ws-sec-head"><span class="ws-pill">${sec.name}</span><span class="ws-grade${sec.g3?' g3':''}">${sec.grade}</span></div>
-      <div class="ws-qs"><div class="ws-wm">${t.wm}</div>${sec.qs.map(q=>`<div class="ws-q"><div class="qbox">${q}</div><div class="ws-lines"></div></div>`).join('')}</div>`;
+      <div class="ws-qs"><div class="ws-wm">${t.wm}</div>${sec.qs.map(q=>`<div class="ws-q"><div class="qbox">${q}</div><div class="ws-lines"></div></div>`).join('')}</div>`
+      + (sec.markScheme
+        ? `<button class="btn o-purple ws-ms-btn no-print" data-ms="${si}">✓ I’ve attempted this — show mark scheme</button>
+           <div class="ws-ms" id="wsMs${si}"><b>Mark scheme</b>${sec.markScheme}</div>`
+        : '');
     wsWrap.appendChild(d);
   });
 
@@ -1713,6 +1727,14 @@ $('wsBtn').addEventListener('click', ()=>{
   }
 });
 $('wsPrint').addEventListener('click', ()=> window.print());
+/* F27 — reveal a section's mark scheme (the button click IS the "I've attempted it" confirmation) */
+$('wsSections').addEventListener('click', e=>{
+  const b=e.target.closest('[data-ms]'); if(!b) return;
+  const ms=$('wsMs'+b.dataset.ms); if(ms) ms.classList.add('show');
+  b.style.display='none';
+});
+/* F27 — teacher/student choose whether answers appear on the printout */
+$('wsInclAns').addEventListener('change', e=>{ $('wsPrintArea').classList.toggle('with-answers', e.target.checked); });
 $('wsDone').addEventListener('click', ()=>{
   completeStep('worksheet');
   setBtn('wsBtn', true, '✓ Completed', 'Download', 'o-purple');
@@ -2318,7 +2340,9 @@ function wsEditor(s,si){
         <button class="btn ghost ad-mini" data-act="delWsQ" data-si="${si}" data-qi2="${qi2}">🗑</button>
       </div>`).join('')}
     <button class="btn ghost ad-mini" style="margin-top:7px" data-act="addWsQ" data-si="${si}">＋ Add question</button>
-    <div class="ad-note" style="margin-top:5px">Type normally — press <b>Enter</b> for a new line and use the <b>B</b> button for bold.</div>
+    <div class="ad-note" style="margin-top:5px">Type normally — press <b>Enter</b> for a new line and use the toolbar for formatting.</div>
+    <label class="ad-lb" style="margin-top:9px">📝 Mark scheme / answers <span class="ad-note">(optional — students reveal it after attempting; also the printed answers copy)</span></label>
+    ${rich('s-ms', s.markScheme||'')}
   </div>`;
 }
 
@@ -2411,12 +2435,17 @@ function collectAdminForm(){
   });
 
   L.wsTip = richValue(rq('ad-wstip'));
-  L.worksheet = [...f.querySelectorAll('#adWs .ad-q')].map(el=>({
-    name: el.querySelector('.s-name').value,
-    grade: el.querySelector('.s-grade').value,
-    g3: el.querySelector('.s-g3').checked,
-    qs: [...el.querySelectorAll('.s-q')].map(t=>richValue(t))
-  }));
+  L.worksheet = [...f.querySelectorAll('#adWs .ad-q')].map(el=>{
+    const sec = {
+      name: el.querySelector('.s-name').value,
+      grade: el.querySelector('.s-grade').value,
+      g3: el.querySelector('.s-g3').checked,
+      qs: [...el.querySelectorAll('.s-q')].map(t=>richValue(t))
+    };
+    const ms = richValue(el.querySelector('.s-ms'));   /* F27 — only stored when authored */
+    if(ms) sec.markScheme = ms;
+    return sec;
+  });
 
   L.genBank = [...f.querySelectorAll('#adGen .ad-q')].map(el=>({
     grade: el.querySelector('.g-grade').value,

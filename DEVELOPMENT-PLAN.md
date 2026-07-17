@@ -59,7 +59,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ✅ |
 | F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ✅ |
 | F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ✅ |
-| F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ☐ |
+| F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ✅ |
 | F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ☐ |
 | F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ☐ |
 | F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
@@ -153,8 +153,13 @@ Each "From Method to Meaning" section gains an authored mark-scheme block (via F
 editor). Student side: a "Show mark scheme" reveal after they confirm they've attempted
 the section, and an answers appendix on the printable version (toggle so Ryan can print
 with or without answers).
-**AC:** ☐ mark scheme per section, editable ☐ hidden until attempt is confirmed
-☐ print supports with/without answers.
+**AC:** ✅ mark scheme per section, editable (rich `s-ms` field via F26; only stored when
+authored, so sections without one stay back-compatible) ✅ hidden until attempt is confirmed
+(the "✓ I've attempted this — show mark scheme" button is the confirmation; clicking reveals
+it and hides the button) ✅ print supports with/without answers (an "Include answers when
+printing" checkbox toggles `#wsPrintArea.with-answers`; mark schemes are `display:none` in
+print unless it's ticked). Verified: block hidden by default, reveals on click, back-compat
+lesson round-trips identical with no new key, zero console errors.
 
 ### F28 · SEND round 2 — Should, Phase 2b, S–M
 Extends F16's panel: an **Overlay** button offering a range of coloured tints (yellow,
