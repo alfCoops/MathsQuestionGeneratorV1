@@ -460,7 +460,7 @@
           <div class="prog-top"><b>Your Progress</b><span class="pct" id="pct">0%</span></div>
           <div class="steps">
             <div class="step" data-step="learn"><div class="node">1</div><div class="lbl">1. Watch Lesson &amp; Read Notes</div></div>
-            <div class="step" data-step="quiz"><div class="node">2</div><div class="lbl">2. Quiz</div></div>
+            <div class="step" data-step="quiz"><div class="node">2</div><div class="lbl">2. Diagnostic Quiz</div></div>
             <div class="step" data-step="worksheet"><div class="node">3</div><div class="lbl">3. From Method to Meaning</div></div>
             <div class="step" data-step="generate"><div class="node">4</div><div class="lbl">4. Question Generator</div></div>
             <div class="step" data-step="complete"><div class="node star">☆</div><div class="lbl">Lesson Complete</div></div>
@@ -481,7 +481,7 @@
         <section class="card" id="secQuiz">
           <div class="act-head">
             <div class="ico" style="background:var(--orange)">🧠</div>
-            <div class="txt"><b>2. Quiz</b><span>Test your understanding with 10 questions. You'll get instant feedback!</span></div>
+            <div class="txt"><b>2. Diagnostic Quiz</b><span>Test your understanding with 10 questions. You'll get instant feedback!</span></div>
             <span class="time-chip" id="timeQuiz"></span>
             <button class="btn o-orange" id="quizBtn">Start Quiz</button>
           </div>
@@ -652,7 +652,7 @@ function setCourse(id){ if(courseById(id)) currentCourseId=id; const c=currentCo
 
 /* Site-wide settings travel with the content (so the tutor can toggle them and
    publish). Back-compatible: content without a SETTINGS block uses these defaults. */
-let siteSettings = Object.assign({ requireSequential:true, freeLessons:['1a'] }, (window.MM_CONTENT&&window.MM_CONTENT.SETTINGS)||{});
+let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLessons:[] }, (window.MM_CONTENT&&window.MM_CONTENT.SETTINGS)||{});
 
 /* Central content shape used by every save/load path. */
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings }; }
@@ -701,7 +701,22 @@ const sbClient = (window.supabase && backendOn())
   ? window.supabase.createClient(BACKEND.url, BACKEND.anonKey, { auth:{ persistSession:true, autoRefreshToken:true, storageKey:'mm-auth' } })
   : null;
 let authUser = null, authProfile = null, authReady = false;
-function isFreeLesson(lid){ return (siteSettings.freeLessons||[]).indexOf(lid) >= 0; }
+/* T1 (Ryan's D1) — the free taster is the first `freeWeeks` weeks of the course (Week 1 by
+   default = 1a–1d), plus any lessons explicitly listed in `freeLessons`. Derived from the
+   content so adding a lesson to Week 1 keeps it free automatically.
+   NOTE: `freeWeeks` is deliberately a NEW settings key. Published cloud SETTINGS predating
+   this only carry freeLessons:['1a'] and are Object.assign'ed over the defaults, so the new
+   default has to live under a key the old cloud row doesn't have — otherwise the taster
+   would silently stay at 1a in production. Sign-in is still required beyond the taster, and
+   sequential unlocking (F3) applies to the taster exactly as before. */
+function isFreeLesson(lid){
+  if((siteSettings.freeLessons||[]).indexOf(lid) >= 0) return true;
+  const n = (typeof siteSettings.freeWeeks === 'number') ? siteSettings.freeWeeks : 1;
+  for(let i=0; i<Math.min(n, WEEKS.length); i++){
+    if(((WEEKS[i]||{}).lessons||[]).indexOf(lid) >= 0) return true;
+  }
+  return false;
+}
 function displayName(){ return (authProfile && authProfile.display_name) || 'Student'; }
 
 async function loadProfile(){
@@ -988,7 +1003,7 @@ function continueBannerHtml(){
   if(!lastLoc || !lastLoc.lesson_id) return '';
   const c = courseById(lastLoc.course_id); if(!c) return '';
   const L = (c.LESSONS||{})[lastLoc.lesson_id]; if(!L) return '';
-  const map = { learn:'Video & Notes', quiz:'Quiz', worksheet:'From Method to Meaning', generate:'Question Generator', complete:'Wrap-up' };
+  const map = { learn:'Video & Notes', quiz:'Diagnostic Quiz', worksheet:'From Method to Meaning', generate:'Question Generator', complete:'Wrap-up' };
   const sect = (lastLoc.section && map[lastLoc.section]) ? ' — '+map[lastLoc.section] : '';
   return `<button class="continue-banner" data-continue="${lastLoc.course_id}/${lastLoc.lesson_id}">
     <span class="cb-icon">↩</span>
@@ -1523,8 +1538,8 @@ function renderQuizResult(){
   let guidance;
   if(m.level==='confident')     guidance = 'Great work — you’ve got this! 🎉';
   else if(passed)               guidance = `Nice — you passed! ✅ You’re just short of Confident (${conf}%), so retrying is optional — aim higher, or move on to the next step.`;
-  else if(m.level==='practice') guidance = `You’re close — you need ${cur.quizPass}% to pass. Retry the quiz to move on.`;
-  else                          guidance = 'Let’s review the lesson, then try the quiz again.';
+  else if(m.level==='practice') guidance = `You’re close — you need ${cur.quizPass}% to pass. Retry the diagnostic quiz to move on.`;
+  else                          guidance = 'Let’s review the lesson, then try the diagnostic quiz again.';
   $('qArea').innerHTML=`
     <div class="quiz-result">
       <div class="big" style="color:${passed?'var(--green)':'var(--red)'}">${pct}%</div>
@@ -1877,7 +1892,7 @@ function buildAdminForm(){
     <button class="btn ghost ad-mini" data-act="addVideo">＋ Add video</button>
   </div>
 
-  <div class="ad-panel"><h4>🧠 Quiz questions <span class="ad-note">(easy → challenging; tick the correct option)</span></h4>
+  <div class="ad-panel"><h4>🧠 Diagnostic Quiz questions <span class="ad-note">(easy → challenging; tick the correct option)</span></h4>
     <div id="adQuiz">${L.quiz.map((q,qi)=>quizEditor(q,qi)).join('')}</div>
     <button class="btn ghost ad-mini" data-act="addQuiz">＋ Add quiz question</button>
   </div>

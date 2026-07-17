@@ -1,21 +1,48 @@
-# MasterMaths Platform — Development Plan v2 (MoSCoW)
+# MasterMaths Platform — Development Plan v2.1 (MoSCoW)
 
-Last updated: 14 July 2026 · Owner: Alfie · Product owner: Ryan
-v2 folds in Ryan's improvements document (course hierarchy, SEND suite, quiz redesign,
-community requests). Supersedes v1. Status: ☐ not started · ◐ in progress · ✅ done · ⏸ parked · ✖ won't
+Last updated: 17 July 2026 · Owner: Alfie · Product owner: Ryan
+v2.1 records Ryan's D1–D6 answers, folds his 15-07-26 improvements into the remaining
+phases as F26–F31, and restructures Phases 2b→5 accordingly. Phase 0, 1 and 2a build
+notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progress · ✅ done · ⏸ parked · ✖ won't
 
-## What changed from v1
+## What changed in v2.1
 
-- **Phase 0 shipped** — F3, F4, F6 are live. ✅
-- **New Must:** F15 course hierarchy (GCSE→Edexcel→Foundation) — designed into Phase 1 NOW,
-  because retrofitting a course layer under progress data later means migrating every table.
-- **New epic:** SEND accessibility suite (F16–F18) — split by cost: quick wins (settings panel)
-  vs the maths toolkit (widgets). This is the platform's differentiator; quick wins jump the queue.
-- **Expanded:** quiz redesign (F19) — misconception distractors, unlimited retries with fresh
-  variants, in-quiz grade stepping. Engine work is moderate; **authoring is the real cost**.
-- **Explicit Won't:** student forum/community + its notification system (see §6 — Online Safety
-  Act obligations for under-18 user-to-user services are disproportionate for a one-tutor platform).
-- **Re-scoped as website (Wix) tasks, not app features:** Trustpilot/Google reviews section.
+- **Ryan answered D1–D6** (recorded in §7): Week 1 is the free taster · video-opened is
+  enough · AI-draft + Ryan-approve confirmed · badges signed off **plus streak reminder
+  emails (new scope → F30)** · £19.99/month with a comp-access rule for weekly one-to-one
+  students (amends F14) · 80/50 thresholds confirmed.
+- **Ryan's 15-07-26 list → F26–F31**: rich-text authoring (no more HTML typing), worksheet
+  mark schemes, SEND round 2 (overlays, yellow tint, OpenDyslexic option), content extras
+  (weekly quote, calculator icon, sequential video reveal), streak emails, standing 1-to-1 CTA.
+- **Remaining phases restructured**: a new Phase 2b (Authoring & SEND round 2) goes BEFORE
+  the learning-data phase — Ryan is actively authoring content now, and every week of raw-HTML
+  authoring is content that may need reworking later.
+- **Immediate tasks T1–T3** (this week, before/alongside Phase 2b) — see §0.
+
+---
+
+## 0. Immediate tasks (this week)
+
+| # | Task | Why now | Status |
+|---|---|---|---|
+| T1 | Free taster → **all of Week 1** (1a–1d browsable logged-out) | Ryan's D1; currently 1a only | ✅ |
+| T2 | Rename "Quiz" → **"Diagnostic Quiz"** everywhere (section card, progress step label, results copy) | Ryan's ask; trivial; do before screenshots/marketing | ✅ |
+| T3 | **Configure custom SMTP (Resend)** in Supabase, then switch on email verification + password reset (closes F1's deferral) | Launch blocker from Phase 1; also a prerequisite for F30 streak emails | ☐ (Ryan/Alfie — not a code task) |
+
+**T1 build note.** The taster is a new setting `freeWeeks` (default `1`), resolved against the
+course's own week list, so it's `1a–1d` today and stays correct if Ryan adds a lesson to Week 1.
+It had to be a *new* key: the published cloud row already carries `SETTINGS:{"freeLessons":["1a"]}`,
+which is `Object.assign`ed over the code defaults — so changing the `freeLessons` default alone
+would have looked right locally and silently kept the taster at 1a in production. `freeLessons`
+still works as an explicit allowlist, and setting `freeWeeks:0` hands control back to it.
+Verified against the real published SETTINGS: 1a–1d free, 2a not.
+**Scope note:** T1 changes the *sign-in* gate only. Sequential unlocking (F3/D2) still applies to
+the taster, so a logged-out visitor opens 1a and unlocks 1b by finishing it — same rule as a
+signed-in student. Say if the taster should bypass sequential unlocking too.
+**T2 note.** Renamed the step label, section card, results copy, "continue" banner label and the
+editor's question panel. Left the short action buttons ("Start Quiz", "Retry Quiz", "Exit Quiz")
+alone — they sit under the "Diagnostic Quiz" heading and read fine; "Start Diagnostic Quiz" would
+widen the card's button row.
 
 ---
 
@@ -28,216 +55,181 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F3 | Sequential lesson unlocking | Must | S | — | 0 | ✅ |
 | F4 | Quiz mastery ratings 🟢🟡🔴 | Must | S | — | 0 | ✅ |
 | F6 | Estimated time per section | Must | S | — | 0 | ✅ |
-| F1 | Student accounts (email + password; OTP deferred) **+ display names + privacy notice + deletion** | **Must** | M–L | — | 1 | ✅ |
-| F15 | **Course hierarchy & dashboard** (qualification → board → tier) | **Must** | M | with F1 | 1 | ✅ |
-| F2 | Cloud progress sync (now keyed by course + lesson) | **Must** | M | F1, F15 | 1 | ✅ |
-| F5 | "Continue where you left off" | **Must** | S–M | F2 | 1 | ✅ |
-| F16 | **SEND quick wins**: text size/spacing, dyslexia font, light/dark/high-contrast, hide timers, focus mode, one-at-a-time reveal | **Must** | M | F1 (to save prefs) | 2a | ✅ |
-| F17 | Text-to-speech (read instructions/questions aloud) | Should | S–M | F16 panel | 2a | ✅ |
-| F25 | Site theme: SEND-sensitive palette + faint logo-symbol backdrop (off in focus mode) | Should | S | F16 | 2a | ✅ |
+| F1 | Student accounts (email + password; verification/reset pending T3) | Must | M–L | — | 1 | ✅ |
+| F15 | Course hierarchy & dashboard | Must | M | with F1 | 1 | ✅ |
+| F2 | Cloud progress sync (course + lesson keyed) | Must | M | F1, F15 | 1 | ✅ |
+| F5 | "Continue where you left off" | Must | S–M | F2 | 1 | ✅ |
+| F16 | SEND quick wins (panel: size/spacing/font/themes/timers/focus/one-at-a-time) | Must | M | F1 | 2a | ✅ |
+| F17 | Text-to-speech | Should | S–M | F16 | 2a | ✅ |
+| F25 | Theme & maths-symbol backdrop | Should | S | F16 | 2a | ✅ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ✅ |
-| F11 | Per-question results + topic + **misconception tags** | Should | M | F2 | 2b | ☐ |
-| F7 | Resume at exact point | Should | M | F2 | 2b | ☐ |
-| F8 | Quick Help — **staged/scaffolded hints** (+ pictures at hint level) | Should | M | authoring | 2b | ☐ |
-| F9 | Badges & streaks | Should | M | F2 | 2b | ☐ |
-| F10 | Teacher dashboard (+ struggling-student flags) | Should | L | F11 | 3 | ☐ |
-| F21 | End-of-unit summary: strengths/weaknesses + **tutoring signpost** | Should | M | F11 | 3 | ☐ |
-| F19 | **Quiz engine v2**: misconception distractors, variant pools, unlimited retries w/ fresh sets, fail-2-down / pass-2-up grade stepping | Should | L (+authoring) | F11, AI drafting | 4 | ☐ |
-| F12 | Adaptive generator: timer opt-in, working-at grade, Edexcel-style, hint images | Could | L | live AI generator, F11 | 4 | ☐ |
-| F20b | Interactive "From Method to Meaning" worksheets (higher-order tasks; Ryan-authored) | Could | L | F16 reveal, editor | 4 | ☐ |
-| F18 | Digital maths toolkit: number line, hundred square, ×-grid, fraction bars, place-value counters | Could | XL | — | 5 | ☐ |
-| F14 | Subscriptions (Stripe + on/off toggle) | Could | XL | F1 | 5 | ☐ |
-| F13 | Parent dashboard (Sherpa-style separate login; view-only; no social feed) | Could | L | F10 | 5 | ☐ |
-| F23 | Weekly Q&A: embedded stream + upvoted question queue + archive library | Could | M–L | F1 | 5 | ☐ |
-| F24 | Points + leaderboard (opt-in, display names only, weekly/monthly/all-time, tiered ranks) | Could | M | F1, F9 | 5 | ☐ |
+| F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ☐ |
+| F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ☐ |
+| F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ☐ |
+| F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ☐ |
+| F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ☐ |
+| F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ☐ |
+| F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
+| F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
+| F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
+| F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ☐ |
+| F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ☐ |
+| F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
+| F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, AI drafting | 4 | ☐ |
+| F12 | Adaptive generator (timer opt-in per D2 ethos, working-at grade, Edexcel-style) | Could | L | live AI generator, F11 | 4 | ☐ |
+| F20b | Interactive "From Method to Meaning" worksheets | Could | L | F16, F26 | 4 | ☐ |
+| F18 | Digital maths toolkit (number line, hundred square, ×-grid, fraction bars, counters) | Could | XL | — | 5 | ☐ |
+| F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |
+| F13 | Parent dashboard (Sherpa-style, view-only) | Could | L | F10 | 5 | ☐ |
+| F23 | Weekly Q&A (stream + upvote queue + archive) | Could | M–L | F1 | 5 | ☐ |
+| F24 | Points + leaderboard (opt-in, display names) | Could | M | F1, F9 | 5 | ☐ |
 | — | Student forum / community chat + reply notifications | **Won't** | — | — | — | ✖ |
 | — | Trustpilot / Google reviews display | Website task (Wix) | — | — | — | → |
-| — | Native app, offline mode, AI marking of written work, school accounts | Won't (this phase) | — | — | — | ✖ |
+| — | Native app, offline mode, AI marking, school accounts | Won't (this phase) | — | — | — | ✖ |
 
 ---
 
-## 2. Revised phase order
+## 2. Phase order (remaining)
 
-**Phase 1 — Accounts & courses (next).** F1 + F15 together, then F2, F5.
-Login lands on a dashboard: GCSE / IGCSE / A-Level → board → tier. Demo has one live
-course (GCSE · Edexcel · Foundation); the rest render greyed "coming soon". Sign-up asks
-for email + a display name (never real names — privacy for minors AND feeds F24 later).
-Ships with a plain-English privacy notice route and working delete-my-account.
+**Now — T1, T2, T3** (§0). T3 unblocks verification, reset and later F30.
 
-**Phase 2a — SEND quick wins (the differentiator, cheap).** F16 settings panel (CSS
-variables + per-user prefs), F17 text-to-speech via the browser's built-in Web Speech API,
-F25 theme/backdrop, F20a rename. Roughly one week total, transforms the pitch.
+**Phase 2b — Authoring & SEND round 2 (next build phase).**
+F26 rich-text editor **first** — Ryan is authoring content now, and every hand-typed-HTML
+week is potential rework. Then F28 overlays/fonts, F29 content extras, F27 mark schemes,
+F31 CTA. All Ryan-visible; ship as they land.
 
-**Phase 2b — Learning experience.** F11 (now with misconception tags — designed for F19)
-→ F7 → F8 staged hints → F9.
+**Phase 2c — Learning data & experience.**
+F11 (schema designed for F19: topic, misconception, grade band, variant group from day
+one) → F7 exact-point resume → F8 staged hints (AI-drafted per D3, authored via F26's
+editor) → F9 badges & streaks (in-app only; emails are F30).
 
-**Phase 3 — Visibility & guidance.** F10 teacher dashboard, F21 end-of-unit summaries
-with the one-to-one tutoring signpost (the actual business funnel — costs nothing, do it
-properly: triggered by 🔴 mastery patterns, links to the Wix booking page).
+**Phase 3 — Visibility & retention.**
+F10 teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21
+end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + T3).
 
-**Phase 4 — Advanced learning.** F19 quiz v2 (start the authoring pipeline EARLY — see §4),
-F12 adaptive generator once FastAPI is live, F20b interactive worksheets.
+**Phase 4 — Advanced learning.** F19 quiz v2 (start the authoring pipeline during 2c —
+see §4) · F12 adaptive generator once FastAPI is live · F20b interactive worksheets.
 
-**Phase 5 — Commercial & community.** F14 subscriptions, F13 parent portal, F23 weekly
-Q&A, F24 leaderboard.
+**Phase 5 — Commercial & community.** F14 subscriptions (spec now concrete per D5) ·
+F13 parent portal · F23 weekly Q&A · F24 leaderboard.
 
 ---
 
-## 3. New feature specs (F15–F25; F1–F14 specs from v1 still apply unless amended here)
+## 3. New feature specs (F26–F31) and amendments
 
-### F15 · Course hierarchy & dashboard — Must, Phase 1, M
-Content model gains a course layer: `COURSES: [{id:'gcse-edexcel-foundation',
-qualification:'GCSE', board:'Edexcel', tier:'Foundation', WEEKS, LESSONS}]`.
-Back-compat rule: content without a COURSES wrapper is treated as that single default
-course. Progress keys become (user, course, lesson). Dashboard route (`#/courses`) after
-login: qualification tiles → board → tier → lesson pathway. Only one course is live;
-others greyed. Teacher Editor gains a course selector (even with one course).
-**AC:** ◐ login lands on dashboard *(dashboard is the default landing now; post-login
-redirect lands in F1)* ✅ old content loads as the default course ✅ deep
-links still work (`#/gcse-edexcel-foundation/1a`, with `#/1a` redirecting) ✅ progress
-migrates keyed to the default course.
+### F26 · Rich-text authoring — Must, Phase 2b, M–L
+Replaces raw-HTML textareas in the Teacher Editor with a lightweight rich-text editor
+(contenteditable toolbar or a tiny library like Quill): **bold, underline, colour, font
+size**, lists, and **image insertion with drag-to-position and a caption/label field**
+("Figure 1") in Key Notes so questions can reference figures. Output is sanitised HTML
+stored in the same content fields — student-facing rendering unchanged, so no migration;
+existing HTML content opens and edits cleanly in the new editor.
+**AC:** ☐ Ryan formats a question with size/bold/underline/colour without seeing HTML
+☐ image placed inline in Key Notes with a visible label, referenced from a question
+☐ existing lessons open in the editor without corruption ☐ pasted content from Word is
+cleaned, not dumped as junk markup ☐ output sanitised (no script/style injection).
 
-### F16 · SEND quick wins — Must, Phase 2a, M
-A single accessibility settings panel (⚙ icon, honoured everywhere): text size (3 steps)
-· line/letter spacing · dyslexia-friendly font (OpenDyslexic via self-hosted woff2,
-licence permitting, else Atkinson Hyperlegible) · light / dark / high-contrast themes ·
-hide timers · focus mode (hides sidebar chrome, backdrop, streaks/badges, non-essential
-buttons) · one-question-at-a-time reveal for quizzes and on-screen worksheets.
-Implementation: CSS custom properties + a `prefs` object; saved per-user (F1) with
-localStorage fallback; respects `prefers-reduced-motion` / `prefers-contrast`.
-**AC:** ✅ every setting applies instantly app-wide and persists across devices (localStorage
-+ `profiles.prefs` sync on sign-in) ✅ high-contrast passes WCAG AA on all card types (black
-on white, 2px black borders, tints removed) ✅ focus mode hides the right info column (the
-faint backdrop/gamification land with F25) ◐ one-at-a-time: quiz is inherently one-question
--at-a-time; the on-screen "one at a time" pref makes the lesson activity cards an accordion.
-Per-question *worksheet* reveal is deferred (worksheet is a print modal — revisit with F20b).
-**Deviations (both deliberate):** dyslexia-friendly font ships as **Atkinson Hyperlegible**
-(Google Fonts, lazy-loaded, guaranteed-available → zero 404s) rather than self-hosted
-OpenDyslexic; OpenDyslexic can be added later. Default theme/font = light + Inter, all aids
-opt-in (D11 was left unfilled — this is the safe default; flip in one line if Ryan prefers).
+### F27 · Worksheet mark schemes — Should, Phase 2b, S–M
+Each "From Method to Meaning" section gains an authored mark-scheme block (via F26's
+editor). Student side: a "Show mark scheme" reveal after they confirm they've attempted
+the section, and an answers appendix on the printable version (toggle so Ryan can print
+with or without answers).
+**AC:** ☐ mark scheme per section, editable ☐ hidden until attempt is confirmed
+☐ print supports with/without answers.
 
-### F17 · Text-to-speech — Should, Phase 2a, S–M
-🔊 button on instructions, quiz questions and options using the Web Speech API (built
-into browsers, no service, no cost). Reads maths sensibly ("−3" → "negative three";
-"<" → "is less than") via a small symbol-to-words pass before speaking.
-**AC:** ✅ any question/instruction can be played, stopped and replayed (🔊 Read aloud on the
-quiz question — which also reads all four options — and on the generated question; clicking
-again stops, and changing lesson stops playback) ✅ symbols read correctly (unit-tested:
-−3→"negative three", <→"is less than", ≠ ≥ ≤ × ÷ √ ² ³ % ° π, and a/b→"a over b"; HTML tags
-and entities are stripped first) ✅ degrades gracefully — buttons are hidden entirely when
-`speechSynthesis` is unavailable.
-**Note:** pause/resume was implemented as stop/replay (simpler and more predictable for
-students than the Web Speech API's flaky pause on some browsers).
+### F28 · SEND round 2 — Should, Phase 2b, S–M
+Extends F16's panel: an **Overlay** button offering a range of coloured tints (yellow,
+cream, blue, pink, grey — the standard visual-stress set) applied as a translucent layer;
+a yellow page-background option; **OpenDyslexic added as a selectable font** alongside
+Atkinson Hyperlegible.
+**Default-font note (D11/Ryan 15-07):** Ryan asked for OpenDyslexic everywhere. Evidence
+on OpenDyslexic is mixed and some students read it *slower*; current shipped default is
+Inter with dyslexia fonts one tap away. Flagged back to Ryan as D13 — if he confirms
+after that context, flipping the default is a one-line change. Don't flip silently.
+**AC:** ☐ overlays apply over all content incl. images, per-user persisted ☐ OpenDyslexic
+selectable and licence-checked (it's SIL OFL — bundling is fine) ☐ default follows D13.
 
-### F19 · Quiz engine v2 — Should, Phase 4, L + authoring
-Diagnostic-style questions (inspiration: diagnosticquestions.com): every distractor maps
-to a named misconception, stored on wrong answers (feeds F10/F21). Retries are unlimited
-but each retry draws a **fresh variant set** from a pool; fail 2 attempts → question set
-steps down a grade band, pass 2 in a row → steps up (capped at Foundation's top band for
-this course). Schema: questions gain `gradeBand`, `variantGroup`, `misconceptions[]`.
-**The gating factor is authoring**, not code: each lesson needs pools of variants per
-band. Pipeline (per Ryan's "I want to preapprove"): the AI generator drafts variants in
-the diagnostic style → review queue in the Teacher Editor → Ryan approves, edits or
-rejects → approved questions publish. ⚠ **Copyright rule:** Edexcel papers and PMT
-compilations are copyrighted — the AI must produce *original Edexcel-style* questions;
-never lift questions from those sources.
-**AC:** ☐ two consecutive fails visibly ease the questions; two passes step up ☐ retry
-never repeats the exact same set ☐ wrong answers record a misconception ☐ nothing
-reaches students without Ryan's approval.
+### F29 · Content extras — Should, Phase 2b, S–M
+Three small schema+UI additions, all editable in the Teacher Editor:
+1. **Motivational quote per week** — shown above the week's lessons on the pathway/dashboard.
+2. **Calculator icon per lesson** — Ryan picks 🧮 allowed / 🚫 non-calculator per lesson
+   (Edexcel-authentic); chip shows next to grade/duration.
+3. **Sequential video reveal** — within a lesson, video n+1 appears only after video n is
+   opened (less on the page, per Ryan's SEND ethos; plays well with F16's one-at-a-time).
+**AC:** ☐ all three editable per week/lesson ☐ back-compatible (absent fields = no quote,
+no icon, all videos shown) ☐ reveal state persists via progress.
 
-### F21 · End-of-unit summary — Should, Phase 3, M
-On completing a week/unit: "What you did well / What to work on" built from F11 data
-(topics ≥80% vs <50%), mastery per lesson, and a low-pressure signpost: "Want help with
-[weakest topic]? Ryan offers one-to-one sessions →" linking to the Wix booking page.
-**AC:** ☐ summary auto-generates from real answer data ☐ signpost appears only when
-there's a genuine weak area ☐ Ryan sees the same summary per student (F10).
+### F30 · Streak reminder emails — Could, Phase 3, M (from Ryan's D4)
+Daily Supabase cron checks streaks at risk (active yesterday, not today by ~17:00 UK) and
+sends a short nudge via Resend. **Compliance is the design constraint, not the cron:**
+these are engagement emails to minors — opt-in checkbox at signup (default OFF), one-click
+unsubscribe in every email, frequency capped (max 1/day, stop after 2 ignored), and copy
+that encourages rather than pressures.
+**AC:** ☐ only opted-in students ever receive one ☐ unsubscribe works from the email
+itself ☐ caps enforced ☐ Ryan can see opt-in rates (F10).
 
-### F23 · Weekly Q&A — Could, Phase 5, M–L
-Embedded live stream (unlisted YouTube Live / Zoom link) on a members page + a question
-queue: students **submit questions and upvote others'** — deliberately no free-form chat
-between students (keeps it out of user-to-user territory). Archive list of past sessions
-searchable by topic/date.
-**AC:** ☐ submit + upvote works ☐ Ryan can mark questions answered ☐ no student-to-
-student messaging surface exists.
+### F31 · Standing 1-to-1 CTA — Should, Phase 2b, S
+Persistent, understated "Book one-to-one tutoring →" button on the course dashboard and
+lesson header, linking to the Wix booking page. Complements (doesn't replace) F21's
+targeted signpost. Hidden in focus mode.
 
-### F24 · Points & leaderboard — Could, Phase 5, M
-Points from module completion, quiz performance, streaks (extends F9). Leaderboard is
-**opt-in**, shows display names only, filters weekly/monthly/all-time, tiered ranks
-("Foundation Master" etc.). SEND note: public ranking is exactly what anxious students
-don't need — opt-in default OFF, and hidden entirely in focus mode.
+### Amendments
+- **F14 (per D5):** price **£19.99/month**; free tier = **Week 1** (matches T1); plus a
+  **comp-access flag** per student — set manually by Ryan in the teacher dashboard (F10)
+  for students with a weekly recurring one-to-one booking, revoked when they stop. Stripe
+  can't see his tutoring diary, so this is deliberately manual. F10 gains the toggle UI;
+  F14 checks `subscription active OR comp_access OR free tier`.
+- **F9 (per D4):** badge set + streak rules signed off; email reminders are **F30**, not F9.
+- **F8 (per D3):** AI-drafted hints/examples with Ryan approval confirmed as the workflow.
+- **F12 (per D2 ethos):** timers remain strictly opt-in.
 
-### F25 · Theme & backdrop — Should, Phase 2a, S — ✅ done
-Faint maths-symbol backdrop (from the logo: + × π √) as a body watermark, brand palette
-aligned to mastermathstutoring.co.uk, colours chosen for SEND sensitivity (avoid harsh
-saturation; verified contrast). The backdrop is a theme layer that **focus mode and
-high-contrast mode remove** — Ryan's two wishes conflict here, and focus wins.
-**Built:** an inline-SVG tile (+ × π √ in the logo's green/gold/red) repeated as a
-`body::before` layer at `z-index:-1; pointer-events:none`, so it sits behind every card and
-can never be clicked. Opacity is a token (`--wm`) driven by theme/focus — measured:
-light `.05` · dark `.08` · high-contrast `0` · focus `0` (in both light and dark) · hidden
-in print. **Palette:** left as-is deliberately — the existing green/navy/white already match
-the brand site and CLAUDE.md rule 5 says keep the visual language, so F25 adds the backdrop
-layer only rather than re-tinting a palette that already passes contrast.
+## 4. Authoring pipeline (unchanged, now urgent)
 
-### Amendments to v1 specs
-- **F1:** + display-name field at sign-up (no real names), privacy notice route,
-  delete-account action, login lands on F15's dashboard.
-  ✅ Shipped as **email + password** (email confirmation off → no SMTP needed); **OTP,
-  email verification and password-reset are deferred until custom SMTP is configured**
-  (see README launch blockers). Full account deletion via a `delete-account` Edge Function.
-- **F8:** hints are **staged** (nudge → method prompt → worked step), each stage can
-  include an image/concrete representation; still authored via editor, AI-draftable.
-- **F12:** + pre-start choice "Timed (exam conditions) / Untimed"; timer hidden anyway
-  when the SEND hide-timers pref is on; shows "Working at: Grade N"; hint images.
-- **F13:** Sherpa-style: separate "login as parent" entry; strictly view-only; parents
-  never see social/community surfaces.
-- **F10:** + "struggling" flag (repeated 🔴 mastery or misconception clusters) with a
-  suggested action of a tutoring referral.
+Start during Phase 2c: FastAPI generator drafts variant questions + misconception
+distractors + staged hints for 1a–1d into a review queue; Ryan clears it weekly. F19's
+engine without an approved question pool is an empty feature. Ryan writes "From Method
+to Meaning" tasks himself; F26 is what makes that pleasant.
 
-## 4. Start the authoring pipeline early
-
-F19 and F8 are code-cheap and content-expensive. From Phase 2b onwards, run authoring in
-parallel with development: get the FastAPI generator drafting variant questions +
-misconception distractors + staged hints for lessons 1a–1d, into a review queue Ryan
-clears weekly. If authoring starts when F19's code is done, the feature will sit unusable
-for a month. Ryan writes "From Method to Meaning" tasks himself (his preference) — the
-editor just needs somewhere for them to live (F20b).
-
-## 5. Data model deltas (on top of v1 §5)
+## 5. Data model deltas (on top of v2 §5)
 
 | Change | Detail |
 |---|---|
-| `profiles` | + display_name (no real names encouraged), + prefs jsonb (SEND settings) |
-| `progress` | key becomes (user_id, course_id, lesson_id) |
-| `quiz_results` | + course_id, misconception text, grade_band, variant_group |
-| `questions_review` | NEW — AI-drafted questions awaiting Ryan's approval (F19/F8 pipeline) |
-| `qa_questions` | NEW — weekly Q&A submissions + upvotes (F23) |
-| `points` / leaderboard views | NEW — derived from events (F24), opt_in flag on profiles |
+| `profiles` | + `streak_emails_opt_in` bool default false, + `comp_access` bool default false |
+| content schema | + week.quote, lesson.calculator ('allowed'/'not-allowed'/absent), video sequential-reveal flag; F26 stores sanitised rich HTML in existing fields |
+| worksheet schema | + markScheme per section (F27) |
+| `email_log` | NEW — streak emails sent (dedupe/caps for F30) |
 
-## 6. Risks & obligations (additions)
+## 6. Risks & obligations (additions to v2)
 
-- **Online Safety Act / safeguarding:** a forum or open chat for under-18s makes the
-  platform a user-to-user service with active moderation and risk-assessment duties —
-  disproportionate for one tutor. Hence forum = **Won't**. The Q&A queue (submit + upvote
-  only) is the deliberate safe substitute. Revisit only with real moderation resource.
-- **Copyright:** original Edexcel-*style* questions only; no reproduction from PMT,
-  Edexcel papers, or Diagnostic Questions. Applies to AI generation prompts too.
-- **Leaderboard vs SEND ethos:** opt-in only, display names only, absent in focus mode.
-- **OpenDyslexic licensing:** check the font licence before bundling; Atkinson
-  Hyperlegible (free, strong readability research) is the fallback.
-- (All v1 risks stand: children's data, service_role key upgrade, Supabase limits,
-  single-file growth — the file WILL need splitting by Phase 4; plan it at Phase 3.)
+- **Emailing minors (F30):** opt-in only, unsubscribe in every message, capped frequency.
+  If in doubt about tone, the test is "would a parent reading it over their shoulder object?"
+- **Rich-text output (F26):** sanitise on save AND on render — the editor becomes an HTML
+  injection surface if either side trusts input. Keep the allowed-tag list short.
+- **Default font (D13):** don't switch the whole platform to OpenDyslexic on a list item —
+  get Ryan's confirmed yes after seeing the trade-off. (Licence itself is fine: SIL OFL.)
+- (All v2 risks stand.)
 
-## 7. Open decisions for Ryan (updated)
+## 7. Decisions
+
+**Answered (recorded):**
+
+| # | Decision | Ryan's answer |
+|---|---|---|
+| D1 | Free taster | **All of Week 1** (1a–1d) → task T1 |
+| D2 | Unlock rule | **Opening the video is enough** (matches shipped behaviour) |
+| D3 | Hints/questions authorship | **AI-drafted, Ryan approves** |
+| D4 | Badges & streaks | **Signed off + email reminders** → F30 (opt-in, see §6) |
+| D5 | Pricing | **£19.99/mo · Week 1 free · comp access for weekly recurring 1-to-1 students only** → F14/F10 amendments |
+| D6 | Mastery thresholds / pass mark | **80/50 confirmed · pass stays 80%** |
+
+**Still open:**
 
 | # | Decision | Needed by |
 |---|---|---|
-| D1 | Free taster scope (1a only? whole Week 1?) | Phase 1 |
-| D3 | Hints/questions: AI-drafted + your approval queue — confirm this workflow | Phase 2b |
-| D5 | Subscription price & free tier | Phase 5 |
-| D7 | Course tile naming/order on the dashboard; which boards/tiers shown "coming soon" | Phase 1 |
-| D8 | Foundation grade cap for stepping (grade 5?) and the 2-fail/2-pass rules sign-off | Phase 4 |
-| D9 | Leaderboard: confirm opt-in default OFF | Phase 5 |
-| D10 | Display-name policy (moderated? auto-generated suggestions?) | Phase 1 |
-| D11 | SEND defaults: which theme/font ships as the default experience | Phase 2a |
-| D12 | Q&A platform (YouTube Live vs Zoom) and cadence | Phase 5 |
+| D7 | Course tile naming/order; which boards/tiers shown "coming soon" | cosmetic now — before marketing |
+| D8 | Foundation grade cap for stepping (grade 5?) + 2-fail/2-pass sign-off | Phase 4 |
+| D9 | Leaderboard opt-in default OFF — confirm | Phase 5 |
+| D10 | Display-name policy (moderation/suggestions) — confirm shipped behaviour is fine | soon (accounts live) |
+| D12 | Q&A platform (YouTube Live vs Zoom) + cadence | Phase 5 |
+| **D13** | **Default font: keep Inter with dyslexia fonts one tap away, or OpenDyslexic everywhere?** (see F28 note) | Phase 2b |
+| **D14** | **Streak email details: send time (17:00?), copy tone, max misses before stopping** | Phase 3 |
