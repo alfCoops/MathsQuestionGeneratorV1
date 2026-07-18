@@ -76,3 +76,54 @@ alter table public.quiz_results enable row level security;
 drop policy if exists "own quiz_results" on public.quiz_results;
 create policy "own quiz_results" on public.quiz_results for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- teacher read-all lands with F10 (same security-definer/role approach as the tables above).
+
+
+-- ============================================================================
+-- Phase 3 — F10: teacher read-all + comp-access toggle (D5) + F30-ready opt-in.
+-- Idempotent. Students keep their own-row policies; teachers ADDITIONALLY get
+-- read-all on the data tables (RLS combines policies with OR), and can flip
+-- comp_access via a narrow RPC. No service_role key in the browser for this.
+-- ============================================================================
+
+-- New profile columns (D5 comp-access; F30 email opt-in — column now, feature later).
+alter table public.profiles add column if not exists comp_access         boolean not null default false;
+alter table public.profiles add column if not exists streak_emails_opt_in boolean not null default false;
+
+-- Who is a teacher? SECURITY DEFINER so the check runs without RLS on profiles,
+-- preventing infinite recursion when the profiles policy itself calls this.
+create or replace function public.is_teacher()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.role = 'teacher');
+$$;
+revoke all on function public.is_teacher() from public;
+grant execute on function public.is_teacher() to authenticated;
+
+-- Teacher read-all (SELECT only) on the data tables. Own-row policies stay in place.
+drop policy if exists "teacher reads profiles"     on public.profiles;
+drop policy if exists "teacher reads progress"     on public.progress;
+drop policy if exists "teacher reads quiz_results" on public.quiz_results;
+drop policy if exists "teacher reads events"       on public.events;
+create policy "teacher reads profiles"     on public.profiles     for select using (public.is_teacher());
+create policy "teacher reads progress"     on public.progress     for select using (public.is_teacher());
+create policy "teacher reads quiz_results" on public.quiz_results for select using (public.is_teacher());
+create policy "teacher reads events"       on public.events       for select using (public.is_teacher());
+
+-- Comp-access toggle: a narrow, teacher-only RPC (avoids a blanket teacher-write
+-- policy that could touch any column of any profile).
+create or replace function public.set_comp_access(target uuid, val boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_teacher() then raise exception 'not authorized'; end if;
+  update public.profiles set comp_access = val where user_id = target;
+end; $$;
+revoke all on function public.set_comp_access(uuid, boolean) from public;
+grant execute on function public.set_comp_access(uuid, boolean) to authenticated;
+
+-- ONE-TIME, by hand: make Ryan's account a teacher (find his id in Auth → Users):
+--   update public.profiles set role = 'teacher' where user_id = '<ryan-user-id>';
+-- (Without this, no account passes is_teacher() and the dashboard shows nothing.)
+
+-- NOT YET: questions_review (F32's output target) — awaiting the exact column
+-- list from the generator repo's GENERATOR-SERVICE.md §5 so the app and the
+-- service agree byte-for-byte. Added once that's pasted.
