@@ -99,6 +99,25 @@
   .ach-badges{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
   .ach-badge{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:var(--card);border:1.5px solid var(--line);filter:grayscale(1);opacity:.4;cursor:default}
   .ach-badge.on{filter:none;opacity:1;border-color:var(--gold);box-shadow:0 1px 4px rgba(245,158,11,.25)}
+  /* F10 — teacher dashboard */
+  .tch-head h2{font-size:22px;font-weight:800;color:var(--navy)}
+  .tch-head p{color:var(--muted);font-size:13px;margin-top:3px}
+  .tch-tabs{display:flex;gap:6px;margin:15px 0 4px}
+  .tch-tab{font:inherit;font-size:13px;font-weight:700;padding:8px 15px;border:1.5px solid var(--line);border-radius:9px;background:var(--card);color:var(--muted);cursor:pointer}
+  .tch-tab.active{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+  .tch-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+  .tch-table th{text-align:left;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1.5px solid var(--line);padding:8px 10px;white-space:nowrap}
+  .tch-table td{padding:9px 10px;border-bottom:1px solid var(--line)}
+  .tch-table tr.tch-warn td{background:var(--red-bg)}
+  .tch-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+  .tch-foot{font-size:12px;color:var(--muted);margin-top:13px}
+  .tch-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:14px}
+  .tch-cols h3{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:9px}
+  .tch-list{list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px}
+  .tch-list li{padding:7px 11px;background:var(--surf2);border:1px solid var(--line);border-radius:8px}
+  .tch-list b{color:var(--red)}
+  .tch-dim{color:var(--muted);font-size:11px}
+  @media(max-width:720px){.tch-cols{grid-template-columns:1fr}}
   /* F5 — continue banner */
   .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
   .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
@@ -1277,6 +1296,7 @@ function parseHash(){
   if(/^#\/?admin\b/.test(h))   return { view:'admin' };
   if(/^#\/?login\b/.test(h))   return { view:'login' };
   if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
+  if(/^#\/?teacher\b/.test(h)) return { view:'teacher' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1289,6 +1309,7 @@ function route(){
   if(r.view==='admin')   return renderAdmin();
   if(r.view==='login')   return renderLogin();
   if(r.view==='privacy') return renderPrivacy();
+  if(r.view==='teacher') return renderTeacher();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -1433,11 +1454,102 @@ function renderPrivacy(){
     pd.innerHTML = `<p class="auth-note"><a href="#/login">Sign in</a> to manage or delete your account.</p>`;
   }
 }
+/* =============================== F10 — teacher dashboard (#/teacher) ===============================
+   Role-gated (profiles.role='teacher'); reads every student via the teacher's own session + the
+   read-all RLS (no service_role in the browser). Data minimisation holds — only the pseudonymous
+   display_name is ever shown, never email/real names. */
+let _tchTab = 'students', _tchData = null;
+async function renderTeacher(){
+  document.title = 'Teacher dashboard — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Teacher</span>';
+  if(!authReady){ const r=pageChrome(); r.innerHTML='<p class="auth-note">Loading…</p>'; return; }
+  if(!sbClient || !authUser || !authProfile || authProfile.role!=='teacher'){
+    toast('Teacher access only.'); location.hash = '#/courses'; return;
+  }
+  const root = pageChrome();
+  root.innerHTML = `
+    <div class="tch-head"><h2>Teacher dashboard</h2><p>Read-only view of every student's progress. Names are the nicknames students chose.</p></div>
+    <div class="tch-tabs">${teacherTabsHtml()}</div>
+    <div id="tchBody"><p class="auth-note">Loading student data…</p></div>`;
+  root.querySelectorAll('[data-ttab]').forEach(b=>b.addEventListener('click', ()=>{ _tchTab=b.dataset.ttab; paintTeacherTabs(); }));
+  _tchData = await loadTeacherData();
+  paintTeacherTabs();
+}
+function teacherTabsHtml(){
+  return ['students','insights'].map(t=>`<button class="tch-tab" data-ttab="${t}">${t==='students'?'Students':'Insights'}</button>`).join('');
+}
+function paintTeacherTabs(){
+  document.querySelectorAll('.tch-tab').forEach(b=>b.classList.toggle('active', b.dataset.ttab===_tchTab));
+  const body=$('tchBody'); if(!body||!_tchData) return;
+  if(_tchData.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load data. Check you ran the teacher RLS migration and that your account is role=teacher.</p>'; return; }
+  body.innerHTML = (_tchTab==='insights') ? teacherInsightsHtml(_tchData) : teacherStudentsHtml(_tchData);
+  wireTeacherBody();
+}
+async function loadTeacherData(){
+  try{
+    const [p,pr,qr] = await Promise.all([
+      sbClient.from('profiles').select('user_id,display_name,role,comp_access,streak_emails_opt_in'),
+      sbClient.from('progress').select('user_id,course_id,lesson_id,steps'),
+      sbClient.from('quiz_results').select('user_id,topic,misconception,correct')
+    ]);
+    if(p.error||pr.error||qr.error) throw (p.error||pr.error||qr.error);
+    return { profiles:(p.data||[]), progress:(pr.data||[]), quiz:(qr.data||[]) };
+  }catch(e){ return { profiles:[], progress:[], quiz:[], error:String(e&&e.message||e) }; }
+}
+function studentStats(uid, progress){
+  const rows = progress.filter(r=>r.user_id===uid);
+  let complete=0, quizzed=0, red=0, mSum=0, mN=0;
+  rows.forEach(r=>{ const s=r.steps||{};
+    if(s.complete) complete++;
+    if(typeof s.masteryLatest==='number'){ quizzed++; mSum+=s.masteryLatest; mN++; if(s.masteryLatest<50) red++; }
+  });
+  return { lessons:rows.length, complete, quizzed, red, avg:(mN?Math.round(mSum/mN):null), struggling:(red>0) };
+}
+function teacherStudentsHtml(d){
+  const students = d.profiles.filter(p=>p.role!=='teacher');
+  if(!students.length) return '<p class="auth-note">No student accounts yet.</p>';
+  const need = students.filter(p=>studentStats(p.user_id,d.progress).struggling).length;
+  const optIn = students.filter(p=>p.streak_emails_opt_in).length;
+  const rows = students.map(p=>{
+    const s = studentStats(p.user_id, d.progress);
+    return `<tr class="${s.struggling?'tch-warn':''}">
+      <td>${s.struggling?'🔴 ':''}${esc(p.display_name||'—')}</td>
+      <td>${s.complete}</td><td>${s.quizzed}</td><td>${s.avg==null?'—':s.avg+'%'}</td><td>${s.red||'—'}</td>
+      <td><label class="tch-toggle"><input type="checkbox" class="tch-comp" data-uid="${esc(p.user_id)}" ${p.comp_access?'checked':''}> comp</label></td>
+    </tr>`;
+  }).join('');
+  return `<table class="tch-table">
+    <thead><tr><th>Student</th><th>Lessons done</th><th>Quizzes</th><th>Avg score</th><th>🔴 Reviews</th><th>Comp access</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <p class="tch-foot">${students.length} student${students.length===1?'':'s'} · ${need} need attention · ${optIn} opted in to reminder emails.</p>`;
+}
+function teacherInsightsHtml(d){
+  const mc={}; d.quiz.forEach(r=>{ if(r.misconception) mc[r.misconception]=(mc[r.misconception]||0)+1; });
+  const mcTop = Object.keys(mc).map(k=>[k,mc[k]]).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const tp={}; d.quiz.forEach(r=>{ if(r.topic){ const t=tp[r.topic]||(tp[r.topic]={c:0,n:0}); t.n++; if(r.correct) t.c++; } });
+  const tpArr = Object.keys(tp).map(k=>({topic:k,n:tp[k].n,rate:Math.round(100*tp[k].c/tp[k].n)})).filter(x=>x.n>=3).sort((a,b)=>a.rate-b.rate).slice(0,12);
+  return `<div class="tch-cols">
+    <div><h3>Most common misconceptions</h3>${mcTop.length?`<ul class="tch-list">${mcTop.map(m=>`<li><b>${m[1]}×</b> ${esc(m[0])}</li>`).join('')}</ul>`:'<p class="auth-note">No misconception data yet — students need to answer tagged questions.</p>'}</div>
+    <div><h3>Weakest topics <span class="ad-note">(≥3 attempts)</span></h3>${tpArr.length?`<ul class="tch-list">${tpArr.map(t=>`<li><b>${t.rate}%</b> ${esc(t.topic)} <span class="tch-dim">(${t.n})</span></li>`).join('')}</ul>`:'<p class="auth-note">No topic data yet.</p>'}</div>
+  </div>`;
+}
+function wireTeacherBody(){
+  document.querySelectorAll('.tch-comp').forEach(cb=>cb.addEventListener('change', async ()=>{
+    const uid=cb.dataset.uid, val=cb.checked;
+    try{ const { error } = await sbClient.rpc('set_comp_access', { target:uid, val }); if(error) throw error;
+      toast(val?'Comp access granted — press nothing, it’s saved.':'Comp access removed.');
+      const rec=_tchData.profiles.find(p=>p.user_id===uid); if(rec) rec.comp_access=val;
+    }catch(e){ cb.checked=!val; toast('Couldn’t update comp access.'); }
+  }));
+}
+
 function renderAuthBox(){
   const box=$('authBox'); if(!box) return;
   if(!sbClient){ box.innerHTML=''; return; }
   if(authUser){
-    box.innerHTML = `<span class="auth-nick" title="Signed in">👤 ${esc(displayName())}</span><button class="auth-link" id="authOut">Sign out</button>`;
+    const tch = (authProfile && authProfile.role==='teacher') ? `<button class="auth-link" id="authTeach">📊 Teacher dashboard</button>` : '';
+    box.innerHTML = `<span class="auth-nick" title="Signed in">👤 ${esc(displayName())}</span>${tch}<button class="auth-link" id="authOut">Sign out</button>`;
+    const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
   } else {
     box.innerHTML = `<button class="auth-link solid" id="authIn">Sign in / Create account</button>`;
