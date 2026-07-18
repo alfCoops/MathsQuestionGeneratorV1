@@ -100,7 +100,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
 | F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ✅ (F10a dashboard + F10b review tab) |
-| F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ☐ |
+| F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ✅ |
 | F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
 | F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ☐ |
 | F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
@@ -135,8 +135,21 @@ repo/host), so it runs alongside the app-side 2c features without contention, an
 output starts filling the review queue for Ryan immediately.
 
 **Phase 3 — Visibility & retention.**
-F10 teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21
-end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + T3).
+F10 ✅ teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21 ✅
+end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + **T3 SMTP**).
+
+**F10 build note (done).** Role-gated `#/teacher` (no service_role in the browser; reads via the
+teacher's session + the read-all RLS). **F10a:** Students tab (per-student lessons/quizzes/avg/🔴,
+struggling flag red-tints the row, comp-access toggle → `set_comp_access` RPC) + Insights tab
+(top misconceptions, weakest topics by correct-rate). **F10b:** Review-queue tab over
+`questions_review` — approve / reject / edit; an edit writes a **field-level `edited_diff`**
+(only changed fields, each `{from,to}`, other payload fields preserved) as the generator's taste
+signal. Pure builders unit-tested; Supabase calls are thin. Options/distractor editing deferred.
+**F21 build note (done).** Finishing every real (non-coming-soon) lesson in a week pops a summary
+modal: strengths (mastery ≥80) vs "worth another look" (<80, red/amber), and the **tutoring
+signpost** (F31's bookingUrl) — prominent when there are weak lessons, gentle when all green.
+Derived from the student's own progress; no cross-student data.
+**F30 is BLOCKED on T3 (SMTP) — stopped here per Alfie's instruction.**
 
 **Phase 4 — Advanced learning.** F19 quiz v2 (start the authoring pipeline during 2c —
 see §4) · F12 adaptive generator once FastAPI is live · F20b interactive worksheets.

@@ -118,6 +118,19 @@
   .tch-list b{color:var(--red)}
   .tch-dim{color:var(--muted);font-size:11px}
   @media(max-width:720px){.tch-cols{grid-template-columns:1fr}}
+  /* F21 — end-of-unit summary modal */
+  .unit-cel{font-size:40px;text-align:center;line-height:1}
+  .unit-h{font-size:22px;font-weight:800;color:var(--navy);text-align:center;margin-top:6px}
+  .unit-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:14px}
+  .unit-sec{margin-bottom:12px}
+  .unit-sec b{display:block;font-size:13px;margin-bottom:5px}
+  .unit-good{color:var(--green)} .unit-weak{color:var(--orange)}
+  .unit-sec ul{list-style:none;display:flex;flex-direction:column;gap:5px}
+  .unit-sec li{font-size:13px;padding:7px 11px;background:var(--surf2);border:1px solid var(--line);border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+  .unit-m{font-weight:700;font-size:12px} .unit-m.r{color:var(--red)} .unit-m.a{color:var(--orange)}
+  .unit-cta{display:block;text-align:center;margin-top:14px;font-size:13px;font-weight:700;color:var(--mm-green);background:var(--green-bg);border:1.5px solid var(--green-line);border-radius:11px;padding:11px 14px;text-decoration:none}
+  .unit-cta:hover{border-color:var(--green)}
+  .unit-cta.strong{color:#fff;background:var(--mm-green);border-color:var(--mm-green)}
   /* F10b — AI review queue */
   .rv-item{border:1px solid var(--line);border-radius:13px;padding:15px 17px;margin-top:13px;background:var(--card)}
   .rv-meta{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px}
@@ -718,6 +731,11 @@
     <div class="pref-sub">Adjust how the site looks and reads. Saved to this device, and to your account when you're signed in.</div>
     <div id="prefsBody"></div>
   </div>
+</div>
+
+<!-- F21 — end-of-unit summary (strengths/weaknesses + tutoring signpost) -->
+<div class="modal" id="unitModal" role="dialog" aria-modal="true" aria-label="Unit summary">
+  <div class="modal-box" style="max-width:520px"><button class="modal-x" data-close="unitModal">✕</button><div id="unitBody"></div></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1834,6 +1852,44 @@ function completeStep(key){
   if(p[key]) return;
   p[key]=true; saveProgress(); setLastLocation(currentCourseId, cur.code, key); renderProgress(); renderSidebar();
   noteLearningActivity();   /* F9 — streak + badge check */
+  if(key==='complete') maybeUnitSummary(cur.code);   /* F21 — end-of-unit summary */
+}
+
+/* =============================== F21 — end-of-unit summary + tutoring signpost ===============================
+   When a student finishes every (real, non-coming-soon) lesson in a week, celebrate and show a
+   strengths/weaknesses summary from their own mastery. The tutoring signpost — the actual business
+   funnel — is shown prominently when there are 🔴/🟡 lessons, gently otherwise. All from local
+   progress; no cross-student data. Reuses F31's bookingUrl. */
+function realWeekLessons(w){ return (w.lessons||[]).filter(id=>LESSONS[id] && !LESSONS[id].comingSoon); }
+function weekAllComplete(w){ const ls=realWeekLessons(w); return !!ls.length && ls.every(id=>{ const p=progFor(currentCourseId,id); return p&&p.complete; }); }
+function unitSummary(w){
+  const strengths=[], weaknesses=[];
+  realWeekLessons(w).forEach(id=>{
+    const p=progFor(currentCourseId,id)||{};
+    const m=(typeof p.masteryBest==='number')?p.masteryBest:null;
+    const title=(LESSONS[id].title||id).replace(/^\d\w+\.\s*/,'');
+    if(m==null) return;
+    if(m>=80) strengths.push(title); else weaknesses.push({title, m});
+  });
+  return { label:w.label, strengths, weaknesses };
+}
+function showUnitSummary(w){
+  const s=unitSummary(w), hasWeak=s.weaknesses.length>0, book=(siteSettings.bookingUrl||'').trim();
+  $('unitBody').innerHTML = `
+    <div class="unit-cel">🎉</div>
+    <h2 class="unit-h">${esc(s.label)} complete!</h2>
+    <p class="unit-sub">Here’s how you got on.</p>
+    ${s.strengths.length?`<div class="unit-sec"><b class="unit-good">💪 Strong on</b><ul>${s.strengths.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
+    ${hasWeak?`<div class="unit-sec"><b class="unit-weak">🔁 Worth another look</b><ul>${s.weaknesses.map(x=>`<li>${esc(x.title)} <span class="unit-m ${x.m<50?'r':'a'}">${x.m}%</span></li>`).join('')}</ul></div>`:''}
+    ${book ? (hasWeak
+        ? `<a class="unit-cta strong" href="${esc(book)}" target="_blank" rel="noopener">📞 Stuck on some of these? A one-to-one session really helps — book tutoring →</a>`
+        : `<a class="unit-cta" href="${esc(book)}" target="_blank" rel="noopener">📞 Want to go further? Book one-to-one tutoring →</a>`) : ''}
+    <button class="btn ghost" style="margin-top:14px" data-close="unitModal">Keep going →</button>`;
+  $('unitModal').classList.add('show');
+}
+function maybeUnitSummary(lid){
+  const w=WEEKS.find(x=>(x.lessons||[]).indexOf(lid)>=0);
+  if(w && weekAllComplete(w)) showUnitSummary(w);
 }
 
 /* =============================== expand/collapse =============================== */
