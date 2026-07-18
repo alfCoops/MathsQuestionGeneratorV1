@@ -124,6 +124,38 @@ grant execute on function public.set_comp_access(uuid, boolean) to authenticated
 --   update public.profiles set role = 'teacher' where user_id = '<ryan-user-id>';
 -- (Without this, no account passes is_teacher() and the dashboard shows nothing.)
 
--- NOT YET: questions_review (F32's output target) — awaiting the exact column
--- list from the generator repo's GENERATOR-SERVICE.md §5 so the app and the
--- service agree byte-for-byte. Added once that's pasted.
+-- ============================================================================
+-- Phase 3 / F32 — questions_review: the AI generation service's output queue.
+-- Columns per the generator repo's GENERATOR-SERVICE.md §5 (must match byte-for-byte).
+-- The SERVICE only INSERTs pending rows (via the service key, which bypasses RLS) and
+-- reads back approved/edited rows for its few-shot loop. The Teacher review tab (F10b)
+-- owns ALL status transitions; an edit stores the field diff in edited_diff — that diff
+-- is the taste signal the generator learns from, NOT an audit trail.
+-- ============================================================================
+create table if not exists public.questions_review (
+  id               bigint generated always as identity primary key,
+  course_id        text not null,
+  lesson_id        text,                                                  -- nullable
+  kind             text not null check (kind in ('question','hints','generator')),
+  payload          jsonb not null,                                        -- full item: question_html, options(+misconception tags), answer, answer_numeric, hints, mark_scheme, marks, calculator, trace
+  spec_ref         text[],
+  grade_band       int,
+  variant_group    text,
+  similarity_score numeric,
+  source           text not null default 'ai' check (source in ('ai')),
+  status           text not null default 'pending' check (status in ('pending','approved','edited','rejected')),
+  approved_by      uuid references auth.users(id) on delete set null,
+  edited_diff      jsonb,
+  created_at       timestamptz not null default now()
+);
+create index if not exists questions_review_status_idx on public.questions_review (status, created_at);
+create index if not exists questions_review_course_idx on public.questions_review (course_id);
+
+alter table public.questions_review enable row level security;
+-- Teacher-only: students never touch this table. The service uses the service key (bypasses RLS).
+drop policy if exists "teacher reads review"  on public.questions_review;
+drop policy if exists "teacher writes review" on public.questions_review;
+create policy "teacher reads review"  on public.questions_review for select using (public.is_teacher());
+create policy "teacher writes review" on public.questions_review for update using (public.is_teacher()) with check (public.is_teacher());
+-- (No insert policy: inserts come from the service via the service key. Add one only if the
+--  teacher UI ever needs to hand-author into the queue.)
