@@ -99,7 +99,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
 | F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
 | F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
-| F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ◐ (F10a done; F10b review tab next) |
+| F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ✅ (F10a dashboard + F10b review tab) |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ☐ |
 | F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
 | F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ☐ |

@@ -118,6 +118,19 @@
   .tch-list b{color:var(--red)}
   .tch-dim{color:var(--muted);font-size:11px}
   @media(max-width:720px){.tch-cols{grid-template-columns:1fr}}
+  /* F10b — AI review queue */
+  .rv-item{border:1px solid var(--line);border-radius:13px;padding:15px 17px;margin-top:13px;background:var(--card)}
+  .rv-meta{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px}
+  .rv-q{font-size:14.5px;font-weight:600;line-height:1.5}
+  .rv-opts{list-style:none;display:flex;flex-direction:column;gap:5px;margin:10px 0}
+  .rv-opts li{font-size:13px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surf2)}
+  .rv-opts li.rv-correct{border-color:var(--green);background:var(--green-bg)}
+  .rv-mis{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+  .rv-ms{font-size:12.5px;color:var(--text2);margin-top:9px;line-height:1.5}
+  .rv-ms b{color:var(--navy)}
+  .rv-marks{font-weight:700;color:#15803d}
+  .rv-actions{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+  .rv-editform{margin-top:12px;border-top:1px dashed var(--line);padding-top:11px}
   /* F5 — continue banner */
   .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
   .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
@@ -1475,12 +1488,13 @@ async function renderTeacher(){
   _tchData = await loadTeacherData();
   paintTeacherTabs();
 }
-function teacherTabsHtml(){
-  return ['students','insights'].map(t=>`<button class="tch-tab" data-ttab="${t}">${t==='students'?'Students':'Insights'}</button>`).join('');
-}
+const TCH_TABS = [['students','Students'],['insights','Insights'],['review','Review queue']];
+function teacherTabsHtml(){ return TCH_TABS.map(t=>`<button class="tch-tab" data-ttab="${t[0]}">${t[1]}</button>`).join(''); }
 function paintTeacherTabs(){
   document.querySelectorAll('.tch-tab').forEach(b=>b.classList.toggle('active', b.dataset.ttab===_tchTab));
-  const body=$('tchBody'); if(!body||!_tchData) return;
+  const body=$('tchBody'); if(!body) return;
+  if(_tchTab==='review'){ renderReviewTab(body); return; }   /* F10b — loads its own data */
+  if(!_tchData) return;
   if(_tchData.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load data. Check you ran the teacher RLS migration and that your account is role=teacher.</p>'; return; }
   body.innerHTML = (_tchTab==='insights') ? teacherInsightsHtml(_tchData) : teacherStudentsHtml(_tchData);
   wireTeacherBody();
@@ -1542,6 +1556,107 @@ function wireTeacherBody(){
     }catch(e){ cb.checked=!val; toast('Couldn’t update comp access.'); }
   }));
 }
+
+/* =============================== F10b — AI review queue (questions_review) ===============================
+   The generation service (F32) inserts 'pending' items; this tab owns every status transition.
+   An EDIT records a field-level diff in edited_diff — that diff is the taste signal the generator
+   learns from, so it's stored deliberately, not as an audit trail. Teacher-only via RLS. */
+const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints'];
+async function loadReviewQueue(){
+  try{
+    const { data, error } = await sbClient.from('questions_review').select('*').eq('status','pending').order('created_at',{ascending:true});
+    if(error) throw error; return { items:data||[] };
+  }catch(e){ return { items:[], error:String(e&&e.message||e) }; }
+}
+async function renderReviewTab(body){
+  body.innerHTML = '<p class="auth-note">Loading review queue…</p>';
+  const q = await loadReviewQueue();
+  if(q.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the review queue.</p>'; return; }
+  if(!q.items.length){ body.innerHTML = '<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>'; return; }
+  body.innerHTML = `<p class="tch-foot" style="margin:0 0 12px">${q.items.length} item${q.items.length===1?'':'s'} awaiting your review. Approve keeps it; Edit saves your changes (and teaches the generator your taste); Reject drops it.</p>`
+    + q.items.map(reviewItemHtml).join('');
+  wireReviewItems(q.items);
+}
+function reviewMetaHtml(it){
+  const bits=[esc(it.kind||'item')];
+  if(it.grade_band!=null) bits.push('Grade '+esc(it.grade_band));
+  if(Array.isArray(it.spec_ref)&&it.spec_ref.length) bits.push('Spec '+it.spec_ref.map(esc).join(', '));
+  if(it.similarity_score!=null) bits.push('Similarity '+(Math.round(it.similarity_score*100)/100));
+  return bits.join(' · ');
+}
+function reviewItemHtml(it){
+  const p=it.payload||{};
+  const opts = Array.isArray(p.options) ? p.options.map((o,i)=>{
+    const text = (o&&typeof o==='object') ? (o.text||o.html||'') : String(o);
+    const mis  = (o&&typeof o==='object') ? (o.misconception||'') : '';
+    const correct = (o&&typeof o==='object' && o.correct) || (p.answer===i);
+    return `<li class="${correct?'rv-correct':''}">${sanitizeHtml(text)}${mis?`<span class="rv-mis">↳ ${esc(mis)}</span>`:''}</li>`;
+  }).join('') : '';
+  const hints = Array.isArray(p.hints) ? p.hints : [];
+  return `<div class="rv-item" data-id="${esc(it.id)}">
+    <div class="rv-meta">${reviewMetaHtml(it)}</div>
+    <div class="rv-q">${sanitizeHtml(p.question_html||p.question||'<i>(no question text)</i>')}</div>
+    ${opts?`<ul class="rv-opts">${opts}</ul>`:''}
+    ${p.mark_scheme?`<div class="rv-ms"><b>Mark scheme</b> ${sanitizeHtml(p.mark_scheme)}${p.marks!=null?` <span class="rv-marks">(${esc(p.marks)} mark${(+p.marks)===1?'':'s'})</span>`:''}</div>`:''}
+    ${hints.length?`<div class="rv-ms"><b>Hints</b><ol style="margin:5px 0 0 18px">${hints.map(h=>`<li>${sanitizeHtml(h)}</li>`).join('')}</ol></div>`:''}
+    <div class="rv-actions">
+      <button class="btn solid rv-approve" data-id="${esc(it.id)}">✓ Approve</button>
+      <button class="btn o-blue rv-edit" data-id="${esc(it.id)}">✎ Edit</button>
+      <button class="btn ghost rv-reject" data-id="${esc(it.id)}" style="color:var(--red);border-color:var(--red-line)">✕ Reject</button>
+    </div>
+    <div class="rv-editform" id="rvEdit${esc(it.id)}" style="display:none"></div>
+  </div>`;
+}
+function reviewEditFormHtml(it){
+  const p=it.payload||{};
+  return `<label class="ad-lb">Question</label><textarea class="ad-in ad-ta rvf-q">${esc(p.question_html||p.question||'')}</textarea>
+    <label class="ad-lb">Mark scheme</label><textarea class="ad-in ad-ta rvf-ms">${esc(p.mark_scheme||'')}</textarea>
+    <label class="ad-lb">Marks</label><input class="ad-in rvf-marks" type="number" value="${esc(p.marks!=null?p.marks:'')}" style="width:90px">
+    <label class="ad-lb">Hints <span class="ad-note">(one per line)</span></label><textarea class="ad-in ad-ta rvf-hints">${esc((Array.isArray(p.hints)?p.hints:[]).join('\n'))}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>
+    <p class="ad-note" style="margin-top:6px">Options/distractors aren’t editable here yet — reject and regenerate if a distractor is wrong.</p>`;
+}
+/* Pure: given the original payload and the edited field values, return {newPayload, diff}.
+   diff has one entry per CHANGED field ({from,to}) — the generator's taste signal. */
+function reviewEdit(payload, edits){
+  const p = Object.assign({}, payload||{});
+  const before = { question_html:(p.question_html!=null?p.question_html:(p.question||'')), mark_scheme:(p.mark_scheme||''), marks:p.marks, hints:(Array.isArray(p.hints)?p.hints:[]) };
+  const after  = { question_html:edits.question_html, mark_scheme:edits.mark_scheme, marks:edits.marks, hints:edits.hints };
+  const newPayload = Object.assign({}, p, { mark_scheme:after.mark_scheme, marks:after.marks, hints:after.hints });
+  if('question_html' in p || !('question' in p)) newPayload.question_html = after.question_html; else newPayload.question = after.question_html;
+  const diff={};
+  RV_EDIT_FIELDS.forEach(k=>{ if(JSON.stringify(before[k])!==JSON.stringify(after[k])) diff[k]={ from:before[k], to:after[k] }; });
+  return { newPayload, diff };
+}
+function wireReviewItems(items){
+  const byId = id => items.find(x=>String(x.id)===String(id));
+  document.querySelectorAll('.rv-approve').forEach(b=>b.addEventListener('click',()=>reviewTransition(b.dataset.id,'approved')));
+  document.querySelectorAll('.rv-reject').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Reject this generated item? It won’t reach students.')) reviewTransition(b.dataset.id,'rejected'); }));
+  document.querySelectorAll('.rv-edit').forEach(b=>b.addEventListener('click',()=>{
+    const it=byId(b.dataset.id), box=$('rvEdit'+it.id);
+    box.innerHTML=reviewEditFormHtml(it); box.style.display='block';
+    box.querySelector('.rv-canceledit').addEventListener('click',()=>{ box.style.display='none'; box.innerHTML=''; });
+    box.querySelector('.rv-savedit').addEventListener('click',()=>reviewSaveEdit(it, box));
+  }));
+}
+async function reviewTransition(id, status){
+  try{ const { error } = await sbClient.from('questions_review').update({ status, approved_by:(authUser&&authUser.id)||null }).eq('id', id); if(error) throw error;
+    toast(status==='approved'?'Approved ✓':'Rejected.'); const el=document.querySelector('.rv-item[data-id="'+id+'"]'); if(el) el.remove(); reviewCheckEmpty();
+  }catch(e){ toast('Couldn’t update — are you signed in as a teacher?'); }
+}
+async function reviewSaveEdit(it, box){
+  const edits = {
+    question_html: box.querySelector('.rvf-q').value,
+    mark_scheme:   box.querySelector('.rvf-ms').value,
+    marks:         (box.querySelector('.rvf-marks').value===''? (it.payload&&it.payload.marks) : +box.querySelector('.rvf-marks').value),
+    hints:         box.querySelector('.rvf-hints').value.split('\n').map(s=>s.trim()).filter(Boolean)
+  };
+  const { newPayload, diff } = reviewEdit(it.payload, edits);
+  try{ const { error } = await sbClient.from('questions_review').update({ payload:newPayload, edited_diff:diff, status:'edited', approved_by:(authUser&&authUser.id)||null }).eq('id', it.id); if(error) throw error;
+    toast('Saved & marked edited ✓'); const el=document.querySelector('.rv-item[data-id="'+it.id+'"]'); if(el) el.remove(); reviewCheckEmpty();
+  }catch(e){ toast('Couldn’t save the edit.'); }
+}
+function reviewCheckEmpty(){ if(_tchTab==='review' && !document.querySelector('.rv-item')){ const b=$('tchBody'); if(b) b.innerHTML='<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>'; } }
 
 function renderAuthBox(){
   const box=$('authBox'); if(!box) return;
