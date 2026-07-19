@@ -101,8 +101,8 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ✅ (F10a dashboard + F10b review tab) |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ✅ |
-| F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
-| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ☐ |
+| F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ⏸ (blocked on T3 SMTP) |
+| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ◐ (M1 complete, M2 in progress — separate repo; this repo's side = questions_review + review tab, done) |
 | F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
 | F12 | Adaptive generator (timer opt-in per D2 ethos, working-at grade, Edexcel-style) | Could | L | **F32**, F11 | 4 | ☐ |
 | F20b | Interactive "From Method to Meaning" worksheets | Could | L | F16, F26 | 4 | ☐ |
@@ -203,7 +203,12 @@ Three small schema+UI additions, all editable in the Teacher Editor:
 **AC:** ☐ all three editable per week/lesson ☐ back-compatible (absent fields = no quote,
 no icon, all videos shown) ☐ reveal state persists via progress.
 
-### F32 · Spec-grounded generation service — Should, Phase 2c–3, L
+### F32 · Spec-grounded generation service — ◐ M1 done, M2 in progress
+**STATUS (19-07): this service already exists in its own private repo (see `generator-CLAUDE.md`)
+and is at M2 — generation pipeline built, first sample run imminent. It is NOT built in this
+(app) repo. This repo's ONLY side of F32 is the `questions_review` table + the teacher review
+tab (F10b), both done. Do not plan, scaffold or build any generation service here.** The rest of
+this section is the functional spec for reference / integration only.
 **v2.3 amendments:** corpus schema is board+qualification keyed (course_id → board, tier,
 spec version); Edexcel 1MA1 Foundation AND Higher statements are in hand (from Ryan,
 17-07) and load first; OCR/AQA/WJEC GCSE and Edexcel/AQA/OCR/WJEC A-Level spec sources
