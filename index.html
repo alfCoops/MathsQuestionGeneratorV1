@@ -2609,6 +2609,10 @@ function buildAdminForm(){
       <span><label class="ad-lb" style="margin:0 0 4px">Worksheet</label><input id="ad-tws" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.worksheet)||''}" placeholder="~25 minutes" style="width:130px"></span>
       <span><label class="ad-lb" style="margin:0 0 4px">Generator</label><input id="ad-tgen" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.generate)||''}" placeholder="Unlimited practice" style="width:150px"></span>
     </div>
+    <div style="margin-top:12px">
+      <label class="ad-lb" style="margin:0 0 4px">📐 Spec references <span class="ad-note">(Edexcel 1MA1 codes, comma-separated — e.g. N1, N2, N15. Grounds the AI generator and shows which spec points this lesson covers.)</span></label>
+      <input id="ad-specrefs" class="ad-in" value="${esc((L.specRefs||[]).join(', '))}" placeholder="N1, N2, N15">
+    </div>
   </div>
 
   <div class="ad-panel"><h4>🎬 Videos &amp; Notes</h4><div id="adVideos">${L.videos.map((v,vi)=>videoEditor(v,vi)).join('')}</div>
@@ -2935,6 +2939,7 @@ function collectAdminForm(){
   /* F29 — calculator flag + sequential-video reveal (absent/false = default behaviour) */
   if(g('ad-calc')){ const cv=g('ad-calc').value; if(cv) L.calculator=cv; else delete L.calculator; }
   if(g('ad-seqvid')){ if(g('ad-seqvid').checked) L.sequentialVideos=true; else delete L.sequentialVideos; }
+  if(g('ad-specrefs')){ const sr=g('ad-specrefs').value.split(',').map(s=>s.trim()).filter(Boolean); if(sr.length) L.specRefs=sr; else delete L.specRefs; }   /* spec_refs (2b) */
   L.week = g('ad-week').value;
   L.strand = g('ad-strand').value;
   L.prev = g('ad-prev').value || null;

@@ -23,6 +23,7 @@ const LESSONS = {
 '1a': {
   code:'1a', title:'1a. Integers and Place Value', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:'1b',
+  specRefs:['N1','N2','N3','N14','N15'],   /* Edexcel 1MA1: N1/N2 ordering+four-ops, N3 BIDMAS, N14 estimation, N15 rounding */
   success:[
     'Use and order positive and negative numbers (integers) and decimals; use the symbols &lt;, &gt; and understand the ≠ symbol.',
     'Add, subtract, multiply and divide positive and negative numbers (integers).',
@@ -212,6 +213,7 @@ const LESSONS = {
 '1b': {
   code:'1b', title:'1b. Decimals', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:'1a', next:'1c',
+  specRefs:['N1','N2','N10','N14','N15'],   /* PROPOSED (for review): N1 place value, N2 ×÷ decimals, N10 decimals↔fractions, N14 estimation, N15 rounding */
   success:[
     'Read and write the place value of any digit in a decimal.',
     'Compare and order decimals using <, > and =.',
@@ -394,9 +396,11 @@ const LESSONS = {
 
 /* ------------------------------------------------------------ 1c, 1d (placeholders) */
 '1c': { code:'1c', title:'1c. Indices, Powers and Roots', week:'Week 1', strand:'Number Skills',
-        grade:'Grade: 2–4', duration:'30–45 minutes', prev:'1b', next:'1d', comingSoon:true },
+        grade:'Grade: 2–4', duration:'30–45 minutes', prev:'1b', next:'1d', comingSoon:true,
+        specRefs:['N6','N7'] },   /* PROPOSED (for review): N6 powers & roots, N7 index laws (fractional indices are Higher) */
 '1d': { code:'1d', title:'1d. Factors, Multiples and Primes', week:'Week 1', strand:'Number Skills',
-        grade:'Grade: 2–4', duration:'30–45 minutes', prev:'1c', next:null, comingSoon:true }
+        grade:'Grade: 2–4', duration:'30–45 minutes', prev:'1c', next:null, comingSoon:true,
+        specRefs:['N4'] }   /* PROPOSED (for review): N4 factors, multiples, primes, HCF, LCM, prime factorisation */
 };
 return { WEEKS: WEEKS, LESSONS: LESSONS };
 })();
