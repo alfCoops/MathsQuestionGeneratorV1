@@ -144,6 +144,17 @@
   .rv-marks{font-weight:700;color:#15803d}
   .rv-actions{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
   .rv-editform{margin-top:12px;border-top:1px dashed var(--line);padding-top:11px}
+  /* staged hints (§4 contract) — shared renderer */
+  .staged-hints{margin-top:5px;display:flex;flex-direction:column;gap:5px}
+  .staged-hints .sh{display:flex;gap:8px;align-items:baseline;font-size:12.5px;line-height:1.5}
+  .staged-hints .sh-stage{flex-shrink:0;font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:999px;padding:1px 9px}
+  .staged-hints .sh-text img{max-width:180px;border-radius:6px;margin-top:4px;display:block}
+  html[data-theme="dark"] .staged-hints .sh-stage{background:#2a2410;border-color:#5a4a1c;color:#f0c66b}
+  /* trace chips */
+  .rv-trace{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .rv-trace-lb{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .rv-tag{font-size:11px;font-weight:600;color:var(--text2);background:var(--surf2);border:1px solid var(--line);border-radius:7px;padding:2px 8px}
+  .rv-tag.warn{color:#b91c1c;background:var(--red-bg);border-color:var(--red-line)}
   /* F5 — continue banner */
   .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
   .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
@@ -1602,6 +1613,46 @@ function reviewMetaHtml(it){
   if(it.similarity_score!=null) bits.push('Similarity '+(Math.round(it.similarity_score*100)/100));
   return bits.join(' · ');
 }
+/* §4 GENERATOR ITEM CONTRACT (payload) — object shapes that must be preserved end-to-end,
+   NEVER stringified:
+     hints   : ordered list of { stage:int, text:string(html), image?:url }
+     options : list of { text:string(html), correct?:bool, misconception?:string }
+   renderStagedHints is the SINGLE canonical renderer for staged hints — future student
+   surfaces (F8 Quick Help, F12 adaptive, F19 quiz v2) must REUSE this, not re-implement it.
+   Tolerant of legacy string hints (rendered as an unstaged line). */
+function renderStagedHints(hints){
+  if(!Array.isArray(hints) || !hints.length) return '';
+  const norm = hints.map((h,i)=> (h && typeof h==='object')
+      ? { stage:(h.stage!=null?h.stage:i+1), text:(h.text!=null?String(h.text):''), image:(h.image||'') }
+      : { stage:i+1, text:(h==null?'':String(h)), image:'' })
+    .sort((a,b)=>(a.stage||0)-(b.stage||0));
+  return `<div class="staged-hints">${norm.map(h=>{
+    const body = sanitizeHtml(h.text + (h.image?`<img src="${h.image}" alt="">`:''));   /* sanitizeHtml validates the img src */
+    return `<div class="sh"><span class="sh-stage">Hint ${esc(h.stage)}</span><span class="sh-text">${body}</span></div>`;
+  }).join('')}</div>`;
+}
+/* Pure: merge edited hint TEXT back onto the original staged-hint objects, preserving stage/
+   image (and any other keys). This is what stops an edit from stringifying the object array. */
+function mergeHintEdits(origHints, editedTexts){
+  const orig = Array.isArray(origHints) ? origHints : [];
+  return (editedTexts||[]).map((t,i)=>{
+    const h = orig[i];
+    if(h && typeof h==='object') return Object.assign({}, h, { text:(t!=null?t:h.text) });
+    return (t!=null ? t : h);
+  });
+}
+/* Trace fields (numeric_state, similarity band, validator flags, novel misconceptions, …) shown
+   as chips to aid review. Generic over trace keys so unknown §4 subfields still surface. */
+function reviewTraceHtml(it){
+  const tr=(it.payload&&it.payload.trace); if(!tr||typeof tr!=='object'||Array.isArray(tr)) return '';
+  const chips=Object.keys(tr).map(k=>{
+    let v=tr[k]; const warn=/flag|novel|fail|warn|reject/i.test(k) && (Array.isArray(v)?v.length:(v&&v!=='none'&&v!==false));
+    if(Array.isArray(v)) v = v.length ? v.map(x=>typeof x==='object'?JSON.stringify(x):x).join(', ') : '—';
+    else if(v&&typeof v==='object') v=JSON.stringify(v);
+    return `<span class="rv-tag${warn?' warn':''}">${esc(k.replace(/_/g,' '))}: ${esc(String(v))}</span>`;
+  });
+  return chips.length ? `<div class="rv-trace"><span class="rv-trace-lb">trace</span>${chips.join('')}</div>` : '';
+}
 function reviewItemHtml(it){
   const p=it.payload||{};
   const opts = Array.isArray(p.options) ? p.options.map((o,i)=>{
@@ -1610,13 +1661,13 @@ function reviewItemHtml(it){
     const correct = (o&&typeof o==='object' && o.correct) || (p.answer===i);
     return `<li class="${correct?'rv-correct':''}">${sanitizeHtml(text)}${mis?`<span class="rv-mis">↳ ${esc(mis)}</span>`:''}</li>`;
   }).join('') : '';
-  const hints = Array.isArray(p.hints) ? p.hints : [];
   return `<div class="rv-item" data-id="${esc(it.id)}">
     <div class="rv-meta">${reviewMetaHtml(it)}</div>
     <div class="rv-q">${sanitizeHtml(p.question_html||p.question||'<i>(no question text)</i>')}</div>
     ${opts?`<ul class="rv-opts">${opts}</ul>`:''}
-    ${p.mark_scheme?`<div class="rv-ms"><b>Mark scheme</b> ${sanitizeHtml(p.mark_scheme)}${p.marks!=null?` <span class="rv-marks">(${esc(p.marks)} mark${(+p.marks)===1?'':'s'})</span>`:''}</div>`:''}
-    ${hints.length?`<div class="rv-ms"><b>Hints</b><ol style="margin:5px 0 0 18px">${hints.map(h=>`<li>${sanitizeHtml(h)}</li>`).join('')}</ol></div>`:''}
+    ${p.mark_scheme?`<div class="rv-ms"><b>Mark scheme</b> ${sanitizeHtml(p.mark_scheme)}${p.marks!=null?` <span class="rv-marks">(${esc(p.marks)} mark${(+p.marks)===1?'':'s'})</span>`:''}${p.answer_numeric!=null?` <span class="rv-marks">answer: ${esc(p.answer_numeric)}</span>`:''}</div>`:''}
+    ${(Array.isArray(p.hints)&&p.hints.length)?`<div class="rv-ms"><b>Hints</b>${renderStagedHints(p.hints)}</div>`:''}
+    ${reviewTraceHtml(it)}
     <div class="rv-actions">
       <button class="btn solid rv-approve" data-id="${esc(it.id)}">✓ Approve</button>
       <button class="btn o-blue rv-edit" data-id="${esc(it.id)}">✎ Edit</button>
@@ -1627,10 +1678,16 @@ function reviewItemHtml(it){
 }
 function reviewEditFormHtml(it){
   const p=it.payload||{};
+  const hints = Array.isArray(p.hints)?p.hints:[];
+  const hintRows = hints.length ? hints.map((h,i)=>{
+    const text  = (h&&typeof h==='object') ? (h.text!=null?h.text:'') : String(h==null?'':h);
+    const stage = (h&&typeof h==='object'&&h.stage!=null) ? h.stage : i+1;
+    return `<div class="ad-row" style="align-items:flex-start;margin-top:4px"><span class="ad-note" style="margin-top:9px;white-space:nowrap;min-width:52px">Hint ${esc(stage)}</span><textarea class="ad-in ad-ta rvf-hint" data-i="${i}">${esc(text)}</textarea></div>`;
+  }).join('') : '<p class="ad-note">No hints on this item.</p>';
   return `<label class="ad-lb">Question</label><textarea class="ad-in ad-ta rvf-q">${esc(p.question_html||p.question||'')}</textarea>
     <label class="ad-lb">Mark scheme</label><textarea class="ad-in ad-ta rvf-ms">${esc(p.mark_scheme||'')}</textarea>
     <label class="ad-lb">Marks</label><input class="ad-in rvf-marks" type="number" value="${esc(p.marks!=null?p.marks:'')}" style="width:90px">
-    <label class="ad-lb">Hints <span class="ad-note">(one per line)</span></label><textarea class="ad-in ad-ta rvf-hints">${esc((Array.isArray(p.hints)?p.hints:[]).join('\n'))}</textarea>
+    <label class="ad-lb">Hints <span class="ad-note">(edit the wording; the stage order and any images are kept)</span></label>${hintRows}
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>
     <p class="ad-note" style="margin-top:6px">Options/distractors aren’t editable here yet — reject and regenerate if a distractor is wrong.</p>`;
 }
@@ -1663,11 +1720,12 @@ async function reviewTransition(id, status){
   }catch(e){ toast('Couldn’t update — are you signed in as a teacher?'); }
 }
 async function reviewSaveEdit(it, box){
+  const editedTexts = [...box.querySelectorAll('.rvf-hint')].map(t=>t.value);
   const edits = {
     question_html: box.querySelector('.rvf-q').value,
     mark_scheme:   box.querySelector('.rvf-ms').value,
     marks:         (box.querySelector('.rvf-marks').value===''? (it.payload&&it.payload.marks) : +box.querySelector('.rvf-marks').value),
-    hints:         box.querySelector('.rvf-hints').value.split('\n').map(s=>s.trim()).filter(Boolean)
+    hints:         mergeHintEdits(it.payload&&it.payload.hints, editedTexts)   /* preserves {stage,text,image?} objects */
   };
   const { newPayload, diff } = reviewEdit(it.payload, edits);
   try{ const { error } = await sbClient.from('questions_review').update({ payload:newPayload, edited_diff:diff, status:'edited', approved_by:(authUser&&authUser.id)||null }).eq('id', it.id); if(error) throw error;
