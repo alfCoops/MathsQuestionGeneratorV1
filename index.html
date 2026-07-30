@@ -3209,22 +3209,22 @@ function loadPrefsFromProfile(){
 }
 function setPref(k,v){ prefs[k]=v; applyPrefs(); savePrefs(); renderPrefs(); }
 const PREF_CONTROLS = [
-  {k:'theme',      lb:'Colour theme',              opts:[['light','Light'],['dark','Dark'],['hc','High contrast']]},
-  {k:'textSize',   lb:'Text size',                 opts:[[0,'Small'],[1,'Normal'],[2,'Large']]},
-  {k:'spacing',    lb:'Line spacing',              opts:[[0,'Normal'],[1,'Relaxed'],[2,'Loose']]},
-  {k:'font',       lb:'Font',                      opts:[['default','Standard'],['readable','Atkinson'],['opendyslexic','OpenDyslexic']]},
-  {k:'overlay',    lb:'Colour overlay (visual stress)', opts:[['none','Off'],['yellow','Yellow'],['cream','Cream'],['blue','Blue'],['pink','Pink'],['grey','Grey']]},
-  {k:'motion',     lb:'Motion',                    opts:[['auto','Normal'],['reduce','Reduced']]},
-  {k:'focus',      lb:'Focus mode (hide side panel)', opts:[[false,'Off'],[true,'On']]},
-  {k:'hideTimers', lb:'Countdown timers',          opts:[[false,'Show'],[true,'Hide']]},
-  {k:'oneAtATime', lb:'Lesson sections',           opts:[[false,'All open'],[true,'One at a time']]},
+  {k:'theme',      lb:'Colour theme',              help:'Switch between the normal light look, a dark look for low light, or a bold high-contrast look.', opts:[['light','Light'],['dark','Dark'],['hc','High contrast']]},
+  {k:'textSize',   lb:'Text size',                 help:'Make all the text on the page smaller or larger.', opts:[[0,'Small'],[1,'Normal'],[2,'Large']]},
+  {k:'spacing',    lb:'Line spacing',              help:'Add more space between the lines to make reading easier.', opts:[[0,'Normal'],[1,'Relaxed'],[2,'Loose']]},
+  {k:'font',       lb:'Font',                      help:'Choose a clearer typeface — Atkinson or OpenDyslexic can help if letters feel jumbled.', opts:[['default','Standard'],['readable','Atkinson'],['opendyslexic','OpenDyslexic']]},
+  {k:'overlay',    lb:'Colour overlay (visual stress)', help:'Tint the whole screen a soft colour, which some people find calmer to read on.', opts:[['none','Off'],['yellow','Yellow'],['cream','Cream'],['blue','Blue'],['pink','Pink'],['grey','Grey']]},
+  {k:'motion',     lb:'Motion',                    help:'Turn off animations and movement if they are distracting.', opts:[['auto','Normal'],['reduce','Reduced']]},
+  {k:'focus',      lb:'Focus mode (hide side panel)', help:'Hide the side panel so there is less on screen while you work.', opts:[[false,'Off'],[true,'On']]},
+  {k:'hideTimers', lb:'Countdown timers',          help:'Hide the countdown timers if they make you feel rushed.', opts:[[false,'Show'],[true,'Hide']]},
+  {k:'oneAtATime', lb:'Lesson sections',           help:'Open lesson sections one at a time instead of all at once, to reduce clutter.', opts:[[false,'All open'],[true,'One at a time']]},
 ];
 function renderPrefs(){
   const b=$('prefsBody'); if(!b) return;
   b.innerHTML = PREF_CONTROLS.map(c=>`
-    <div class="pref-row"><span class="pref-lb">${c.lb}</span>
+    <div class="pref-row"${c.help?` title="${esc(c.help)}"`:''}><span class="pref-lb">${c.lb}</span>
       <div class="seg" data-k="${c.k}">${c.opts.map(o=>`<button data-v='${JSON.stringify(o[0])}' class="${String(prefs[c.k])===String(o[0])?'on':''}">${o[1]}</button>`).join('')}</div>
-    </div>`).join('') + `<button class="pref-reset" id="prefReset">Reset to defaults</button>`;
+    </div>`).join('') + `<button class="pref-reset" id="prefReset" title="Put every setting back to its normal default.">Reset to defaults</button>`;
 }
 function openPrefs(){ renderPrefs(); $('prefsModal').classList.add('show'); }
 $('prefsBtn').addEventListener('click', openPrefs);
