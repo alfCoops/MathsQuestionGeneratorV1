@@ -131,6 +131,14 @@
   .unit-cta{display:block;text-align:center;margin-top:14px;font-size:13px;font-weight:700;color:var(--mm-green);background:var(--green-bg);border:1.5px solid var(--green-line);border-radius:11px;padding:11px 14px;text-decoration:none}
   .unit-cta:hover{border-color:var(--green)}
   .unit-cta.strong{color:#fff;background:var(--mm-green);border-color:var(--mm-green)}
+  /* F32 client — Generate tab */
+  .gen-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;max-width:620px}
+  .gen-grid2 .ad-lb{display:flex;flex-direction:column;gap:4px;margin:0}
+  .gen-msg{font-size:13px;font-weight:600;border-radius:10px;padding:10px 14px;line-height:1.5}
+  .gen-msg.busy{background:var(--blue-soft);border:1px solid #bfdbfe;color:var(--blue)}
+  .gen-msg.ok{background:var(--green-bg);border:1px solid var(--green-line);color:#15803d}
+  .gen-msg.err{background:var(--red-bg);border:1px solid var(--red-line);color:#b91c1c}
+  @media(max-width:560px){.gen-grid2{grid-template-columns:1fr}}
   /* F10b — AI review queue */
   .rv-item{border:1px solid var(--line);border-radius:13px;padding:15px 17px;margin-top:13px;background:var(--card)}
   .rv-meta{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px}
@@ -918,6 +926,11 @@ const BACKEND = {
   bucket:  'videos'         /* public Storage bucket for uploaded video files (see BACKEND-SETUP.md) */
 };
 const TEACHER_KEY_STORE = 'mm-teacher-key';
+/* F32 — spec-grounded generation service (separate FastAPI repo). URL ONLY — never a key.
+   The app calls it with the signed-in teacher's Supabase access token (Bearer). Blank = the
+   "Generate questions" control is hidden. */
+const GENERATOR = { url:'https://question-generator-d50c.onrender.com' };
+const generatorOn = () => !!(GENERATOR.url && GENERATOR.url.indexOf('http')===0);
 const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
 const getTeacherKey = () => { try{ return localStorage.getItem(TEACHER_KEY_STORE) || ''; }catch(e){ return ''; } };
 const setTeacherKey = k => { try{ k ? localStorage.setItem(TEACHER_KEY_STORE, k) : localStorage.removeItem(TEACHER_KEY_STORE); }catch(e){} };
@@ -1517,12 +1530,14 @@ async function renderTeacher(){
   _tchData = await loadTeacherData();
   paintTeacherTabs();
 }
-const TCH_TABS = [['students','Students'],['insights','Insights'],['review','Review queue']];
-function teacherTabsHtml(){ return TCH_TABS.map(t=>`<button class="tch-tab" data-ttab="${t[0]}">${t[1]}</button>`).join(''); }
+const TCH_TABS = [['students','Students'],['insights','Insights'],['generate','Generate'],['review','Review queue']];
+function teacherTabsHtml(){ return TCH_TABS.filter(t=>t[0]!=='generate'||generatorOn()).map(t=>`<button class="tch-tab" data-ttab="${t[0]}">${t[1]}</button>`).join(''); }
 function paintTeacherTabs(){
+  clearTimeout(_genPollTimer);   /* stop any generate polling when switching tabs (the job keeps running server-side) */
   document.querySelectorAll('.tch-tab').forEach(b=>b.classList.toggle('active', b.dataset.ttab===_tchTab));
   const body=$('tchBody'); if(!body) return;
-  if(_tchTab==='review'){ renderReviewTab(body); return; }   /* F10b — loads its own data */
+  if(_tchTab==='generate'){ renderGenerateTab(body); return; }   /* F32 client — loads topics */
+  if(_tchTab==='review'){ renderReviewTab(body); return; }        /* F10b — loads its own data */
   if(!_tchData) return;
   if(_tchData.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load data. Check you ran the teacher RLS migration and that your account is role=teacher.</p>'; return; }
   body.innerHTML = (_tchTab==='insights') ? teacherInsightsHtml(_tchData) : teacherStudentsHtml(_tchData);
@@ -1733,6 +1748,110 @@ async function reviewSaveEdit(it, box){
   }catch(e){ toast('Couldn’t save the edit.'); }
 }
 function reviewCheckEmpty(){ if(_tchTab==='review' && !document.querySelector('.rv-item')){ const b=$('tchBody'); if(b) b.innerHTML='<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>'; } }
+
+/* =============================== F32 client — "Generate questions" (Phase-3 task 3) ===============================
+   Calls the spec-grounded generation service with the signed-in TEACHER's Supabase access token
+   (Bearer). Built against its live /openapi.json (authoritative):
+     POST /v1/batch              -> { job_id, status, requested }
+     GET  /v1/batch/{job_id}     -> { job_id, status(queued|running|complete|interrupted|failed), requested, accepted, rejected, cursor }
+     GET  /v1/corpus/{cid}/topics-> { course_id, tier, total_statements, needs_review, topics:[{topic, statements}] }
+   Defensive: extra fields ignored, missing expected fields -> a shown error (never a crash).
+   NO service key ever leaves the server — auth is the teacher's own JWT. Output lands in
+   questions_review as 'pending'; nothing reaches students until approved in the Review tab. */
+const GEN_TERMINAL = { complete:1, failed:1, interrupted:1 };
+function genStatusTerminal(s){ return !!GEN_TERMINAL[String(s||'').toLowerCase()]; }
+function genBatchBody(o){
+  const n = Math.max(1, Math.min(10, parseInt(o.n,10)||1));   /* UI hard-caps at 10 (service caps at 50) */
+  const body = { course_id:o.courseId, topic:o.topic, grade_band:parseInt(o.gradeBand,10)||1, kind:o.kind||'question', n };
+  if(o.calculator) body.calculator = o.calculator;            /* optional; enum allowed|not-allowed */
+  return body;
+}
+function genErrorMessage(status){
+  if(status===401) return 'Your session expired — sign out and back in, then try again.';
+  if(status===403) return 'Teacher access is required to generate questions.';
+  if(status===429) return 'Daily generation limit reached — try again tomorrow.';
+  if(status===503) return 'The generator is warming up — give it a moment and try again.';
+  return 'The generator returned an error (HTTP '+status+'). Try again shortly.';
+}
+async function genAuthHeaders(){
+  if(!sbClient) return null;
+  try{ const { data } = await sbClient.auth.getSession(); const tok = data && data.session && data.session.access_token; return tok ? { 'Authorization':'Bearer '+tok } : null; }
+  catch(e){ return null; }
+}
+async function genGET(path, headers){
+  const r = await fetch(GENERATOR.url+path, { headers: headers||{} });
+  let data=null; try{ data=await r.json(); }catch(e){}
+  return { ok:r.ok, status:r.status, data };
+}
+async function genPOST(path, body, headers){
+  const r = await fetch(GENERATOR.url+path, { method:'POST', headers:Object.assign({'Content-Type':'application/json'}, headers||{}), body:JSON.stringify(body) });
+  let data=null; try{ data=await r.json(); }catch(e){}
+  return { ok:r.ok, status:r.status, data };
+}
+let _genBusy=false, _genPollTimer=null;
+async function renderGenerateTab(body){
+  clearTimeout(_genPollTimer); _genBusy=false;
+  body.innerHTML = `<p class="tch-foot" style="margin:0 0 12px">Draft new questions with the AI service. Everything lands in the <b>Review queue</b> — nothing reaches students until you approve it.</p>
+    <div id="genForm"><p class="auth-note">Loading topics from the generator… <span class="ad-note">(it may need a few seconds to wake up)</span></p></div>
+    <div id="genStatus" style="margin-top:12px"></div>`;
+  const h = await genAuthHeaders();
+  let topics;
+  try{ const t = await genGET('/v1/corpus/'+encodeURIComponent(currentCourseId)+'/topics', h||{}); if(!t.ok) throw new Error(t.status); topics = t.data; }
+  catch(e){ const gf=$('genForm'); if(gf) gf.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t reach the generation service to load topics — it may be warming up. Reopen this tab in a moment.</p>'; return; }
+  const list = (topics && topics.topics) || [];
+  const gf=$('genForm'); if(!gf) return;
+  gf.innerHTML = `
+    <div class="gen-grid2">
+      <label class="ad-lb">Topic <span class="ad-note">(the generator’s spec-grounded topics — number = spec statements)</span>
+        <select id="gen-topic" class="ad-in">${list.map(t=>`<option value="${esc(t.topic)}">${esc(t.topic)} (${esc(t.statements)})</option>`).join('')}</select></label>
+      <label class="ad-lb">Grade band
+        <select id="gen-grade" class="ad-in">${[1,2,3,4,5].map(g=>`<option value="${g}" ${g===3?'selected':''}>Grade ${g}</option>`).join('')}</select></label>
+      <label class="ad-lb">Calculator
+        <select id="gen-calc" class="ad-in"><option value="not-allowed">🚫 Non-calculator</option><option value="allowed">🧮 Calculator</option></select></label>
+      <label class="ad-lb">How many <span class="ad-note">(max 10)</span>
+        <input id="gen-n" class="ad-in" type="number" min="1" max="10" value="5" style="width:90px"></label>
+    </div>
+    <button class="btn solid" id="genRun" style="margin-top:13px">🤖 Generate questions</button>
+    <p class="ad-note" style="margin-top:6px">Tip: the lesson’s Spec references (Basics panel) tell you which topics fit — pick the matching slug here.</p>`;
+  $('genRun').addEventListener('click', runGenerate);
+}
+async function runGenerate(){
+  if(_genBusy) return;
+  const topic=$('gen-topic')&&$('gen-topic').value;
+  if(!topic){ toast('Pick a topic first.'); return; }
+  const h = await genAuthHeaders();
+  if(!h){ toast('Sign in as a teacher first.'); return; }
+  _genBusy=true; const btn=$('genRun'); if(btn){ btn.disabled=true; btn.textContent='Starting…'; }
+  const body = genBatchBody({ courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value });
+  const res = await genPOST('/v1/batch', body, h);
+  if(!res.ok || !res.data || !res.data.job_id){
+    genStatusMsg('err', res.ok ? 'The generator didn’t return a job id.' : genErrorMessage(res.status)); genDone(); return;
+  }
+  genPollLoop(res.data.job_id, h, body.n, 0);
+}
+function genStatusMsg(kind, html){ const el=$('genStatus'); if(el) el.innerHTML = `<div class="gen-msg ${kind}">${html}</div>`; }
+function genDone(){ _genBusy=false; const r=$('genRun'); if(r){ r.disabled=false; r.textContent='🤖 Generate questions'; } }
+function genPollLoop(jobId, headers, requested, attempt){
+  const MAX=60;   /* ~3 min at 3s intervals */
+  genStatusMsg('busy', `⏳ Generating ${requested} question${requested===1?'':'s'}… <span class="ad-note">checking status</span>`);
+  clearTimeout(_genPollTimer);
+  _genPollTimer = setTimeout(async ()=>{
+    const r = await genGET('/v1/batch/'+encodeURIComponent(jobId), headers);
+    if(!r.ok){ if(attempt<3){ genPollLoop(jobId,headers,requested,attempt+1); return; } genStatusMsg('err', genErrorMessage(r.status)); genDone(); return; }
+    const d=r.data||{}, status=String(d.status||'').toLowerCase();
+    if(genStatusTerminal(status)){
+      if(status==='complete'){
+        genStatusMsg('ok', `✓ Done — <b>${d.accepted||0}</b> accepted, ${d.rejected||0} rejected. <button class="btn o-blue ad-mini" id="genToReview">Review them →</button>`);
+        const b=$('genToReview'); if(b) b.addEventListener('click', ()=>{ _tchTab='review'; paintTeacherTabs(); });
+      } else {
+        genStatusMsg('err', `The job ${status} — ${(d.accepted||0)} accepted, ${(d.rejected||0)} rejected before it stopped.`);
+      }
+      genDone(); return;
+    }
+    if(attempt+1>=MAX){ genStatusMsg('err', 'Still running after a few minutes — check the Review queue shortly.'); genDone(); return; }
+    genPollLoop(jobId, headers, requested, attempt+1);
+  }, 3000);
+}
 
 function renderAuthBox(){
   const box=$('authBox'); if(!box) return;
