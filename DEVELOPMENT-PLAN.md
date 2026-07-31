@@ -104,7 +104,8 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ⏸ (blocked on T3 SMTP) |
 | F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ✅ (deployed, M1–M4 — separate repo; this repo's side = questions_review + review tab, done) |
 | F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
-| F12 | Adaptive generator (timer opt-in per D2 ethos, working-at grade, Edexcel-style) | Could | L | **F32**, F11 | 4 | ☐ |
+| F12-lite | Practice section serves approved AI questions (free-response, self-marked): sanitised read path + no-repeat + self-report → quiz_results | Should | M | F32, F10b | **pre-pilot** | ◐ (read-path SQL awaiting run; parts 2–3 next) |
+| F12-full | Adaptive generator (timer opt-in per D2 ethos, working-at grade, adaptive stepping) | Could | L | F32, F11, F12-lite | post-pilot | ☐ |
 | F20b | Interactive "From Method to Meaning" worksheets | Could | L | F16, F26 | 4 | ☐ |
 | F18 | Digital maths toolkit (number line, hundred square, ×-grid, fraction bars, counters) | Could | XL | — | 5 | ☐ |
 | F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |

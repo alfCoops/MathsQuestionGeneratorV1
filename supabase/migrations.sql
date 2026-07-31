@@ -159,3 +159,50 @@ create policy "teacher reads review"  on public.questions_review for select usin
 create policy "teacher writes review" on public.questions_review for update using (public.is_teacher()) with check (public.is_teacher());
 -- (No insert policy: inserts come from the service via the service key. Add one only if the
 --  teacher UI ever needs to hand-author into the queue.)
+
+
+-- ============================================================================
+-- F12-lite — student practice bank (free-response, exam-style, self-marked).
+-- A SANITISED, read-only view over APPROVED/EDITED, generator-kind items, exposing
+-- ONLY the fields needed to render a practice question. Students NEVER see trace,
+-- edited_diff, similarity, rejection data, or pending/rejected rows.
+-- The practice section is FREE-RESPONSE (kind='generator': question + M1/A1 mark
+-- scheme + staged hints; no MCQ options), so options/answer are intentionally absent.
+-- security_invoker=false → the view runs as its owner and bypasses questions_review's
+-- teacher-only RLS, but exposes only the curated subset below; read is granted to
+-- students (anon + authenticated). Approved practice questions are student-facing
+-- content, so this exposure is intended.
+-- ============================================================================
+create or replace view public.practice_questions
+with (security_invoker = false) as
+select
+  qr.id,
+  qr.course_id,
+  qr.lesson_id,
+  qr.grade_band,
+  coalesce(qr.spec_ref, array(select jsonb_array_elements_text(coalesce(qr.payload->'spec_refs','[]'::jsonb)))) as spec_ref,  -- match to a lesson's specRefs
+  qr.payload->>'topic' as topic,                                          -- for recording topic tags (part 3)
+  jsonb_strip_nulls(jsonb_build_object(
+    'question_html', qr.payload->'question_html',
+    'hints',         qr.payload->'hints',        -- staged {stage,text,image?} — rendered via the shared helper
+    'mark_scheme',   qr.payload->'mark_scheme',
+    'marks',         qr.payload->'marks',
+    'calculator',    qr.payload->'calculator'
+  )) as item
+from public.questions_review qr
+where qr.status in ('approved','edited') and qr.kind = 'generator';
+
+revoke all on public.practice_questions from public;
+grant select on public.practice_questions to anon, authenticated;
+
+-- Per-student no-repeat record (small; cascades with the user and the source row).
+create table if not exists public.served_questions (
+  user_id     uuid   not null references auth.users(id) on delete cascade,
+  question_id bigint not null references public.questions_review(id) on delete cascade,
+  lesson_id   text,
+  served_at   timestamptz not null default now(),
+  primary key (user_id, question_id)
+);
+alter table public.served_questions enable row level security;
+drop policy if exists "own served" on public.served_questions;
+create policy "own served" on public.served_questions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
