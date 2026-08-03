@@ -1,10 +1,71 @@
-# MasterMaths Platform — Development Plan v2.3 (MoSCoW)
+# MasterMaths Platform — Development Plan v3 (MoSCoW)
 
-Last updated: 17 July 2026 · Owner: Alfie · Product owner: Ryan
+Last updated: 31 July 2026 · Owner: Alfie · Product owner: Ryan
+v3 folds in Ryan's 31-07 authoring & adaptive-quiz specification (F19 rewritten, F33/F34
+added, F12 split for the pilot) and records the exam-paper-import ruling.
 v2.3 folds in Ryan's multi-board/qualification outline and the Edexcel F+H specs. v2.2 adds F32 (spec-grounded generation service — the RAG backbone for F19/F12 and the §4
 authoring pipeline). v2.1 records Ryan's D1–D6 answers, folds his 15-07-26 improvements into the remaining
 phases as F26–F31, and restructures Phases 2b→5 accordingly. Phase 0, 1 and 2a build
 notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progress · ✅ done · ⏸ parked · ✖ won't
+
+## What changed in v3 (31-07)
+
+- **F19 rewritten to Ryan's full adaptive-quiz spec** (his 31-07 doc): misconception-ID'd
+  distractors with per-misconception feedback, unlimited scaffolding ladder (levels 0–5+,
+  each scaffold a more-guided variant targeting the SAME misconception), Duolingo-style
+  review section counted in the score, fresh quiz on every retake, persistent
+  misconceptions carried into future topics until secure, per-learning-objective mastery
+  (Not Started / Learning / Developing / Mastered), configurable weighted scoring, energy
+  meter, question-selection priority logic, modular engine components, config-file-driven
+  constants. First milestone R1 = a working prototype on ONE topic (order of operations —
+  maps to N3/BIDMAS content already in the bank). Ryan's "learning objectives" = our spec
+  refs; his misconception IDs = our misconception tags + a new feedback field; his §7
+  validation = validators 1–5 (already built). Genuinely new generation capability
+  needed: scaffold-variant generation (scaffold_level + misconception_id as request
+  params) — a p6+ prompt contract in the generator service.
+- **F33 (new): mathematical equation editor** — KaTeX rendering + LaTeX input + symbol
+  palette + live preview, in the Teacher Editor and all student/print surfaces; the
+  generator's output format joins in. Do BEFORE heavy algebra authoring.
+- **F34 (new): question import** — Ryan uploads HIS OWN material (Word/PDF/images/scans)
+  → extracted into editable components → review screen → similarity gate → review queue.
+  **Ruling recorded: existing exam papers are NOT an import source.** Copyright protects
+  the questions themselves, not just branding — reformatting a lifted question does not
+  launder it. The AI generator is the legitimate route to "Edexcel-style questions on
+  topic X". Every import passes the similarity gate and lands as pending like all content.
+- **F12 split** (pilot decision): **F12-lite** ships PRE-pilot — practice section serves
+  approved bank items (sanitised student read-path, no-repeat tracking, self-report
+  buttons, genBank fallback; NO adaptivity, NO quiz changes). **F12-full** (staircase,
+  working-at grade) stays post-pilot. Generator gains the free-response `kind:"generator"`
+  prompt contract (p5) so the practice bank is exam-style, not MCQ.
+- **New decisions D16–D17** (below). D8 largely superseded by Ryan's own spec (2-fail/
+  2-pass rules now his §3/§19; Foundation cap stands).
+
+## What changed in v3 (Ryan's 31-07 document)
+
+- **F19 rewritten as the Adaptive Diagnostic Quiz v2** to Ryan's full specification:
+  unlimited misconception-targeted scaffolding (levels 0–5+), per-objective mastery
+  (4 tiers, weighted scoring), persistent misconceptions across topics, end-of-quiz
+  review section counting toward the 80% pass, fresh retake generation, energy meter,
+  modular engine. First milestone = his §22 prototype (order of operations / N3).
+  Now the largest single build in the plan (XL+); remains Phase 4 post-pilot — the
+  pilot's real misconception data feeds this design, and every reviewed question is
+  already stocking it.
+- **F33 Mathematical equation editor** (KaTeX render, LaTeX input + symbol palette,
+  live preview, consistent across student/editor/print/generator output) — early
+  Phase 4, before heavy algebra authoring.
+- **F34 Question import** (PDF/Word/image → editable components → review screen) —
+  scoped to **content Ryan owns**. RULING (recorded): existing exam papers are NOT an
+  import source — the questions themselves are Pearson's copyright and reformatting
+  does not launder them; the AI generator is the legitimate route to "Edexcel-style
+  questions on demand". All imports pass the similarity gate and land in the review
+  queue like AI drafts.
+- **F12 split:** F12-lite (approved-bank serving in the practice section, sanitised
+  student read-path, self-report, genBank fallback) is **pre-pilot and in flight**;
+  F12-full (adaptive staircase) stays post-pilot behind D8.
+- **Generator follow-ons queued (F32-x):** kind:"generator" free-response contract
+  (p5, in flight) · scaffold-variant generation (scaffold_level + misconception_id
+  request params) · per-distractor misconception feedback fields · no-diagram rule.
+- **New decisions D16/D17** (below); D8 subsumed into F19 v2 sign-off.
 
 ## What changed in v2.3
 
@@ -50,26 +111,12 @@ notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progre
 
 | # | Task | Why now | Status |
 |---|---|---|---|
-| T1 | Free taster → **all of Week 1** (1a–1d browsable logged-out) | Ryan's D1; currently 1a only | ✅ (26a5d1a) |
-| T2 | Rename "Quiz" → **"Diagnostic Quiz"** everywhere (section card, progress step label, results copy) | Ryan's ask; trivial; do before screenshots/marketing | ✅ (26a5d1a) |
-| T3 | **Configure custom SMTP (Resend)** in Supabase, then switch on email verification + password reset (closes F1's deferral) | Launch blocker from Phase 1; also a prerequisite for F30 streak emails | ☐ (Ryan/Alfie — not a code task) |
+| T1 | Free taster → **all of Week 1** (1a–1d browsable logged-out) | Ryan's D1; currently 1a only | ✅ |
+| T2 | Rename "Quiz" → **"Diagnostic Quiz"** everywhere (section card, progress step label, results copy) | Ryan's ask; trivial; do before screenshots/marketing | ✅ |
+| T3 | **Configure custom SMTP (Resend)** in Supabase, then switch on email verification + password reset (closes F1's deferral) | Launch blocker from Phase 1; also a prerequisite for F30 streak emails | ☐ |
 | T4 | Generator question card gets an **exam-paper style** (free Gill-Sans-family lookalike, ruled answer feel). **Student SEND font prefs override it** — accessibility beats authenticity; flag that to Ryan, don't silently decide | Ryan's 17-07 ask; small CSS | ✅ |
 | T5 | Opening the Question Generator **collapses the right info column** (mirrors the watch-video behaviour; consistent with focus ethos) | Ryan's 17-07 ask; small | ✅ |
 | T6 | **Verify F15 tier-3 is generic** (label per qualification: "Tier" for GCSE, "Strand" for A-Level with Pure/Stats/Mechanics tiles) and the dashboard shows Ryan's full tile grid greyed | Cheap now, migration later | ✅ |
-
-**T4/T5/T6 build notes.** **T4:** the generated-question card uses **Lato** (free, OFL, Gill-Sans-family
-humanist lookalike) with a faint ruled backdrop — but **only when the reader's font pref is the
-default**; `data-font="readable"/"opendyslexic"` fall through to the SEND font, so accessibility
-beats exam authenticity (flagged, not silently decided). Ryan can swap the family name in one CSS
-line. **T5:** the right info column now collapses whenever the video **or** the generator is open
-(shared `syncVideoFocus`). **T6 verify result:** F15's tier-3 is **already generic** — `course.tier`
-is a plain display string with no Higher/Foundation logic (the only `tier:'foundation'` was inside a
-commented-out FastAPI example). Added a `COURSE_CATALOGUE` (GCSE → Tier: Foundation/Higher · A-Level
-→ Strand: Pure/Stats/Mechanics) and the dashboard now renders the **full board grid** (Edexcel/OCR/
-AQA/WJEC) grouped by qualification with a per-qualification label ("Choose a tier" / "Choose a
-strand"); only real courses are live (GCSE·Edexcel·Foundation), the rest greyed. **Note:** IGCSE was
-in the old placeholder set and is dropped per the v2.3 GCSE|A-Level outline — one line to re-add.
-**D15 (multi-board rollout) stays open.**
 
 ---
 
@@ -90,22 +137,22 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F17 | Text-to-speech | Should | S–M | F16 | 2a | ✅ |
 | F25 | Theme & maths-symbol backdrop | Should | S | F16 | 2a | ✅ |
 | F20a | Worksheet rename → "From Method to Meaning" | Should | S | — | 2a | ✅ |
-| F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ☐ |
-| F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ☐ |
-| F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ☐ |
-| F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ☐ |
-| F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ☐ |
-| F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ☐ |
-| F7 | Resume at exact point | Should | M | F2 | 2c | ☐ |
-| F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ☐ |
-| F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ☐ |
-| F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ✅ (F10a dashboard + F10b review tab) |
+| F26 | **Rich-text authoring** in Teacher Editor: toolbar (size, bold, underline, colour), no raw HTML; image insert with placement + labels in Key Notes | **Must** | M–L | — | **2b** | ✅ |
+| F28 | **SEND round 2**: coloured-overlay button (range of tints incl. yellow), yellow page tint option, OpenDyslexic added as a font choice | Should | S–M | F16 | **2b** | ✅ |
+| F29 | **Content extras**: motivational quote per week · calculator/non-calculator icon per lesson · sequential video reveal (video n+1 appears after opening video n) | Should | S–M | — | **2b** | ✅ |
+| F27 | **Worksheet mark schemes**: per-section answers/mark scheme authored in editor; student-side reveal after attempt + printable answers page | Should | S–M | F26 helps | **2b** | ✅ |
+| F31 | **Standing 1-to-1 CTA**: persistent "Book one-to-one tutoring →" button (dashboard + lesson header) to the Wix booking page | Should | S | — | **2b** | ✅ |
+| F11 | Per-question results + topic + misconception tags | Should | M | F2 | 2c | ✅ |
+| F7 | Resume at exact point | Should | M | F2 | 2c | ✅ |
+| F8 | Quick Help — staged hints (+ pictures) | Should | M | F26, authoring | 2c | ✅ |
+| F9 | Badges & streaks (in-app; emails split to F30) | Should | M | F2 | 2c | ✅ |
+| F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ✅ |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ✅ |
-| F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ⏸ (blocked on T3 SMTP) |
-| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ✅ (deployed, M1–M4 — separate repo; this repo's side = questions_review + review tab, done) |
+| F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
+| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ✅ |
 | F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
-| F12-lite | Practice section serves approved AI questions (free-response, self-marked): sanitised read path + no-repeat + self-report → quiz_results | Should | M | F32, F10b | **pre-pilot** | ◐ (read-path SQL awaiting run; parts 2–3 next) |
-| F12-full | Adaptive generator (timer opt-in per D2 ethos, working-at grade, adaptive stepping) | Could | L | F32, F11, F12-lite | post-pilot | ☐ |
+| F12-lite | Practice section serves approved AI questions (free-response + MCQ per read-path ruling; sanitised student read-path, no-repeat, self-report, genBank fallback; NO adaptivity) | Should | M | F32, F10b | **pre-pilot** | ◐ (read-path shipped; serving/self-report + kind conflict pending) |
+| F12-full | Adaptive staircase (misconception scaffolding, working-at grade, per-objective mastery) | Could | XL | F19, F11 | post-pilot | ☐ |
 | F20b | Interactive "From Method to Meaning" worksheets | Could | L | F16, F26 | 4 | ☐ |
 | F18 | Digital maths toolkit (number line, hundred square, ×-grid, fraction bars, counters) | Could | XL | — | 5 | ☐ |
 | F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |
@@ -136,21 +183,8 @@ repo/host), so it runs alongside the app-side 2c features without contention, an
 output starts filling the review queue for Ryan immediately.
 
 **Phase 3 — Visibility & retention.**
-F10 ✅ teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21 ✅
-end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + **T3 SMTP**).
-
-**F10 build note (done).** Role-gated `#/teacher` (no service_role in the browser; reads via the
-teacher's session + the read-all RLS). **F10a:** Students tab (per-student lessons/quizzes/avg/🔴,
-struggling flag red-tints the row, comp-access toggle → `set_comp_access` RPC) + Insights tab
-(top misconceptions, weakest topics by correct-rate). **F10b:** Review-queue tab over
-`questions_review` — approve / reject / edit; an edit writes a **field-level `edited_diff`**
-(only changed fields, each `{from,to}`, other payload fields preserved) as the generator's taste
-signal. Pure builders unit-tested; Supabase calls are thin. Options/distractor editing deferred.
-**F21 build note (done).** Finishing every real (non-coming-soon) lesson in a week pops a summary
-modal: strengths (mastery ≥80) vs "worth another look" (<80, red/amber), and the **tutoring
-signpost** (F31's bookingUrl) — prominent when there are weak lessons, gentle when all green.
-Derived from the student's own progress; no cross-student data.
-**F30 is BLOCKED on T3 (SMTP) — stopped here per Alfie's instruction.**
+F10 teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21
+end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + T3).
 
 **Phase 4 — Advanced learning.** F19 quiz v2 (start the authoring pipeline during 2c —
 see §4) · F12 adaptive generator once FastAPI is live · F20b interactive worksheets.
@@ -204,13 +238,7 @@ Three small schema+UI additions, all editable in the Teacher Editor:
 **AC:** ☐ all three editable per week/lesson ☐ back-compatible (absent fields = no quote,
 no icon, all videos shown) ☐ reveal state persists via progress.
 
-### F32 · Spec-grounded generation service — ✅ deployed (M1–M4)
-**STATUS (19-07): this service is fully deployed (M1–M4) in its own private repo (see
-`generator-CLAUDE.md`). It is NOT built in this (app) repo. This repo's ONLY side of F32 is the
-`questions_review` table + the teacher review tab (F10b), both done — plus the optional in-app
-"Generate questions" control that calls its `/v1/batch` endpoint (Phase-3 task 3, pending the
-§3 endpoint contract). Do not plan, scaffold or build any generation service here.** The rest of
-this section is the functional spec for reference / integration only.
+### F32 · Spec-grounded generation service — Should, Phase 2c–3, L
 **v2.3 amendments:** corpus schema is board+qualification keyed (course_id → board, tier,
 spec version); Edexcel 1MA1 Foundation AND Higher statements are in hand (from Ryan,
 17-07) and load first; OCR/AQA/WJEC GCSE and Edexcel/AQA/OCR/WJEC A-Level spec sources
@@ -301,6 +329,11 @@ Meaning" tasks himself; F26 is what makes that pleasant.
   amplifies reproduction risk — Tier 2 sources are analysis-only, and the output similarity
   check is a required validator, not an optional one. If the similarity check is ever
   removed "temporarily", F32 is out of policy.
+- **F34 import copyright ruling (v3):** import is for content Ryan owns. Exam papers are
+  excluded as a source — the questions are Pearson's copyright regardless of reformatting;
+  "Edexcel style conversion" of lifted questions would be infringement with better
+  typography. All imports pass the similarity gate and enter as pending. The AI generator
+  is the sanctioned route to original Edexcel-style items.
 - (All v2 risks stand.)
 
 ## 7. Decisions
@@ -328,3 +361,65 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | **D13** | **Default font: keep Inter with dyslexia fonts one tap away, or OpenDyslexic everywhere?** (see F28 note) | Phase 2b |
 | **D14** | **Streak email details: send time (17:00?), copy tone, max misses before stopping** | Phase 3 |
 | **D15** | **Multi-board rollout: what comes after Edexcel Foundation (Edexcel Higher vs second board), and shared-core content with board-specific assessment vs fully separate courses?** | Before any second-course authoring |
+| **D16** | **Mastery model reconciliation: per-objective 4-tier mastery (his 31-07 spec) alongside or replacing lesson-level 🟢🟡🔴 (his D6)?** | F19 build |
+| **D17** | **Energy meter sign-off: values, celebration behaviour, and confirmation it hides in focus mode (SEND ethos)** | F19 build |
+| **D16** | **Mastery model reconciliation**: Ryan's 4-tier per-objective mastery (0/1–39/40–79/80–100, weighted by scaffolds used) vs the shipped lesson-level 🟢🟡🔴 (D6). Proposal: per-objective tiers power F19 and the dashboard; lesson-level 🟢🟡🔴 stays as the student-facing summary. Needs his sign-off | F19 R1 |
+| **D17** | **Energy meter vs SEND ethos**: confirm it hides in focus mode and with hide-timers-style prefs (his own reduced-distraction principle) and that incorrect answers never remove energy (his rule — keep it) | F19 R1 |### F19 · Adaptive Diagnostic Quiz v2 — Should, Phase 4, XL+ (Ryan's 31-07 spec)
+Full specification lives in Ryan's 31-07 document (repo: docs/ryan-quiz-spec-2026-07-31).
+Summary of the committed design:
+- **Per-question:** 4 options, every distractor mapped to a misconception ID with
+  misconception-specific feedback; question carries objective (spec ref), difficulty,
+  scaffold level, worked solution.
+- **Adaptive flow:** easy→hard progression; wrong answer ⇒ stay on the objective,
+  identify + record the misconception, escalate scaffolding (L0 original → L1 simpler
+  numbers + rule reminder → L2 stepwise → L3 partial worked example → L4 guided choices
+  → L5+ continue until correct). Unlimited attempts; scaffolds never reveal the answer
+  outright.
+- **Review section:** end-of-quiz Duolingo-style pass over everything not right first
+  time — fresh variants, counts toward the score.
+- **Scoring/pass:** 80% pass unchanged; score weights first-attempt accuracy, scaffold
+  depth, review performance (Ryan's §13 weights as config, not hardcode). Failing
+  generates a **new** quiz biased toward unresolved misconceptions; question-ID history
+  prevents repeats.
+- **Mastery:** per learning objective, 4 tiers (Not Started / Learning / Developing /
+  Mastered, 0/1–39/40–79/80–100) — reconcile with lesson-level 🟢🟡🔴 under **D16**.
+- **Persistent misconceptions:** >1 miss ⇒ persistent ⇒ injected into future relevant
+  quizzes cross-topic until secure; then retired.
+- **Energy meter:** additive-only reinforcement (config values), animated; **hidden in
+  focus mode** and reconciled with SEND ethos under **D17**.
+- **Architecture:** modular (QuizEngine, ScaffoldManager, MisconceptionTracker,
+  MasteryManager, EnergyManager, ReviewManager, ScoreCalculator…), config-file driven,
+  engine separate from UI. AI generation via F32 with validation before use (already
+  the pipeline: validators + review queue).
+- **Milestone 1 = Ryan's §22 prototype:** order of operations (N3), 3 objectives,
+  ≥5 templates each, full scaffold loop, review section, energy, mastery — then
+  generalise.
+**Build gates:** pilot complete · bank depth per objective · F33 shipped · D16/D17
+answered · its own red-team (first feature serving AI content to children directly).
+**AC (top level):** ☐ wrong answers always route to same-misconception scaffolds
+☐ no exact-question repeats across retakes ☐ persistent misconceptions resurface
+cross-topic and retire on mastery ☐ score reflects first-attempt accuracy + scaffold
+depth ☐ engine/UI separation + config externalised ☐ prototype passes Ryan's review
+before generalisation.
+
+### F33 · Equation editor — Should, Phase 4 (early), L
+KaTeX rendering across student views, Teacher Editor, review tab, print; input via
+LaTeX and a clickable symbol palette (fractions, indices, roots, inequalities, trig,
+calculus, vectors/matrices, Greek); live preview; source markup stored, rendered
+consistently on desktop/tablet/mobile/print. Generator output moves to LaTeX-in-HTML
+for maths content (F32 prompt update) so generated and authored questions render
+identically. Do BEFORE heavy algebra authoring.
+**AC:** ☐ Ryan writes a fractional equation without HTML/LaTeX knowledge (palette)
+☐ same markup renders identically in editor preview, student view, print ☐ existing
+content unaffected.
+
+### F34 · Question import (Ryan-owned content) — Could, Phase 4–5, L–XL
+Upload PDF/Word/image/scan of **Ryan's own** material → extraction into editable
+components (text, maths, tables, figures, parts, marks) → review screen (original vs
+converted, all fields editable, objective/difficulty/misconceptions assigned) →
+**similarity gate** → review queue as source 'import'. Clean exam-style output layout
+(typography, numbering, marks display, working space) — house style, no Pearson
+branding. **Exam papers are not an import source** (ruling above); the generator is
+the legitimate route to Edexcel-style items.
+**AC:** ☐ a scanned Ryan worksheet becomes editable structured questions ☐ every
+import passes the similarity gate ☐ nothing publishes without the review screen.
