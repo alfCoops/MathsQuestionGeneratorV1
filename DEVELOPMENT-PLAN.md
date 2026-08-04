@@ -62,9 +62,17 @@ notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progre
 - **F12 split:** F12-lite (approved-bank serving in the practice section, sanitised
   student read-path, self-report, genBank fallback) is **pre-pilot and in flight**;
   F12-full (adaptive staircase) stays post-pilot behind D8.
-- **Generator follow-ons queued (F32-x):** kind:"generator" free-response contract
-  (p5, in flight) · scaffold-variant generation (scaffold_level + misconception_id
-  request params) · per-distractor misconception feedback fields · no-diagram rule.
+- **Generator follow-ons (F32-x): ✅ ALL SHIPPED** (generator repo, milestone M5, through a
+  pedagogy review gate 2026-08-04/05). kind:"generator" free-response contract (**p5**) ·
+  no-diagram rule (p5) · LaTeX markup contract (p5, the cross-repo pair to **F33**) ·
+  scaffold-variant generation, `scaffold_level` + `target_misconception` + `parent_item`
+  (**p6**) · per-distractor `misconception_feedback` + `correct_feedback` (p6) · cumulative
+  levels, structural L1 simplification, bare options (**p7**) · level-gated contract making
+  the ladder monotone increasing (**p8**). 393 tests green. **F19 is no longer blocked on
+  generation capability** — see the stocking prerequisites in GENERATOR-SERVICE.md §9,
+  three of which are Teacher-Editor work in THIS repo (render `payload.trace.flags`,
+  render scaffold parts as labelled fields, group the review tab by `variant_group` ×
+  `scaffold_level` so a rung is reviewable next to the rung below).
 - **New decisions D16/D17** (below); D8 subsumed into F19 v2 sign-off.
 
 ## What changed in v2.3
@@ -149,7 +157,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F10 | Teacher dashboard (+ struggling flags, **+ comp-access toggle per student**) | Should | L | F11 | 3 | ✅ |
 | F21 | End-of-unit summary + tutoring signpost | Should | M | F11 | 3 | ✅ |
 | F30 | **Streak reminder emails**: opt-in at signup, one-click unsubscribe, daily cron | Could | M | F9, T3 (SMTP) | 3 | ☐ |
-| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ✅ |
+| F32 | **Spec-grounded generation service** (FastAPI): Edexcel-spec retrieval, style guide, validators, similarity check, review-queue output. **+M5: free-response contract, no-diagram, LaTeX markup, scaffold-variant generation (p5–p8)** | **Should** | L | FastAPI hosting; feeds F19/F12/F8 | **2c–3** | ✅ |
 | F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
 | F12-lite | Practice section serves approved AI questions (free-response + MCQ per read-path ruling; sanitised student read-path, no-repeat, self-report, genBank fallback; NO adaptivity) | Should | M | F32, F10b | **pre-pilot** | ◐ (read-path shipped; serving/self-report + kind conflict pending) |
 | F12-full | Adaptive staircase (misconception scaffolding, working-at grade, per-objective mastery) | Could | XL | F19, F11 | post-pilot | ☐ |
@@ -406,9 +414,19 @@ before generalisation.
 KaTeX rendering across student views, Teacher Editor, review tab, print; input via
 LaTeX and a clickable symbol palette (fractions, indices, roots, inequalities, trig,
 calculus, vectors/matrices, Greek); live preview; source markup stored, rendered
-consistently on desktop/tablet/mobile/print. Generator output moves to LaTeX-in-HTML
-for maths content (F32 prompt update) so generated and authored questions render
-identically. Do BEFORE heavy algebra authoring.
+consistently on desktop/tablet/mobile/print. Do BEFORE heavy algebra authoring.
+
+**The generator half is already done** (F32 M5, prompt p5): generated maths is emitted as
+LaTeX stored as plain text in the item fields, and a `markup` validator enforces the
+contract on every item. **The renderer here must match it exactly**, or approved content
+renders as literal backslashes:
+- inline `\(…\)` · display `\[…\]` and `$$…$$`
+- **never** a bare single `$` (currency collision); a literal currency dollar is `\$`
+- inequalities as `\lt \gt \le \ge \ne`, never raw `<`/`>`
+- HTML limited to `<p>`, `<br>` and inert inline emphasis (`<strong> <b> <em> <i> <u>
+  <sup> <sub>`)
+Simple arithmetic stays plain text; fractions, indices, roots and anything structural are
+LaTeX. Full statement: GENERATOR-SERVICE.md §4 "Markup".
 **AC:** ☐ Ryan writes a fractional equation without HTML/LaTeX knowledge (palette)
 ☐ same markup renders identically in editor preview, student view, print ☐ existing
 content unaffected.
