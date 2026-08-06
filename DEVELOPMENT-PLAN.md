@@ -427,6 +427,11 @@ renders as literal backslashes:
   <sup> <sub>`)
 Simple arithmetic stays plain text; fractions, indices, roots and anything structural are
 LaTeX. Full statement: GENERATOR-SERVICE.md §4 "Markup".
+**Status: NOT STARTED.** The review tab now renders this markup (F10b, KaTeX on demand)
+so scaffold items are readable to Ryan, but that is the RENDER half only — the palette,
+authoring, student views and print remain unbuilt, and student surfaces still show raw
+markup. F12-lite serving approved AI questions will hit this.
+
 **AC:** ☐ Ryan writes a fractional equation without HTML/LaTeX knowledge (palette)
 ☐ same markup renders identically in editor preview, student view, print ☐ existing
 content unaffected.
