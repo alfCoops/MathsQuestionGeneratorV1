@@ -68,11 +68,15 @@ notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progre
   scaffold-variant generation, `scaffold_level` + `target_misconception` + `parent_item`
   (**p6**) · per-distractor `misconception_feedback` + `correct_feedback` (p6) · cumulative
   levels, structural L1 simplification, bare options (**p7**) · level-gated contract making
-  the ladder monotone increasing (**p8**). 393 tests green. **F19 is no longer blocked on
-  generation capability** — see the stocking prerequisites in GENERATOR-SERVICE.md §9,
-  three of which are Teacher-Editor work in THIS repo (render `payload.trace.flags`,
-  render scaffold parts as labelled fields, group the review tab by `variant_group` ×
-  `scaffold_level` so a rung is reviewable next to the rung below).
+  the ladder monotone increasing (**p8**) · renderable blank markers (**p9** — `\text{___}`
+  is unparseable by KaTeX and was showing a red error where every L3/L4 blank should be).
+  399 tests green. **F19 is no longer blocked on generation capability.**
+  The three Teacher-Editor prerequisites in GENERATOR-SERVICE.md §9 are now ✅ **shipped
+  here** (F10b): `payload.trace.flags` rendered one line each with numeric/similarity
+  verdict badges · scaffold parts as labelled fields (`renderScaffoldParts` — F19's
+  ScaffoldManager must REUSE it) · review tab grouped by `variant_group` × `scaffold_level`
+  (`groupReviewItems`) so a rung is read next to the rung below. Still open for stocking:
+  `edited_diff` shape with Ryan, Render deploy, and regenerating the review ladder under p9.
 - **New decisions D16/D17** (below); D8 subsumed into F19 v2 sign-off.
 
 ## What changed in v2.3
