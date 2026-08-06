@@ -163,6 +163,34 @@
   .rv-trace-lb{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
   .rv-tag{font-size:11px;font-weight:600;color:var(--text2);background:var(--surf2);border:1px solid var(--line);border-radius:7px;padding:2px 8px}
   .rv-tag.warn{color:#b91c1c;background:var(--red-bg);border-color:var(--red-line)}
+  /* Verification badges. An UNVERIFIED numeric check must not look like a passed one — the
+     whole point of the generator's three-state check is that "not machine-checkable" is
+     visibly different from "checked and correct". Same for the 0.20–0.35 similarity band. */
+  .rv-tag.ok{color:var(--mm-green);background:var(--green-bg);border-color:var(--green-line)}
+  .rv-tag.caution{color:#b45309;background:#fef3c7;border-color:#fde68a}
+  html[data-theme="dark"] .rv-tag.caution{color:#f0c66b;background:#2a2410;border-color:#5a4a1c}
+  /* Flags are the pipeline saying "I declined to reject this — you look". One line each,
+     never a comma-joined run-on: a flag nobody reads is the same as no flag at all. */
+  .rv-flags{margin-top:9px;border:1px solid #fde68a;background:#fffbeb;border-radius:9px;padding:8px 11px}
+  html[data-theme="dark"] .rv-flags{background:#241f0d;border-color:#5a4a1c}
+  .rv-flags-lb{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b45309;display:block;margin-bottom:4px}
+  html[data-theme="dark"] .rv-flags-lb{color:#f0c66b}
+  .rv-flags li{font-size:12px;color:var(--text2);margin-left:16px;padding:1px 0}
+  /* Structured scaffold parts (generator §4). Labelled fields, never a JSON blob — the
+     reason the parts are structured at all is so Ryan reads them as parts. */
+  .rv-scaf{margin-top:10px;border-left:3px solid var(--green-line);padding-left:11px}
+  .rv-scaf-row{display:flex;gap:9px;align-items:flex-start;margin-top:6px;font-size:13px}
+  .rv-scaf-lb{flex-shrink:0;min-width:104px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;padding-top:2px}
+  .rv-scaf-v{color:var(--text)}
+  .rv-scaf-v ul{list-style:none;display:flex;flex-wrap:wrap;gap:5px}
+  .rv-scaf-v li{border:1px solid var(--line);background:var(--surf2);border-radius:7px;padding:2px 9px;font-size:12px}
+  .rv-fb{display:block;font-size:11px;color:var(--muted);margin-top:3px;font-style:italic}
+  /* A ladder must READ as a ladder: "does L3 add help" is only answerable next to L2. */
+  .rv-ladder{border:1.5px solid var(--green-line);border-radius:14px;padding:11px 13px;margin-top:15px;background:var(--green-bg)}
+  .rv-ladder>.rv-item{background:var(--card);margin-top:9px}
+  .rv-ladder-hd{font-size:12px;font-weight:800;color:var(--mm-green);display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+  .rv-ladder-hd small{font-weight:600;color:var(--muted);font-size:11px}
+  .rv-lvl{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:1px 9px;margin-right:6px}
   /* F5 — continue banner */
   .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
   .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
@@ -1601,6 +1629,71 @@ function wireTeacherBody(){
   }));
 }
 
+/* =============================== Maths markup — the cross-repo delimiter contract ===============================
+   The generation service (F32, prompt p5+) emits maths as LaTeX stored as PLAIN TEXT in the
+   item fields, and hard-rejects any item that breaks the contract. This is the rendering half.
+   The two MUST agree exactly — a mismatch shows literal backslashes to Ryan and to students:
+
+     inline   \( … \)
+     display  \[ … \]   and   $$ … $$
+     NEVER a bare single $  (it collides with currency; a literal dollar is written \$)
+     inequalities  \lt \gt \le \ge \ne, never raw < or >
+
+   SCOPE: this is NOT F33. F33 is the full equation editor (symbol palette, live preview,
+   authoring, student views, print) and is unstarted. This renders existing markup where the
+   review tab shows it, so scaffold items — which are full of \(…\) — are readable. Student
+   surfaces still show raw markup until F33 lands; see DEVELOPMENT-PLAN F33.
+
+   PROGRESSIVE ENHANCEMENT (CLAUDE.md rule 2): KaTeX is fetched ON DEMAND, only when a surface
+   asks to render maths, so the student path is untouched and a CDN failure degrades to raw
+   markup rather than a broken page. Never throws. */
+const KATEX_VER = '0.16.9';
+const KATEX_DELIMITERS = [
+  { left:'$$',  right:'$$',  display:true  },
+  { left:'\\[', right:'\\]', display:true  },
+  { left:'\\(', right:'\\)', display:false }
+  /* deliberately NO single-$ entry — see the contract above */
+];
+let _katexPromise = null;
+function ensureKatex(){
+  if(_katexPromise) return _katexPromise;
+  _katexPromise = new Promise(resolve=>{
+    if(window.renderMathInElement) return resolve(true);
+    const css=document.createElement('link');
+    css.rel='stylesheet'; css.href=`https://cdn.jsdelivr.net/npm/katex@${KATEX_VER}/dist/katex.min.css`;
+    document.head.appendChild(css);
+    const core=document.createElement('script');
+    core.src=`https://cdn.jsdelivr.net/npm/katex@${KATEX_VER}/dist/katex.min.js`;
+    core.onerror=()=>resolve(false);
+    core.onload=()=>{
+      const auto=document.createElement('script');
+      auto.src=`https://cdn.jsdelivr.net/npm/katex@${KATEX_VER}/dist/contrib/auto-render.min.js`;
+      auto.onerror=()=>resolve(false);
+      auto.onload=()=>resolve(!!window.renderMathInElement);
+      document.head.appendChild(auto);
+    };
+    document.head.appendChild(core);
+  });
+  return _katexPromise;
+}
+/* Render every maths expression inside `el`. Safe to call on any element, any number of times;
+   a failure to load, or a malformed expression, leaves the raw source visible instead of
+   throwing — an unrenderable formula is a review finding, not a crash. */
+function renderMathIn(el){
+  if(!el) return;
+  ensureKatex().then(ok=>{
+    if(!ok || !window.renderMathInElement) return;   /* offline / blocked → raw markup stands */
+    try{
+      window.renderMathInElement(el, {
+        delimiters: KATEX_DELIMITERS,
+        throwOnError: false,             /* bad LaTeX renders red in place, page keeps working */
+        errorColor: 'var(--mm-red)',
+        ignoredTags: ['script','noscript','style','textarea','pre','code','option']
+      });
+    }catch(e){ /* never let a rendering pass break the tab */ }
+  });
+}
+
 /* =============================== F10b — AI review queue (questions_review) ===============================
    The generation service (F32) inserts 'pending' items; this tab owns every status transition.
    An EDIT records a field-level diff in edited_diff — that diff is the taste signal the generator
@@ -1618,8 +1711,54 @@ async function renderReviewTab(body){
   if(q.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the review queue.</p>'; return; }
   if(!q.items.length){ body.innerHTML = '<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>'; return; }
   body.innerHTML = `<p class="tch-foot" style="margin:0 0 12px">${q.items.length} item${q.items.length===1?'':'s'} awaiting your review. Approve keeps it; Edit saves your changes (and teaches the generator your taste); Reject drops it.</p>`
-    + q.items.map(reviewItemHtml).join('');
+    + groupReviewItems(q.items).map(reviewGroupHtml).join('');
   wireReviewItems(q.items);
+  renderMathIn(body);              /* F33 delimiter contract — see renderMathIn */
+}
+/* Pure: order the queue so a LADDER READS AS A LADDER.
+   A scaffold rung is not reviewable in isolation — "does level 3 actually add help" is only
+   answerable with level 2 directly above it. Items sharing a variant_group are one ladder;
+   within it, order by scaffold_level (the generator guarantees the ladder is monotone
+   increasing, so level order IS help order). Groups keep the queue's original arrival order,
+   taking the position of their earliest member, so grouping never reshuffles the whole tab.
+   A lone item is a group of one and renders exactly as it always did. */
+function groupReviewItems(items){
+  const list = Array.isArray(items) ? items : [];
+  const groups = []; const byKey = new Map();
+  list.forEach((it,idx)=>{
+    const p = it.payload||{};
+    /* Fall back to the row's own variant_group column, then to a per-item key so an item with
+       no group can never be merged with another one. */
+    const key = (p.variant_group || it.variant_group || (' item-'+it.id));
+    let g = byKey.get(key);
+    if(!g){ g = { key:String(key), items:[], order:idx }; byKey.set(key,g); groups.push(g); }
+    g.items.push(it);
+  });
+  groups.forEach(g=> g.items.sort((a,b)=>{
+    const la=+(((a.payload||{}).scaffold_level)||0), lb=+(((b.payload||{}).scaffold_level)||0);
+    if(la!==lb) return la-lb;
+    return String(a.created_at||'').localeCompare(String(b.created_at||''));
+  }));
+  /* A group is a LADDER only if it is genuinely one — more than one rung, or any scaffolded
+     item. Two ordinary variants of the same question are not a ladder and must not be dressed
+     up as one. */
+  groups.forEach(g=>{
+    g.isLadder = g.items.length>1 || g.items.some(x=> +(((x.payload||{}).scaffold_level)||0) > 0);
+  });
+  return groups.sort((a,b)=>a.order-b.order);
+}
+function reviewGroupHtml(g){
+  const inner = g.items.map(reviewItemHtml).join('');
+  if(!g.isLadder) return inner;
+  const first = g.items[0]||{}; const p = first.payload||{};
+  const target = p.target_misconception || (g.items.map(x=>(x.payload||{}).target_misconception).find(Boolean)) || '';
+  const levels = g.items.map(x=> 'L'+(+(((x.payload||{}).scaffold_level)||0))).join(' → ');
+  return `<div class="rv-ladder">
+    <div class="rv-ladder-hd">🪜 Scaffold ladder · ${esc(levels)}
+      ${target?`<small>targeting <b>${esc(target)}</b></small>`:''}
+      <small>${esc(g.key)}</small></div>
+    <p class="ad-note" style="margin:5px 0 0">Read these top to bottom: each rung should add real help over the one above it, not just reword it.</p>
+    ${inner}</div>`;
 }
 function reviewMetaHtml(it){
   const bits=[esc(it.kind||'item')];
@@ -1646,6 +1785,34 @@ function renderStagedHints(hints){
     return `<div class="sh"><span class="sh-stage">Hint ${esc(h.stage)}</span><span class="sh-text">${body}</span></div>`;
   }).join('')}</div>`;
 }
+/* §4 SCAFFOLD CONTRACT (payload.scaffold, generator p6–p8) — the ladder's structured parts:
+     reminder        : one line naming the rule the misconception breaks   (level 1+)
+     sub_question    : the smaller question isolating the first step       (level 2+)
+     partial_working : working up to the last step, with ___ to complete   (level 3+)
+     guided_choices  : the narrowed choice set for the remaining step      (level 4+)
+   The parts are structured precisely so they can be READ as parts — rendering the block as
+   JSON would throw away the reason it exists. renderScaffoldParts is the SINGLE canonical
+   renderer; F19's ScaffoldManager must REUSE it, exactly as F8/F12/F19 reuse
+   renderStagedHints. Order is fixed (ladder order), and a missing part is simply absent —
+   at level 1 only `reminder` is legal, so blanks are correct, not a defect. */
+const RV_SCAFFOLD_PARTS = [
+  ['reminder',        'Reminder'],
+  ['sub_question',    'Sub-question'],
+  ['partial_working', 'Partial working'],
+  ['guided_choices',  'Guided choices']
+];
+function renderScaffoldParts(scaffold){
+  if(!scaffold || typeof scaffold!=='object' || Array.isArray(scaffold)) return '';
+  const rows = RV_SCAFFOLD_PARTS.map(([key,label])=>{
+    const v = scaffold[key];
+    if(v==null || v==='' || (Array.isArray(v) && !v.length)) return '';
+    const body = Array.isArray(v)
+      ? `<ul>${v.map(c=>`<li>${sanitizeHtml(String(c))}</li>`).join('')}</ul>`
+      : sanitizeHtml(String(v));
+    return `<div class="rv-scaf-row"><span class="rv-scaf-lb">${esc(label)}</span><span class="rv-scaf-v">${body}</span></div>`;
+  }).filter(Boolean).join('');
+  return rows ? `<div class="rv-scaf">${rows}</div>` : '';
+}
 /* Pure: merge edited hint TEXT back onto the original staged-hint objects, preserving stage/
    image (and any other keys). This is what stops an edit from stringifying the object array. */
 function mergeHintEdits(origHints, editedTexts){
@@ -1656,32 +1823,80 @@ function mergeHintEdits(origHints, editedTexts){
     return (t!=null ? t : h);
   });
 }
-/* Trace fields (numeric_state, similarity band, validator flags, novel misconceptions, …) shown
-   as chips to aid review. Generic over trace keys so unknown §4 subfields still surface. */
+/* The generator's three-state numeric check and its similarity bands are VERDICTS, not data:
+   "unverified" means nobody checked the arithmetic, and rendering it identically to "verified"
+   silently converts an unchecked item into a checked-looking one. Each gets an explicit badge
+   with the plain-English reading, so the reviewer never has to know the vocabulary. */
+const RV_NUMERIC_BADGE = {
+  verified:   { cls:'ok',      label:'answer checked by computer' },
+  failed:     { cls:'warn',    label:'ANSWER FAILED THE CHECK' },
+  unverified: { cls:'caution', label:'answer NOT machine-checked — verify it yourself' }
+};
+const RV_SIM_BADGE = {
+  clean:  { cls:'ok',      label:'similarity clean' },
+  flag:   { cls:'caution', label:'similarity borderline — read for resemblance to a real paper' },
+  bounce: { cls:'warn',    label:'SIMILARITY BOUNCE (should never reach this queue)' }
+};
+/* Keys given a dedicated badge above, plus provenance that is noise in a review context.
+   Everything else still falls through to a generic chip — that generality is deliberate, so an
+   unknown §4 trace subfield surfaces rather than being silently dropped. */
+const RV_TRACE_HANDLED = ['numeric_state','similarity_band','flags','content_hash'];
+/* Pure: the flag list from a review row, whatever shape the trace arrives in. Flags are the
+   pipeline saying "I declined to REJECT this — you look" (e.g. partial working containing the
+   answer value, or no distractor being numerically comparable). A flag nobody sees is the same
+   as no flag at all, so these get their own block, one line each — never comma-joined. */
+function reviewFlags(it){
+  const tr=(it&&it.payload&&it.payload.trace)||{};
+  const f=tr.flags;
+  if(Array.isArray(f)) return f.map(x=> typeof x==='object'?JSON.stringify(x):String(x)).filter(Boolean);
+  return (f==null||f==='') ? [] : [String(f)];
+}
+function reviewFlagsHtml(it){
+  const flags=reviewFlags(it); if(!flags.length) return '';
+  return `<div class="rv-flags"><span class="rv-flags-lb">⚑ ${flags.length} thing${flags.length===1?'':'s'} the checks flagged but did not reject</span>
+    <ul>${flags.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div>`;
+}
+/* Trace fields shown as chips to aid review, with dedicated badges for the verdict fields.
+   Generic over the remaining trace keys so unknown §4 subfields still surface. */
 function reviewTraceHtml(it){
   const tr=(it.payload&&it.payload.trace); if(!tr||typeof tr!=='object'||Array.isArray(tr)) return '';
-  const chips=Object.keys(tr).map(k=>{
-    let v=tr[k]; const warn=/flag|novel|fail|warn|reject/i.test(k) && (Array.isArray(v)?v.length:(v&&v!=='none'&&v!==false));
+  const chips=[];
+  const num=RV_NUMERIC_BADGE[tr.numeric_state];
+  if(num) chips.push(`<span class="rv-tag ${num.cls}">${esc(num.label)}</span>`);
+  else if(tr.numeric_state!=null) chips.push(`<span class="rv-tag">numeric: ${esc(String(tr.numeric_state))}</span>`);
+  const sim=RV_SIM_BADGE[tr.similarity_band];
+  if(sim) chips.push(`<span class="rv-tag ${sim.cls}">${esc(sim.label)}</span>`);
+  else if(tr.similarity_band!=null) chips.push(`<span class="rv-tag">similarity: ${esc(String(tr.similarity_band))}</span>`);
+  Object.keys(tr).forEach(k=>{
+    if(RV_TRACE_HANDLED.indexOf(k)>=0) return;
+    let v=tr[k]; const warn=/novel|fail|warn|reject/i.test(k) && (Array.isArray(v)?v.length:(v&&v!=='none'&&v!==false));
     if(Array.isArray(v)) v = v.length ? v.map(x=>typeof x==='object'?JSON.stringify(x):x).join(', ') : '—';
     else if(v&&typeof v==='object') v=JSON.stringify(v);
-    return `<span class="rv-tag${warn?' warn':''}">${esc(k.replace(/_/g,' '))}: ${esc(String(v))}</span>`;
+    chips.push(`<span class="rv-tag${warn?' warn':''}">${esc(k.replace(/_/g,' '))}: ${esc(String(v))}</span>`);
   });
   return chips.length ? `<div class="rv-trace"><span class="rv-trace-lb">trace</span>${chips.join('')}</div>` : '';
 }
 function reviewItemHtml(it){
   const p=it.payload||{};
+  const lvl = (p.scaffold_level!=null && +p.scaffold_level>0) ? +p.scaffold_level : 0;
   const opts = Array.isArray(p.options) ? p.options.map((o,i)=>{
     const text = (o&&typeof o==='object') ? (o.text||o.html||'') : String(o);
     const mis  = (o&&typeof o==='object') ? (o.misconception||'') : '';
     const correct = (o&&typeof o==='object' && o.correct) || (p.answer===i);
-    return `<li class="${correct?'rv-correct':''}">${sanitizeHtml(text)}${mis?`<span class="rv-mis">↳ ${esc(mis)}</span>`:''}</li>`;
+    /* p6 feedback: what THIS student is told having made THIS error. Shown against its own
+       option — read anywhere else it is unreviewable, because the whole question is whether
+       the words match the mistake. */
+    const fb = (o&&typeof o==='object') ? (correct ? (p.correct_feedback||'') : (o.misconception_feedback||'')) : '';
+    return `<li class="${correct?'rv-correct':''}">${sanitizeHtml(text)}${mis?`<span class="rv-mis">↳ ${esc(mis)}</span>`:''}${fb?`<span class="rv-fb">💬 ${sanitizeHtml(fb)}</span>`:''}</li>`;
   }).join('') : '';
   return `<div class="rv-item" data-id="${esc(it.id)}">
-    <div class="rv-meta">${reviewMetaHtml(it)}</div>
+    <div class="rv-meta">${lvl?`<span class="rv-lvl">L${esc(lvl)}</span>`:''}${reviewMetaHtml(it)}</div>
     <div class="rv-q">${sanitizeHtml(p.question_html||p.question||'<i>(no question text)</i>')}</div>
+    ${renderScaffoldParts(p.scaffold)}
     ${opts?`<ul class="rv-opts">${opts}</ul>`:''}
     ${p.mark_scheme?`<div class="rv-ms"><b>Mark scheme</b> ${sanitizeHtml(p.mark_scheme)}${p.marks!=null?` <span class="rv-marks">(${esc(p.marks)} mark${(+p.marks)===1?'':'s'})</span>`:''}${p.answer_numeric!=null?` <span class="rv-marks">answer: ${esc(p.answer_numeric)}</span>`:''}</div>`:''}
     ${(Array.isArray(p.hints)&&p.hints.length)?`<div class="rv-ms"><b>Hints</b>${renderStagedHints(p.hints)}</div>`:''}
+    ${reviewFlagsHtml(it)}
     ${reviewTraceHtml(it)}
     <div class="rv-actions">
       <button class="btn solid rv-approve" data-id="${esc(it.id)}">✓ Approve</button>
