@@ -1734,9 +1734,20 @@ function groupReviewItems(items){
     if(!g){ g = { key:String(key), items:[], order:idx }; byKey.set(key,g); groups.push(g); }
     g.items.push(it);
   });
+  /* Order WITHIN a group: the level-0 diagnostic first, then each MISCONCEPTION's rungs as a
+     contiguous L1→L4 run.
+     Sorting by level alone looks right until real data arrives: one diagnostic is scaffolded
+     for several misconceptions at once (that IS the design — each wrong answer routes to its
+     own ladder), so all the rungs share the parent's variant_group. Level-only ordering then
+     interleaves them — L1,L1,L1,L2,L2,L2,… — and no ladder can be read end to end, which is
+     exactly the thing grouping exists to make possible. */
   groups.forEach(g=> g.items.sort((a,b)=>{
-    const la=+(((a.payload||{}).scaffold_level)||0), lb=+(((b.payload||{}).scaffold_level)||0);
-    if(la!==lb) return la-lb;
+    const pa=a.payload||{}, pb=b.payload||{};
+    const la=+(pa.scaffold_level||0), lb=+(pb.scaffold_level||0);
+    if((la===0)!==(lb===0)) return la===0 ? -1 : 1;            /* diagnostic leads */
+    const ta=String(pa.target_misconception||''), tb=String(pb.target_misconception||'');
+    if(ta!==tb) return ta.localeCompare(tb);                   /* one ladder at a time */
+    if(la!==lb) return la-lb;                                  /* then climb it */
     return String(a.created_at||'').localeCompare(String(b.created_at||''));
   }));
   /* A group is a LADDER only if it is genuinely one — more than one rung, or any scaffolded
@@ -1750,14 +1761,21 @@ function groupReviewItems(items){
 function reviewGroupHtml(g){
   const inner = g.items.map(reviewItemHtml).join('');
   if(!g.isLadder) return inner;
-  const first = g.items[0]||{}; const p = first.payload||{};
-  const target = p.target_misconception || (g.items.map(x=>(x.payload||{}).target_misconception).find(Boolean)) || '';
-  const levels = g.items.map(x=> 'L'+(+(((x.payload||{}).scaffold_level)||0))).join(' → ');
+  /* One diagnostic can carry SEVERAL ladders (one per misconception its distractors tag), so
+     describe the group by its targets, not by a level run: "L0 → L1 → L1 → L1 → L2 …" is what
+     three interleaved ladders look like, and it reads as a broken ladder rather than as three
+     good ones. */
+  const targets = [...new Set(g.items.map(x=>(x.payload||{}).target_misconception).filter(Boolean))];
+  const rungs = g.items.filter(x=> +(((x.payload||{}).scaffold_level)||0) > 0).length;
+  const hasL0 = g.items.some(x=> +(((x.payload||{}).scaffold_level)||0) === 0);
+  const shape = targets.length > 1
+    ? `${targets.length} ladders${hasL0?' off one diagnostic':''} · ${rungs} rungs`
+    : `L0 → L${Math.max(...g.items.map(x=> +(((x.payload||{}).scaffold_level)||0)))}`;
   return `<div class="rv-ladder">
-    <div class="rv-ladder-hd">🪜 Scaffold ladder · ${esc(levels)}
-      ${target?`<small>targeting <b>${esc(target)}</b></small>`:''}
+    <div class="rv-ladder-hd">🪜 Scaffold ${targets.length>1?'ladders':'ladder'} · ${esc(shape)}
+      ${targets.length?`<small>targeting <b>${esc(targets.join(', '))}</b></small>`:''}
       <small>${esc(g.key)}</small></div>
-    <p class="ad-note" style="margin:5px 0 0">Read these top to bottom: each rung should add real help over the one above it, not just reword it.</p>
+    <p class="ad-note" style="margin:5px 0 0">Read top to bottom${targets.length>1?', one misconception at a time':''}: each rung should add real help over the one above it, not just reword it.</p>
     ${inner}</div>`;
 }
 function reviewMetaHtml(it){

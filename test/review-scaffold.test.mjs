@@ -68,10 +68,14 @@ const api = (new Function([
   extractFn('reviewFlagsHtml'),
   extractFn('reviewTraceHtml'),
   extractFn('groupReviewItems'),
-  'return { renderScaffoldParts, reviewFlags, reviewFlagsHtml, reviewTraceHtml, groupReviewItems };'
+  extractFn('reviewItemHtml'),
+  extractFn('renderStagedHints'),
+  extractFn('reviewMetaHtml'),
+  extractFn('reviewGroupHtml'),
+  'return { renderScaffoldParts, reviewFlags, reviewFlagsHtml, reviewTraceHtml, groupReviewItems, reviewGroupHtml };'
 ].join('\n')))();
 
-const { renderScaffoldParts, reviewFlags, reviewFlagsHtml, reviewTraceHtml, groupReviewItems } = api;
+const { renderScaffoldParts, reviewFlags, reviewFlagsHtml, reviewTraceHtml, groupReviewItems, reviewGroupHtml } = api;
 
 let failures = 0;
 const assert = (cond, msg) => { if (!cond) { failures++; console.error('  ✗ ' + msg); } else console.log('  ✓ ' + msg); };
@@ -198,3 +202,39 @@ assert(!/left:'\$'/.test(delimBlock),
 
 if (failures) { console.error('\n' + failures + ' assertion(s) FAILED'); process.exit(1); }
 console.log('\nAll review scaffold assertions passed.');
+
+// ── multi-ladder groups (found by the first real stocking batch) ────────────
+// One diagnostic scaffolded for three misconceptions puts THIRTEEN items in one
+// variant_group — that is the design, since each wrong answer routes to its own ladder.
+// Ordering by level alone interleaves them (L1,L1,L1,L2,L2,L2,...) and no ladder can be
+// read end to end, which is the whole reason the tab groups at all.
+const MULTI = [];
+['strict-left-to-right', 'brackets-evaluated-last', 'addition-before-multiplication']
+  .forEach((mis, m) => [1, 2, 3, 4].forEach(lv => MULTI.push({
+    id: `${mis}-${lv}`, created_at: `2026-08-07T1${m}:0${lv}:00Z`,
+    payload: { variant_group: 'shared-vg', scaffold_level: lv, target_misconception: mis,
+               question_html: 'q', options: [] }
+  })));
+MULTI.push({ id: 'L0', created_at: '2026-08-07T09:00:00Z',
+             payload: { variant_group: 'shared-vg', scaffold_level: 0, question_html: 'q', options: [] } });
+
+const mg = groupReviewItems([...MULTI].reverse());
+assert(mg.length === 1 && mg[0].items.length === 13, 'multi-ladder: 13 items in one group');
+assert(+mg[0].items[0].payload.scaffold_level === 0, 'multi-ladder: the L0 diagnostic leads');
+const seq = mg[0].items.slice(1).map(i => `${i.payload.target_misconception}:${i.payload.scaffold_level}`);
+assert(seq.join(',') === [
+  'addition-before-multiplication:1','addition-before-multiplication:2',
+  'addition-before-multiplication:3','addition-before-multiplication:4',
+  'brackets-evaluated-last:1','brackets-evaluated-last:2',
+  'brackets-evaluated-last:3','brackets-evaluated-last:4',
+  'strict-left-to-right:1','strict-left-to-right:2',
+  'strict-left-to-right:3','strict-left-to-right:4'
+].join(','), 'multi-ladder: each misconception is a CONTIGUOUS L1->L4 run, not interleaved');
+
+const hdr = reviewGroupHtml(mg[0]);
+assert(hdr.includes('3 ladders off one diagnostic'), 'multi-ladder: header says 3 ladders, not a broken level run');
+assert(!hdr.includes('L1 → L1'), 'multi-ladder: header never shows an interleaved level run');
+assert(hdr.includes('one misconception at a time'), 'multi-ladder: tells the reviewer how to read it');
+
+const oneLadder = groupReviewItems([RUNG(0), RUNG(1), RUNG(2)]);
+assert(reviewGroupHtml(oneLadder[0]).includes('L0 → L2'), 'single-ladder header still reads as a level run');
