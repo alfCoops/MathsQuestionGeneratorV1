@@ -163,6 +163,8 @@
   .rv-trace-lb{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
   /* Build stamp — deliberately quiet, but always present. Bottom-left so it never sits under
      the toast (bottom-centre) or a floating action. */
+  .self-report{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:11px}
+  .self-report .sr-lb{font-size:12px;font-weight:700;color:var(--muted)}
   .build-stamp{position:fixed;left:8px;bottom:6px;z-index:40;font-size:10px;line-height:1.3;
     font-weight:600;color:var(--muted);opacity:.5;background:var(--card);border:1px solid var(--line);
     border-radius:6px;padding:2px 7px;pointer-events:auto;user-select:all}
@@ -715,6 +717,7 @@
                     </div>
                   </div>
                   <div class="qq" id="genQ"></div>
+                  <div class="self-report no-print" id="genSelfReport"></div>
                   <div class="tot" id="genTot"></div>
                 </div>
                 <div class="ms" id="genMs"></div>
@@ -916,6 +919,27 @@ let COURSES = buildCourses(window.MM_CONTENT);
 if(!COURSES.length || !COURSES[0].LESSONS){ document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;max-width:560px"><h2>Content file missing</h2><p>mm-content.js was not found. Upload it to the same folder as this file (they must sit side by side in the GitHub repository).</p></div>'; throw new Error('MM_CONTENT missing'); }
 let currentCourseId = COURSES[0].id;
 let WEEKS = COURSES[0].WEEKS, LESSONS = COURSES[0].LESSONS;
+
+/* specRefs back-compat (hard rule 1: default missing fields in code). The cloud copy of the
+   content was last published BEFORE lessons carried specRefs, so every cloud lesson has
+   specRefs:null — and since cloud OVERRIDES mm-content.js, the shipped backfill never
+   reaches the running app. Found live: lesson 1a matched zero practice-bank items because
+   its runtime specRefs were null, while mm-content.js had them all along.
+   Captured HERE, after the first build from the pristine mm-content.js and before
+   loadSavedContent()/syncFromBackend() can replace it. Healing note: the defaulted refs are
+   part of what the editor saves, so Ryan's next 💾 publishes them and the cloud copy stops
+   needing the default. */
+const SEED_SPEC_REFS = {};
+COURSES.forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+  if(L && Array.isArray(L.specRefs) && L.specRefs.length) SEED_SPEC_REFS[id] = L.specRefs.slice();
+}));
+function defaultSpecRefs(courses){
+  (courses||[]).forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+    if(L && !(Array.isArray(L.specRefs) && L.specRefs.length) && SEED_SPEC_REFS[id])
+      L.specRefs = SEED_SPEC_REFS[id].slice();
+  }));
+  return courses;
+}
 function courseById(id){ return COURSES.find(c=>c.id===id); }
 function currentCourse(){ return courseById(currentCourseId) || COURSES[0]; }
 function courseLabel(c){ return [c.qualification, c.board, c.tier].filter(Boolean).join(' · '); }
@@ -929,7 +953,7 @@ let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLess
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
-    COURSES = buildCourses(d);
+    COURSES = defaultSpecRefs(buildCourses(d));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
@@ -971,7 +995,7 @@ const TEACHER_KEY_STORE = 'mm-teacher-key';
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-08-08T10:48:15Z', ref:'3f99562+' };
+const BUILD = { at:'2026-08-08T20:02:16Z', ref:'3d5307a+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2712,33 +2736,154 @@ function startGenTimer(marks){
     if(genTimeLeft<=0){ stopGenTimer(); const b=$('timerBtn'); if(b) b.disabled=true; }
   },1000);
 }
-function pickGeneratedQuestion(){
-  /* PRODUCTION: replace with a fetch to the FastAPI generator, e.g.
-       const r = await fetch('https://your-api.onrender.com/generate', {
-         method:'POST', headers:{'Content-Type':'application/json'},
-         body: JSON.stringify({ topic: cur.title, tier:'foundation', count:1 })
-       });
-       return (await r.json()).questions[0];
-     The AI service generates unlimited questions from easy (Grade 1)
-     to challenging (Grade 3+). */
-  let i; do { i=Math.floor(Math.random()*cur.genBank.length); } while(i===lastGen && cur.genBank.length>1);
-  lastGen=i; return cur.genBank[i];
+/* =========== F12-lite — serve APPROVED AI practice questions =============================
+   The bank is the `practice_questions` view: approved/edited kind:"generator" items only,
+   already stripped to question_html / hints / mark_scheme / marks / calculator. Nothing
+   pending, rejected, MCQ or scaffolded can appear there — the view enforces that in SQL, so
+   this client cannot leak an unapproved item even if it is wrong.
+
+   NO ADAPTIVITY (that is F12-full). This picks an unseen approved question, else falls back
+   to the lesson's local genBank, so a lesson with an empty bank behaves exactly as before.
+
+   MATCHING — the part with a real trap in it. A lesson stores BARE spec refs (['N1','N2'])
+   while the bank stores full corpus ids (['edexcel-gcse-f-N1', …]), so the obvious equality
+   match silently finds nothing and every student sees the old genBank forever. Refs are
+   normalised to the bare form (the same strip the generator applies server-side).
+
+   We match on the item's PRIMARY (first) ref only. The stored list is the whole BM25
+   retrieval set, not what the model actually cited — a rounding item also lists A23/A21/R9 —
+   so matching on ANY overlap would serve a rounding question inside a geometry lesson. The
+   first entry is the top-ranked statement for the topic the item was generated for, which is
+   the only element that reliably describes the item.
+   PROPER FIX (not done here — it needs a migration + re-stock): expose
+   `payload->'spec_refs'` (what the model cited) in the view and match on that. */
+const SPEC_REF_PREFIX = /^[a-z]+-[a-z0-9]+-[fh]-/;      /* mirrors RawItem._bare_spec_refs */
+function bareSpecRef(ref){ return String(ref||'').replace(SPEC_REF_PREFIX, ''); }
+function primarySpecRef(row){
+  const list = (row && row.spec_ref) || [];
+  return Array.isArray(list) && list.length ? bareSpecRef(list[0]) : '';
 }
-$('genBtn').addEventListener('click', ()=>{
+/* Pure: which approved rows belong to this lesson. Exported shape kept simple so it is
+   testable without a DB. */
+function matchPracticeRows(rows, lessonSpecRefs, courseId){
+  const want = new Set((lessonSpecRefs||[]).map(bareSpecRef).filter(Boolean));
+  if(!want.size) return [];
+  return (rows||[]).filter(r=>{
+    if(courseId && r.course_id && r.course_id !== courseId) return false;
+    const item = r.item||{};
+    if(!item.question_html) return false;                /* nothing to show */
+    return want.has(primarySpecRef(r));
+  });
+}
+let _practice = { key:null, rows:[], loading:null, loadingKey:null };
+let _servedIds = new Set();          /* ids already shown — DB-backed when signed in */
+
+async function loadPracticeBank(){
+  const key = (currentCourseId||'') + '|' + ((cur&&cur.id)||'');
+  if(_practice.key === key) return _practice.rows;
+  /* Reuse an in-flight load ONLY for the same lesson. Without the key check, navigating
+     mid-fetch hands the new lesson the OLD lesson's questions. */
+  if(_practice.loading && _practice.loadingKey === key) return _practice.loading;
+  _practice.loadingKey = key;
+  /* The promise is captured in a LOCAL and _practice is mutated field-by-field, never
+     replaced. The subtle bug this avoids: when the load completes synchronously (no
+     specRefs, signed out — zero awaits), an IIFE that reassigned `_practice` finished
+     BEFORE `_practice.loading = …` ran, so the assignment landed on the stale object and
+     this function returned null instead of the rows. */
+  const p = (async ()=>{
+    let rows = [];
+    try{
+      if(sbClient && cur && (cur.specRefs||[]).length){
+        const { data, error } = await sbClient.from('practice_questions').select('*');
+        if(!error) rows = matchPracticeRows(data, cur.specRefs, currentCourseId);
+      }
+    }catch(e){ rows = []; }                 /* FAIL-OPEN: bank unavailable → genBank (rule 2) */
+    try{
+      if(sbClient && authUser){
+        const { data } = await sbClient.from('served_questions').select('question_id');
+        (data||[]).forEach(r=> _servedIds.add(r.question_id));
+      }
+    }catch(e){}
+    _practice.key = key; _practice.rows = rows;
+    _practice.loading = null; _practice.loadingKey = null;
+    return rows;
+  })();
+  _practice.loading = p;
+  return p;
+}
+function recordServed(id){
+  _servedIds.add(id);
+  if(!sbClient || !authUser) return;       /* signed-out practice is session-only, by design */
+  try{
+    sbClient.from('served_questions')
+      .upsert({ user_id:authUser.id, question_id:id, lesson_id:(cur&&cur.id)||null },
+              { onConflict:'user_id,question_id' }).then(()=>{}, ()=>{});
+  }catch(e){}
+}
+/* Normalise an approved row into the shape the generator card already renders. */
+function practiceToCard(row){
+  const it = row.item||{};
+  const marks = (it.marks!=null) ? +it.marks : 2;
+  return { id:row.id, source:'bank', grade:'Grade '+(row.grade_band!=null?row.grade_band:'?'),
+           marks, q:sanitizeHtml(it.question_html||''),
+           ms:sanitizeHtml(it.mark_scheme||'<i>(no mark scheme)</i>'),
+           hints:Array.isArray(it.hints)?it.hints:[] };
+}
+function pickGeneratedQuestion(){
+  /* THE SWAP POINT (CLAUDE.md). Approved bank first, local genBank as the fallback. */
+  const fresh = _practice.rows.filter(r=> !_servedIds.has(r.id));
+  const pool  = fresh.length ? fresh : [];
+  if(pool.length){
+    const row = pool[Math.floor(Math.random()*pool.length)];
+    recordServed(row.id);
+    return practiceToCard(row);
+  }
+  if(!cur.genBank || !cur.genBank.length){
+    return { source:'none', grade:'—', marks:0,
+             q:'<i>No practice questions available for this lesson yet.</i>', ms:'' };
+  }
+  let i; do { i=Math.floor(Math.random()*cur.genBank.length); } while(i===lastGen && cur.genBank.length>1);
+  lastGen=i; return Object.assign({ source:'local' }, cur.genBank[i]);
+}
+let _lastServed = null;
+$('genBtn').addEventListener('click', async ()=>{
   $('secGen').classList.add('open'); noteSection('generate'); syncVideoFocus();   /* F7 + T5 */
-  const g=pickGeneratedQuestion(); genCount++;
+  await loadPracticeBank();          /* fail-open: on any error the bank is empty → genBank */
+  const g=pickGeneratedQuestion(); genCount++; _lastServed=g;
   $('genCard').style.display='block'; $('genActions').style.display='flex';
   $('genLabel').textContent='Question '+genCount;
   $('genMarks').textContent=`${g.grade} · ${g.marks} mark${g.marks>1?'s':''}`;
   $('genQ').innerHTML=g.q;
   $('genTot').textContent=`(Total for question = ${g.marks} marks)`;
-  $('genMs').classList.remove('show'); $('genMs').innerHTML='<b>Mark scheme:</b> '+g.ms;
+  $('genMs').classList.remove('show');
+  $('genMs').innerHTML='<b>Mark scheme:</b> '+g.ms
+    + ((g.hints&&g.hints.length)?`<div style="margin-top:9px"><b>Hints</b>${renderStagedHints(g.hints)}</div>`:'');
   $('msBtn').textContent='📋 Show Mark Scheme';
+  renderSelfReport(g);
+  renderMathIn($('genCard'));       /* bank questions carry \( … \) — render, don't show source */
   startGenTimer(g.marks);
   completeStep('generate');
 });
+/* Self-report (F12-lite): the student's own read on how it went. Deliberately NOT marking —
+   these are free-response items with no machine-checkable answer, so the honest thing is to
+   ask rather than pretend to grade. Local-only for now; the signal feeds F12-full later. */
+function renderSelfReport(g){
+  const el=$('genSelfReport'); if(!el) return;
+  if(!g || g.source==='none'){ el.innerHTML=''; return; }
+  el.innerHTML = `<span class="sr-lb">How did that go?</span>
+    <button class="btn ghost ad-mini sr-btn" data-v="got">👍 Got it</button>
+    <button class="btn ghost ad-mini sr-btn" data-v="close">🤔 Nearly</button>
+    <button class="btn ghost ad-mini sr-btn" data-v="stuck">😕 Stuck</button>`;
+  el.querySelectorAll('.sr-btn').forEach(b=> b.addEventListener('click', ()=>{
+    const v=b.dataset.v;
+    try{ const k='mm_selfreport_'+((cur&&cur.id)||''); const log=JSON.parse(localStorage.getItem(k)||'[]');
+         log.push({ id:g.id||null, source:g.source, v, at:Date.now() });
+         localStorage.setItem(k, JSON.stringify(log.slice(-200))); }catch(e){}
+    el.innerHTML = `<span class="sr-lb">${v==='got'?'Nice one 👍':(v==='close'?'Close — try another 🤔':'Noted — try the notes again, then another 😕')}</span>`;
+  }));
+}
 $('timerBtn').addEventListener('click', ()=>{
-  if(!genTimerId){ startGenTimer((cur.genBank[lastGen]||{}).marks); return; }
+  if(!genTimerId){ startGenTimer((_lastServed||cur.genBank[lastGen]||{}).marks); return; }
   genTimerPaused=!genTimerPaused;
   $('timerBtn').textContent=genTimerPaused?'▶ Resume Timer':'⏸ Pause Timer';
   paintTimer();
@@ -2749,7 +2894,7 @@ $('msBtn').addEventListener('click', ()=>{
 });
 $('genAgain').addEventListener('click', ()=> $('genBtn').click());
 if(!TTS.supported){ const gs=$('genSpeak'); if(gs) gs.style.display='none'; }
-$('genSpeak').addEventListener('click', ()=>{ const g=cur&&cur.genBank&&cur.genBank[lastGen]; if(g) TTS.speak(g.q, $('genSpeak')); });
+$('genSpeak').addEventListener('click', ()=>{ const g=_lastServed||(cur&&cur.genBank&&cur.genBank[lastGen]); if(g) TTS.speak(g.q, $('genSpeak')); });
 
 /* =============================== footer nav =============================== */
 $('completeBtn').addEventListener('click', ()=>{
