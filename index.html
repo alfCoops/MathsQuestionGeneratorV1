@@ -161,6 +161,13 @@
   /* trace chips */
   .rv-trace{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
   .rv-trace-lb{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  /* Build stamp — deliberately quiet, but always present. Bottom-left so it never sits under
+     the toast (bottom-centre) or a floating action. */
+  .build-stamp{position:fixed;left:8px;bottom:6px;z-index:40;font-size:10px;line-height:1.3;
+    font-weight:600;color:var(--muted);opacity:.5;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;padding:2px 7px;pointer-events:auto;user-select:all}
+  .build-stamp:hover{opacity:1}
+  @media print{ .build-stamp{display:none} }
   .rv-tag{font-size:11px;font-weight:600;color:var(--text2);background:var(--surf2);border:1px solid var(--line);border-radius:7px;padding:2px 8px}
   .rv-tag.warn{color:#b91c1c;background:var(--red-bg);border-color:var(--red-line)}
   /* Verification badges. An UNVERIFIED numeric check must not look like a passed one — the
@@ -957,6 +964,28 @@ const TEACHER_KEY_STORE = 'mm-teacher-key';
 /* F32 — spec-grounded generation service (separate FastAPI repo). URL ONLY — never a key.
    The app calls it with the signed-in teacher's Supabase access token (Bearer). Blank = the
    "Generate questions" control is hidden. */
+/* BUILD STAMP — "which version am I looking at?" must never be guesswork again.
+   GitHub Pages serves this file straight from the branch, and browsers cache HTML, so a stale
+   tab and a stale deploy look identical. This makes them distinguishable at a glance.
+   The TIMESTAMP is authoritative for freshness (monotonic, can't be misread); `ref` is the
+   commit HEAD was on when the stamp was written — one commit behind the deployed one, since
+   stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
+   Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
+const BUILD = { at:'2026-08-08T10:48:15Z', ref:'3f99562+' };
+window.MM_BUILD = BUILD;
+function renderBuildStamp(){
+  try{
+    const d = String(BUILD.at||'').slice(0,16).replace('T',' ');
+    const el = document.createElement('div');
+    el.className = 'build-stamp no-print';
+    el.id = 'buildStamp';
+    el.textContent = 'build ' + d + ' UTC · ' + BUILD.ref;
+    el.title = 'The version of the app currently loaded. If this is older than a deploy you '
+             + 'expect, do a hard reload (Ctrl+Shift+R / Cmd+Shift+R).';
+    document.body.appendChild(el);
+  }catch(e){}
+}
+
 const GENERATOR = { url:'https://question-generator-d50c.onrender.com' };
 const generatorOn = () => !!(GENERATOR.url && GENERATOR.url.indexOf('http')===0);
 const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
@@ -2006,20 +2035,50 @@ function genErrorMessage(status){
   if(status===503) return 'The generator is warming up — give it a moment and try again.';
   return 'The generator returned an error (HTTP '+status+'). Try again shortly.';
 }
-async function genAuthHeaders(){
+/* AUTH FOR THE GENERATOR SERVICE — the token is fetched PER REQUEST, never captured.
+   The bug this replaces: callers took headers ONCE and reused the object. runGenerate handed
+   the same headers to genPOST and then to genPollLoop, which polls for up to ~3 minutes; a
+   Supabase access token can expire inside that window, after which every remaining poll 401s.
+   The 3 built-in retries reused the same dead token, so the run always ended on
+   "sign out and back in" — for a session that was still perfectly valid.
+   getSession() returns the CURRENT token and the SDK refreshes it in the background, so
+   asking at call time is nearly always enough; a 401 anyway means the token died between
+   asking and arriving, which one forced refresh fixes. Only if THAT also 401s is the session
+   genuinely gone and the sign-out message correct. */
+async function genAccessToken(forceRefresh){
   if(!sbClient) return null;
-  try{ const { data } = await sbClient.auth.getSession(); const tok = data && data.session && data.session.access_token; return tok ? { 'Authorization':'Bearer '+tok } : null; }
-  catch(e){ return null; }
+  try{
+    if(forceRefresh){
+      const rs = await sbClient.auth.refreshSession();
+      const t = rs && rs.data && rs.data.session && rs.data.session.access_token;
+      if(t) return t;                       /* refresh failed → fall through to whatever is stored */
+    }
+    const { data } = await sbClient.auth.getSession();
+    return (data && data.session && data.session.access_token) || null;
+  }catch(e){ return null; }
 }
-async function genGET(path, headers){
-  const r = await fetch(GENERATOR.url+path, { headers: headers||{} });
-  let data=null; try{ data=await r.json(); }catch(e){}
-  return { ok:r.ok, status:r.status, data };
+/* Kept for callers that only need to know "is there a session at all". */
+async function genAuthHeaders(){
+  const tok = await genAccessToken(false);
+  return tok ? { 'Authorization':'Bearer '+tok } : null;
 }
-async function genPOST(path, body, headers){
-  const r = await fetch(GENERATOR.url+path, { method:'POST', headers:Object.assign({'Content-Type':'application/json'}, headers||{}), body:JSON.stringify(body) });
+/* THE single request path to the generator. Every call re-reads the token; a 401 triggers
+   exactly one forced refresh + replay. `_retried` is internal — callers never pass it. */
+async function genFetch(path, init, _retried){
+  const tok = await genAccessToken(!!_retried);
+  const headers = Object.assign({}, (init && init.headers) || {});
+  if(tok) headers['Authorization'] = 'Bearer ' + tok;
+  let r;
+  try{ r = await fetch(GENERATOR.url+path, Object.assign({}, init||{}, { headers })); }
+  catch(e){ return { ok:false, status:0, data:null, networkError:true }; }
+  if(r.status===401 && !_retried) return genFetch(path, init, true);   /* one refresh, one replay */
   let data=null; try{ data=await r.json(); }catch(e){}
-  return { ok:r.ok, status:r.status, data };
+  return { ok:r.ok, status:r.status, data, refreshed:!!_retried };
+}
+async function genGET(path){ return genFetch(path, {}); }
+async function genPOST(path, body){
+  return genFetch(path, { method:'POST', headers:{'Content-Type':'application/json'},
+                          body:JSON.stringify(body) });
 }
 let _genBusy=false, _genPollTimer=null;
 async function renderGenerateTab(body){
@@ -2027,9 +2086,8 @@ async function renderGenerateTab(body){
   body.innerHTML = `<p class="tch-foot" style="margin:0 0 12px">Draft new questions with the AI service. Everything lands in the <b>Review queue</b> — nothing reaches students until you approve it.</p>
     <div id="genForm"><p class="auth-note">Loading topics from the generator… <span class="ad-note">(it may need a few seconds to wake up)</span></p></div>
     <div id="genStatus" style="margin-top:12px"></div>`;
-  const h = await genAuthHeaders();
   let topics;
-  try{ const t = await genGET('/v1/corpus/'+encodeURIComponent(currentCourseId)+'/topics', h||{}); if(!t.ok) throw new Error(t.status); topics = t.data; }
+  try{ const t = await genGET('/v1/corpus/'+encodeURIComponent(currentCourseId)+'/topics'); if(!t.ok) throw new Error(t.status); topics = t.data; }
   catch(e){ const gf=$('genForm'); if(gf) gf.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t reach the generation service to load topics — it may be warming up. Reopen this tab in a moment.</p>'; return; }
   const list = (topics && topics.topics) || [];
   const gf=$('genForm'); if(!gf) return;
@@ -2052,25 +2110,26 @@ async function runGenerate(){
   if(_genBusy) return;
   const topic=$('gen-topic')&&$('gen-topic').value;
   if(!topic){ toast('Pick a topic first.'); return; }
-  const h = await genAuthHeaders();
-  if(!h){ toast('Sign in as a teacher first.'); return; }
+  if(!(await genAuthHeaders())){ toast('Sign in as a teacher first.'); return; }
   _genBusy=true; const btn=$('genRun'); if(btn){ btn.disabled=true; btn.textContent='Starting…'; }
   const body = genBatchBody({ courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value });
-  const res = await genPOST('/v1/batch', body, h);
+  const res = await genPOST('/v1/batch', body);
   if(!res.ok || !res.data || !res.data.job_id){
     genStatusMsg('err', res.ok ? 'The generator didn’t return a job id.' : genErrorMessage(res.status)); genDone(); return;
   }
-  genPollLoop(res.data.job_id, h, body.n, 0);
+  genPollLoop(res.data.job_id, body.n, 0);
 }
 function genStatusMsg(kind, html){ const el=$('genStatus'); if(el) el.innerHTML = `<div class="gen-msg ${kind}">${html}</div>`; }
 function genDone(){ _genBusy=false; const r=$('genRun'); if(r){ r.disabled=false; r.textContent='🤖 Generate questions'; } }
-function genPollLoop(jobId, headers, requested, attempt){
+/* NOTE: no `headers` parameter. Threading one through a 3-minute poll loop is exactly how the
+   token went stale; genGET now re-reads it on every tick. */
+function genPollLoop(jobId, requested, attempt){
   const MAX=60;   /* ~3 min at 3s intervals */
   genStatusMsg('busy', `⏳ Generating ${requested} question${requested===1?'':'s'}… <span class="ad-note">checking status</span>`);
   clearTimeout(_genPollTimer);
   _genPollTimer = setTimeout(async ()=>{
-    const r = await genGET('/v1/batch/'+encodeURIComponent(jobId), headers);
-    if(!r.ok){ if(attempt<3){ genPollLoop(jobId,headers,requested,attempt+1); return; } genStatusMsg('err', genErrorMessage(r.status)); genDone(); return; }
+    const r = await genGET('/v1/batch/'+encodeURIComponent(jobId));
+    if(!r.ok){ if(attempt<3){ genPollLoop(jobId,requested,attempt+1); return; } genStatusMsg('err', genErrorMessage(r.status)); genDone(); return; }
     const d=r.data||{}, status=String(d.status||'').toLowerCase();
     if(genStatusTerminal(status)){
       if(status==='complete'){
@@ -2082,7 +2141,7 @@ function genPollLoop(jobId, headers, requested, attempt){
       genDone(); return;
     }
     if(attempt+1>=MAX){ genStatusMsg('err', 'Still running after a few minutes — check the Review queue shortly.'); genDone(); return; }
-    genPollLoop(jobId, headers, requested, attempt+1);
+    genPollLoop(jobId, requested, attempt+1);
   }, 3000);
 }
 
@@ -3588,6 +3647,7 @@ $('prefsBody').addEventListener('click', e=>{
 
 /* =============================== boot =============================== */
 applyPrefs();                   /* theme the first paint from saved prefs (F16) */
+renderBuildStamp();             /* which bundle is this? (see BUILD) */
 route();
 authInit();                     /* restore session, then re-route with sign-in state known */
 syncFromBackend();              /* pull the latest shared content from the cloud */
