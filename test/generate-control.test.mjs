@@ -27,6 +27,7 @@ function extractConst(name){
 
 const { genBatchBody, genErrorMessage, genStatusTerminal } = (new Function([
   extractConst('GEN_TERMINAL'),
+  extractFn('esc'),   // genErrorMessage escapes the service's error detail
   extractFn('genStatusTerminal'), extractFn('genBatchBody'), extractFn('genErrorMessage'),
   'return { genBatchBody, genErrorMessage, genStatusTerminal };'
 ].join('\n')))();
@@ -47,8 +48,27 @@ assert(b1.kind === 'question', 'genBatchBody: kind defaults to "question"');
 assert(b1.calculator === 'not-allowed', 'genBatchBody: calculator included when given');
 assert(!('calculator' in genBatchBody({ courseId: 'c', topic: 't', gradeBand: '2', n: 3 })), 'genBatchBody: calculator omitted when not given');
 
-// genErrorMessage
-assert(/session/i.test(genErrorMessage(401)), 'genErrorMessage: 401 → session');
+// genErrorMessage — the 401 honesty split (hadToken decides whose problem it is)
+assert(/sign in/i.test(genErrorMessage(401)), 'genErrorMessage: bare 401 → sign-in reading');
+assert(/sign in/i.test(genErrorMessage({ status: 401, hadToken: false })),
+  'genErrorMessage: 401 with NO token attachable → genuinely signed out → sign-in reading');
+const svc401 = genErrorMessage({ status: 401, hadToken: true, refreshed: true,
+                                 data: { detail: 'JWKS key rotation in progress' } });
+assert(/on our side/.test(svc401),
+  'genErrorMessage: 401 WITH a refreshed token → service-side wording, not "session expired"');
+assert(!/session expired/i.test(svc401) && !/sign out/i.test(svc401),
+  'genErrorMessage: service-side 401 never blames the session or prescribes sign-out');
+assert(svc401.includes('JWKS key rotation in progress'),
+  'genErrorMessage: the service\'s error reason is surfaced');
+assert(/ad-note/.test(svc401), 'genErrorMessage: the reason renders as small text');
+const evil = genErrorMessage({ status: 401, hadToken: true,
+                               data: { detail: '<img src=x onerror=alert(1)>' } });
+assert(!/<img/.test(evil) && /&lt;img/.test(evil),
+  'genErrorMessage: the service detail is HTML-escaped, never injected');
+assert(/on our side/.test(genErrorMessage({ status: 401, hadToken: true })),
+  'genErrorMessage: service-side 401 without a detail body still reads correctly');
+assert(/teacher/i.test(genErrorMessage({ status: 403, hadToken: true })),
+  'genErrorMessage: result-object form maps non-401 statuses too');
 assert(/teacher/i.test(genErrorMessage(403)), 'genErrorMessage: 403 → teacher');
 assert(/tomorrow/i.test(genErrorMessage(429)), 'genErrorMessage: 429 → daily limit / tomorrow');
 assert(/warming/i.test(genErrorMessage(503)), 'genErrorMessage: 503 → warming up');

@@ -89,13 +89,15 @@ console.log('generator client auth:');
   assert(r.refreshed === true, '401: the result records that a refresh happened');
 }
 
-// 3. A genuinely dead session: 401 twice → surfaced as 401, so the sign-out message is correct.
+// 3. Both attempts 401 with tokens ATTACHED → surfaced as 401; the message layer then reads
+//    hadToken and renders this as service-side ("on our side"), NOT as an expired session —
+//    tokens were obtainable throughout, so the session is not the problem.
 {
   const { api, calls } = makeSandbox({ tokens: ['dead', 'alsodead'], responder: () => res(401) });
   const r = await api.genGET('/v1/batch/abc');
-  assert(calls.fetches.length === 2, 'dead session: exactly two attempts, no infinite retry');
-  assert(calls.refresh === 1, 'dead session: refreshed once before giving up');
-  assert(r.status === 401 && !r.ok, 'dead session: 401 surfaces so the sign-out message is shown');
+  assert(calls.fetches.length === 2, 'double 401: exactly two attempts, no infinite retry');
+  assert(calls.refresh === 1, 'double 401: refreshed once before giving up');
+  assert(r.status === 401 && !r.ok, 'double 401: surfaces to the message layer (which reads hadToken)');
 }
 
 // 4. Non-401 errors are NOT retried — a 429 must not burn a refresh or a second call.
@@ -136,6 +138,28 @@ console.log('generator client auth:');
   assert(/const BUILD = \{ at:'[^']*', ref:'[^']*' \};/.test(src), 'BUILD constant present');
   assert(/window\.MM_BUILD = BUILD/.test(src), 'BUILD exposed on window.MM_BUILD for scripted checks');
   assert(/renderBuildStamp\(\);/.test(src), 'build stamp is rendered at boot');
+}
+
+// 9. hadToken — the honesty bit genErrorMessage keys the 401 wording off.
+{
+  const { api, calls } = makeSandbox({ tokens: ['good'], responder: () => res(200) });
+  const r = await api.genGET('/v1/health');
+  assert(r.hadToken === true, 'hadToken: true when a token was attached');
+}
+{
+  // Genuinely signed out: no token obtainable even after the forced refresh.
+  const { api, calls } = makeSandbox({ tokens: [null, null], responder: () => res(401) });
+  const r = await api.genGET('/v1/batch/abc');
+  assert(calls.fetches.every(f => !f.auth), 'signed out: no Authorization header was ever sent');
+  assert(r.status === 401 && r.hadToken === false,
+    'signed out: 401 surfaces with hadToken=false → the sign-in message is the honest one');
+}
+{
+  // Valid session the SERVICE rejects twice: hadToken=true → "on our side" wording.
+  const { api } = makeSandbox({ tokens: ['fine', 'alsofine'], responder: () => res(401) });
+  const r = await api.genGET('/v1/batch/abc');
+  assert(r.status === 401 && r.hadToken === true && r.refreshed === true,
+    'service-side 401: hadToken=true + refreshed=true → never rendered as "session expired"');
 }
 
 if (failures) { console.error('\n' + failures + ' assertion(s) FAILED'); process.exit(1); }

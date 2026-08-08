@@ -995,7 +995,7 @@ const TEACHER_KEY_STORE = 'mm-teacher-key';
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-08-08T20:02:16Z', ref:'3d5307a+' };
+const BUILD = { at:'2026-08-08T20:56:31Z', ref:'f74feec+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2052,8 +2052,24 @@ function genBatchBody(o){
   if(o.calculator) body.calculator = o.calculator;            /* optional; enum allowed|not-allowed */
   return body;
 }
-function genErrorMessage(status){
-  if(status===401) return 'Your session expired — sign out and back in, then try again.';
+function genErrorMessage(res){
+  /* Takes the genFetch RESULT (preferred — carries hadToken + the service's error body)
+     or a bare status number from older call sites. Returns HTML for genStatusMsg. */
+  const status = (res && typeof res==='object') ? res.status : res;
+  if(status===401){
+    /* Honesty split (see genFetch.hadToken). A 401 on a request that CARRIED a
+       freshly-refreshed token is a service-side verification failure — the session is
+       fine, and sending the teacher on a sign-out round-trip would fix nothing. Only a
+       401 with no obtainable token means they are actually signed out. A bare-number
+       call (no result object) can't tell, so it keeps the sign-in reading. */
+    if(res && typeof res==='object' && res.hadToken){
+      const reason = res.data && res.data.detail ? String(res.data.detail).slice(0,140) : '';
+      return 'The generation service couldn’t verify your login — this is on our side, '
+           + 'try again in a minute.'
+           + (reason ? `<span class="ad-note" style="display:block;margin-top:4px">service said: ${esc(reason)}</span>` : '');
+    }
+    return 'You’re signed out — sign in again, then retry. (Your session may have ended.)';
+  }
   if(status===403) return 'Teacher access is required to generate questions.';
   if(status===429) return 'Daily generation limit reached — try again tomorrow.';
   if(status===503) return 'The generator is warming up — give it a moment and try again.';
@@ -2094,10 +2110,14 @@ async function genFetch(path, init, _retried){
   if(tok) headers['Authorization'] = 'Bearer ' + tok;
   let r;
   try{ r = await fetch(GENERATOR.url+path, Object.assign({}, init||{}, { headers })); }
-  catch(e){ return { ok:false, status:0, data:null, networkError:true }; }
+  catch(e){ return { ok:false, status:0, data:null, networkError:true, hadToken:!!tok }; }
   if(r.status===401 && !_retried) return genFetch(path, init, true);   /* one refresh, one replay */
   let data=null; try{ data=await r.json(); }catch(e){}
-  return { ok:r.ok, status:r.status, data, refreshed:!!_retried };
+  /* hadToken is the honesty bit for 401s: if a token WAS attached (and by now it has been
+     force-refreshed), the session is fine and the SERVICE failed to verify it — telling the
+     teacher "your session expired" would be false, and the sign-out ritual it prescribes
+     fixes nothing. Only a 401 with NO obtainable token means they are really signed out. */
+  return { ok:r.ok, status:r.status, data, refreshed:!!_retried, hadToken:!!tok };
 }
 async function genGET(path){ return genFetch(path, {}); }
 async function genPOST(path, body){
@@ -2139,7 +2159,7 @@ async function runGenerate(){
   const body = genBatchBody({ courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value });
   const res = await genPOST('/v1/batch', body);
   if(!res.ok || !res.data || !res.data.job_id){
-    genStatusMsg('err', res.ok ? 'The generator didn’t return a job id.' : genErrorMessage(res.status)); genDone(); return;
+    genStatusMsg('err', res.ok ? 'The generator didn’t return a job id.' : genErrorMessage(res)); genDone(); return;
   }
   genPollLoop(res.data.job_id, body.n, 0);
 }
@@ -2153,7 +2173,7 @@ function genPollLoop(jobId, requested, attempt){
   clearTimeout(_genPollTimer);
   _genPollTimer = setTimeout(async ()=>{
     const r = await genGET('/v1/batch/'+encodeURIComponent(jobId));
-    if(!r.ok){ if(attempt<3){ genPollLoop(jobId,requested,attempt+1); return; } genStatusMsg('err', genErrorMessage(r.status)); genDone(); return; }
+    if(!r.ok){ if(attempt<3){ genPollLoop(jobId,requested,attempt+1); return; } genStatusMsg('err', genErrorMessage(r)); genDone(); return; }
     const d=r.data||{}, status=String(d.status||'').toLowerCase();
     if(genStatusTerminal(status)){
       if(status==='complete'){
