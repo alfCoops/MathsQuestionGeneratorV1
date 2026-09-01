@@ -295,3 +295,54 @@ begin
 end; $$;
 revoke all on function public.redeem_invite_code(text) from public;
 grant execute on function public.redeem_invite_code(text) to authenticated;
+
+
+-- ============================================================================
+-- F23 — Weekly Q&A (D12: Zoom, not YouTube Live — no public live-embed, so this
+-- is scheduling + a question queue + a join link, not a video/streaming feature).
+-- Signed-in only throughout (not public/anon), matching how the rest of the app
+-- treats anything beyond the free 1a lesson.
+-- ============================================================================
+create table if not exists public.qanda_sessions (
+  id           bigint generated always as identity primary key,
+  scheduled_at timestamptz not null,
+  zoom_link    text,
+  status       text not null default 'upcoming' check (status in ('upcoming','archived')),
+  summary      text,                          -- optional notes/recording link, added on archive
+  created_at   timestamptz default now()
+);
+alter table public.qanda_sessions enable row level security;
+drop policy if exists "signed-in reads sessions" on public.qanda_sessions;
+drop policy if exists "teacher writes sessions"  on public.qanda_sessions;
+create policy "signed-in reads sessions" on public.qanda_sessions for select using (auth.uid() is not null);
+create policy "teacher writes sessions"  on public.qanda_sessions for all    using (public.is_teacher()) with check (public.is_teacher());
+
+create table if not exists public.qanda_questions (
+  id          bigint generated always as identity primary key,
+  session_id  bigint not null references public.qanda_sessions(id) on delete cascade,
+  user_id     uuid   not null references auth.users(id) on delete cascade,
+  text        text not null,
+  answered    boolean not null default false,
+  created_at  timestamptz default now()
+);
+alter table public.qanda_questions enable row level security;
+drop policy if exists "signed-in reads questions" on public.qanda_questions;
+drop policy if exists "own question insert"       on public.qanda_questions;
+drop policy if exists "own question delete"       on public.qanda_questions;
+drop policy if exists "teacher marks answered"    on public.qanda_questions;
+create policy "signed-in reads questions" on public.qanda_questions for select using (auth.uid() is not null);
+create policy "own question insert"       on public.qanda_questions for insert with check (auth.uid() = user_id);
+create policy "own question delete"       on public.qanda_questions for delete using (auth.uid() = user_id);
+create policy "teacher marks answered"    on public.qanda_questions for update using (public.is_teacher()) with check (public.is_teacher());
+
+-- One vote per student per question (own row, same shape as everything else in this app).
+create table if not exists public.qanda_votes (
+  question_id bigint not null references public.qanda_questions(id) on delete cascade,
+  user_id     uuid   not null references auth.users(id) on delete cascade,
+  primary key (question_id, user_id)
+);
+alter table public.qanda_votes enable row level security;
+drop policy if exists "signed-in reads votes" on public.qanda_votes;
+drop policy if exists "own vote"              on public.qanda_votes;
+create policy "signed-in reads votes" on public.qanda_votes for select using (auth.uid() is not null);
+create policy "own vote"              on public.qanda_votes for all    using (auth.uid() = user_id) with check (auth.uid() = user_id);

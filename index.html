@@ -114,6 +114,14 @@
   .tch-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:14px}
   .tch-cols h3{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:9px}
   .tch-list{list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px}
+  /* F23 — weekly Q&A question rows */
+  .qanda-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .qanda-row:last-child{border-bottom:none}
+  .qanda-vote{font:inherit;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:4px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--text2);padding:5px 10px;cursor:pointer;flex-shrink:0}
+  .qanda-vote.on{border-color:var(--purple);background:var(--purple-bg);color:var(--purple)}
+  .qanda-text{flex:1;font-size:13px}
+  .qanda-answered{font-size:11px;font-weight:700;color:var(--green);flex-shrink:0}
+  .qanda-del{background:none;border:none;color:var(--muted);cursor:pointer;flex-shrink:0}
   .tch-list li{padding:7px 11px;background:var(--surf2);border:1px solid var(--line);border-radius:8px}
   .tch-list b{color:var(--red)}
   .tch-dim{color:var(--muted);font-size:11px}
@@ -1555,6 +1563,7 @@ function parseHash(){
   if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
   if(/^#\/?teacher\b/.test(h)) return { view:'teacher' };
   if(/^#\/?parent\b/.test(h))  return { view:'parent' };
+  if(/^#\/?qanda\b/.test(h))   return { view:'qanda' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1569,6 +1578,7 @@ function route(){
   if(r.view==='privacy') return renderPrivacy();
   if(r.view==='teacher') return renderTeacher();
   if(r.view==='parent')  return renderParent();
+  if(r.view==='qanda')   return renderQAndA();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -1735,7 +1745,7 @@ async function renderTeacher(){
   _tchData = await loadTeacherData();
   paintTeacherTabs();
 }
-const TCH_TABS = [['students','Students'],['insights','Insights'],['generate','Generate'],['review','Review queue']];
+const TCH_TABS = [['students','Students'],['insights','Insights'],['generate','Generate'],['review','Review queue'],['qanda','Q&A']];
 function teacherTabsHtml(){ return TCH_TABS.filter(t=>t[0]!=='generate'||generatorOn()).map(t=>`<button class="tch-tab" data-ttab="${t[0]}">${t[1]}</button>`).join(''); }
 function paintTeacherTabs(){
   clearTimeout(_genPollTimer);   /* stop any generate polling when switching tabs (the job keeps running server-side) */
@@ -1743,6 +1753,7 @@ function paintTeacherTabs(){
   const body=$('tchBody'); if(!body) return;
   if(_tchTab==='generate'){ renderGenerateTab(body); return; }   /* F32 client — loads topics */
   if(_tchTab==='review'){ renderReviewTab(body); return; }        /* F10b — loads its own data */
+  if(_tchTab==='qanda'){ renderQandaTeacherTab(body); return; }   /* F23 — loads its own data */
   if(!_tchData) return;
   if(_tchData.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load data. Check you ran the teacher RLS migration and that your account is role=teacher.</p>'; return; }
   body.innerHTML = (_tchTab==='insights') ? teacherInsightsHtml(_tchData) : teacherStudentsHtml(_tchData);
@@ -1804,6 +1815,93 @@ function wireTeacherBody(){
       const rec=_tchData.profiles.find(p=>p.user_id===uid); if(rec) rec.comp_access=val;
     }catch(e){ cb.checked=!val; toast('Couldn’t update comp access.'); }
   }));
+}
+
+/* F23 — Teacher Editor "Q&A" tab: edit/create the upcoming session, mark questions answered,
+   archive with an optional summary. Deliberately no auto "create next session" — Ryan creates
+   it himself (defaulted to next Thursday 6pm, nextThursday6pm()) when he's ready; no background
+   jobs exist anywhere in this app yet, so this stays consistent with everything else here. */
+async function renderQandaTeacherTab(body){
+  body.innerHTML = '<p class="auth-note">Loading…</p>';
+  try{
+    const { data:sessions, error } = await sbClient.from('qanda_sessions').select('*').order('scheduled_at',{ascending:false});
+    if(error) throw error;
+    const upcoming = (sessions||[]).find(s=>s.status==='upcoming');
+    body.innerHTML = upcoming ? qandaTeacherUpcomingHtml(upcoming) : qandaTeacherCreateHtml();
+    if(upcoming) wireQandaTeacherUpcoming(upcoming); else wireQandaTeacherCreate();
+  }catch(e){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load Q&amp;A data.</p>'; }
+}
+function toLocalInputValue(d){
+  const pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function qandaTeacherCreateHtml(){
+  return `<div class="ad-panel" style="max-width:420px">
+    <p class="ad-note">No upcoming session. Create one — defaulted to next Thursday, 6:00pm.</p>
+    <label class="ad-lb">Date &amp; time</label>
+    <input type="datetime-local" class="ad-in" id="qtNewWhen" value="${toLocalInputValue(nextThursday6pm())}">
+    <label class="ad-lb" style="margin-top:8px">Zoom link <span class="ad-note">(optional — can add later)</span></label>
+    <input class="ad-in" id="qtNewLink" placeholder="https://zoom.us/j/...">
+    <button class="btn solid ad-mini" id="qtCreate" style="margin-top:10px">Create session</button>
+  </div>`;
+}
+function wireQandaTeacherCreate(){
+  $('qtCreate').addEventListener('click', async ()=>{
+    const when=$('qtNewWhen').value; if(!when){ toast('Pick a date/time.'); return; }
+    try{
+      const { error } = await sbClient.from('qanda_sessions').insert({
+        scheduled_at: new Date(when).toISOString(), zoom_link: ($('qtNewLink').value||'').trim()||null
+      });
+      if(error) throw error;
+      toast('Session created.'); paintTeacherTabs();
+    }catch(e){ toast('Couldn’t create the session.'); }
+  });
+}
+function qandaTeacherUpcomingHtml(s){
+  return `<div class="ad-panel" style="max-width:520px">
+    <label class="ad-lb">Date &amp; time</label>
+    <input type="datetime-local" class="ad-in" id="qtWhen" value="${toLocalInputValue(new Date(s.scheduled_at))}">
+    <label class="ad-lb" style="margin-top:8px">Zoom link</label>
+    <input class="ad-in" id="qtLink" value="${esc(s.zoom_link||'')}" placeholder="https://zoom.us/j/...">
+    <div class="ad-row" style="margin-top:10px;gap:8px">
+      <button class="btn ghost ad-mini" id="qtSave">Save</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost ad-mini" id="qtArchive" style="color:var(--red);border-color:var(--red-line)">Archive this session</button>
+    </div>
+  </div>
+  <div class="ad-panel" style="margin-top:12px;max-width:520px" id="qtQuestions"><p class="auth-note">Loading questions…</p></div>`;
+}
+async function wireQandaTeacherUpcoming(s){
+  $('qtSave').addEventListener('click', async ()=>{
+    try{
+      const { error } = await sbClient.from('qanda_sessions').update({
+        scheduled_at: new Date($('qtWhen').value).toISOString(), zoom_link: ($('qtLink').value||'').trim()||null
+      }).eq('id', s.id);
+      if(error) throw error;
+      toast('Saved.');
+    }catch(e){ toast('Couldn’t save.'); }
+  });
+  $('qtArchive').addEventListener('click', async ()=>{
+    const summary = prompt('Optional summary or recording link for the archive:', '');
+    if(summary===null) return;   /* cancelled */
+    try{
+      const { error } = await sbClient.from('qanda_sessions').update({ status:'archived', summary: summary.trim()||null }).eq('id', s.id);
+      if(error) throw error;
+      toast('Archived.'); paintTeacherTabs();
+    }catch(e){ toast('Couldn’t archive.'); }
+  });
+  const qEl=$('qtQuestions');
+  try{
+    const { data:qs, error } = await sbClient.from('qanda_questions').select('*').eq('session_id', s.id).order('created_at',{ascending:true});
+    if(error) throw error;
+    qEl.innerHTML = (qs&&qs.length)
+      ? qs.map(q=>`<label class="ad-lb" style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-bottom:6px"><input type="checkbox" class="qt-answered" data-qid="${q.id}" ${q.answered?'checked':''}> ${esc(q.text)}</label>`).join('')
+      : '<p class="auth-note">No questions submitted yet.</p>';
+    qEl.querySelectorAll('.qt-answered').forEach(cb=>cb.addEventListener('change', async ()=>{
+      try{ const { error } = await sbClient.from('qanda_questions').update({ answered:cb.checked }).eq('id', +cb.dataset.qid); if(error) throw error; }
+      catch(e){ cb.checked=!cb.checked; toast('Couldn’t update.'); }
+    }));
+  }catch(e){ qEl.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load questions.</p>'; }
 }
 
 /* =============================== F13 — parent dashboard (#/parent) ===============================
@@ -1874,6 +1972,129 @@ function parentStudentCardHtml(sid, profiles, progress){
     <p class="ad-note" style="margin:0 0 10px">Last active: ${lastActive ? new Date(lastActive).toLocaleDateString('en-GB') : 'never'} &nbsp;·&nbsp; Streak: ${(prof&&prof.streak_current)||0} day${((prof&&prof.streak_current)||0)===1?'':'s'} (best ${(prof&&prof.streak_best)||0})</p>
     <ul class="tch-list">${items || '<li>No lessons started yet.</li>'}</ul>
   </div>`;
+}
+
+/* =============================== F23 — weekly Q&A (#/qanda) ===============================
+   D12: Zoom, not YouTube Live — no public live-embed, so this is scheduling + a question queue
+   + a join link, not video streaming. Signed-in only throughout (RLS: auth.uid() is not null),
+   matching how the rest of the app treats anything beyond the free 1a lesson. */
+async function renderQAndA(){
+  document.title = 'Weekly Q&A — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Weekly Q&A</span>';
+  if(!authReady){ const r=pageChrome(); r.innerHTML='<p class="auth-note">Loading…</p>'; return; }
+  if(!sbClient || !authUser){
+    toast('Sign in to join the Weekly Q&A.'); location.hash = '#/login'; return;
+  }
+  const root = pageChrome();
+  root.innerHTML = `
+    <div class="tch-head"><h2>🎙 Weekly Q&A</h2><p>Live every Thursday at 6:00pm UK time on Zoom. Submit a question, or upvote one someone else has already asked.</p></div>
+    <div id="qandaUpcoming"><p class="auth-note">Loading…</p></div>
+    <div id="qandaArchive" style="margin-top:24px"></div>`;
+  loadQAndA();
+}
+async function loadQAndA(){
+  const up=$('qandaUpcoming'), ar=$('qandaArchive'); if(!up) return;
+  try{
+    const { data:sessions, error } = await sbClient.from('qanda_sessions').select('*').order('scheduled_at',{ascending:false});
+    if(error) throw error;
+    const upcoming = (sessions||[]).find(s=>s.status==='upcoming');
+    const archived = (sessions||[]).filter(s=>s.status==='archived');
+    up.innerHTML = upcoming ? await qandaSessionHtml(upcoming) : '<p class="auth-note">No Q&A scheduled right now — check back soon.</p>';
+    if(upcoming) wireQandaSession(upcoming.id);
+    ar.innerHTML = archived.length ? '<h3>Archive</h3>' + archived.map(qandaArchiveRowHtml).join('') : '';
+    if(archived.length) wireQandaArchive();
+  }catch(e){ up.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the Q&A.</p>'; }
+}
+async function qandaSessionHtml(session){
+  const when = new Date(session.scheduled_at).toLocaleString('en-GB', {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
+  const { data:qs } = await sbClient.from('qanda_questions').select('*').eq('session_id', session.id);
+  const ids = (qs||[]).map(q=>q.id);
+  let votes=[];
+  if(ids.length){ const { data } = await sbClient.from('qanda_votes').select('question_id,user_id').in('question_id', ids); votes = data||[]; }
+  const counts={}, mine=new Set();
+  votes.forEach(v=>{ counts[v.question_id]=(counts[v.question_id]||0)+1; if(v.user_id===authUser.id) mine.add(v.question_id); });
+  const sorted = (qs||[]).slice().sort((a,b)=>(counts[b.id]||0)-(counts[a.id]||0));
+  return `<div class="ad-panel">
+    <h3 style="margin:0 0 4px">${esc(when)}</h3>
+    ${session.zoom_link ? `<a class="btn solid" href="${esc(session.zoom_link)}" target="_blank" rel="noopener">🔗 Join on Zoom</a>` : '<p class="ad-note">Zoom link not posted yet — check back closer to the time.</p>'}
+    <div class="ad-row" style="margin-top:14px;align-items:flex-start">
+      <textarea id="qandaNewQ" class="ad-in" style="min-height:56px;flex:1" placeholder="Ask a question for Thursday’s session…"></textarea>
+      <button class="btn solid ad-mini" id="qandaSubmit">Submit</button>
+    </div>
+    <div id="qandaList" style="margin-top:14px">
+      ${sorted.length ? sorted.map(q=>qandaQuestionRowHtml(q, counts[q.id]||0, mine.has(q.id))).join('') : '<p class="auth-note">No questions yet — be the first to ask one.</p>'}
+    </div>
+  </div>`;
+}
+function qandaQuestionRowHtml(q, count, voted){
+  return `<div class="qanda-row">
+    <button class="qanda-vote${voted?' on':''}" data-vote="${q.id}" title="${voted?'Remove your vote':'Upvote this question'}">👍 <span>${count}</span></button>
+    <span class="qanda-text">${esc(q.text)}</span>
+    ${q.answered?'<span class="qanda-answered">✓ Answered</span>':''}
+    ${q.user_id===authUser.id?`<button class="qanda-del" data-del="${q.id}" title="Delete your question">🗑</button>`:''}
+  </div>`;
+}
+function wireQandaSession(sessionId){
+  const sub=$('qandaSubmit');
+  if(sub) sub.addEventListener('click', async ()=>{
+    const ta=$('qandaNewQ'); const text=(ta.value||'').trim();
+    if(!text){ toast('Type a question first.'); return; }
+    sub.disabled=true;
+    try{
+      const { error } = await sbClient.from('qanda_questions').insert({ session_id:sessionId, user_id:authUser.id, text });
+      if(error) throw error;
+      loadQAndA();
+    }catch(e){ toast('Couldn’t submit — try again.'); sub.disabled=false; }
+  });
+  const list=$('qandaList'); if(!list) return;
+  list.addEventListener('click', async e=>{
+    const v=e.target.closest('[data-vote]');
+    if(v){
+      const qid=+v.dataset.vote, voted=v.classList.contains('on');
+      try{
+        if(voted) await sbClient.from('qanda_votes').delete().eq('question_id',qid).eq('user_id',authUser.id);
+        else await sbClient.from('qanda_votes').insert({ question_id:qid, user_id:authUser.id });
+        loadQAndA();
+      }catch(err){ toast('Couldn’t update your vote.'); }
+      return;
+    }
+    const d=e.target.closest('[data-del]');
+    if(d && confirm('Delete your question?')){
+      try{ await sbClient.from('qanda_questions').delete().eq('id', +d.dataset.del); loadQAndA(); }
+      catch(err){ toast('Couldn’t delete.'); }
+    }
+  });
+}
+function qandaArchiveRowHtml(s){
+  const when = new Date(s.scheduled_at).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  return `<div class="ad-panel qanda-archive-row" data-session="${s.id}" style="margin-bottom:8px;cursor:pointer">
+    <b>${esc(when)}</b>${s.summary?` <span class="ad-note">— ${esc(s.summary)}</span>`:''}
+    <div class="qanda-archive-body" id="qandaArc${s.id}" style="display:none;margin-top:8px"></div>
+  </div>`;
+}
+function wireQandaArchive(){
+  document.querySelectorAll('.qanda-archive-row').forEach(r=>r.addEventListener('click', async e=>{
+    if(e.target.closest('a,button')) return;
+    const sid=+r.dataset.session, body=$('qandaArc'+sid);
+    const opening = body.style.display==='none';
+    body.style.display = opening ? '' : 'none';
+    if(opening && !body.dataset.loaded){
+      body.dataset.loaded='1';
+      try{
+        const { data:qs } = await sbClient.from('qanda_questions').select('text,answered').eq('session_id',sid);
+        body.innerHTML = (qs&&qs.length) ? `<ul class="tch-list">${qs.map(q=>`<li>${q.answered?'✓ ':''}${esc(q.text)}</li>`).join('')}</ul>` : '<p class="auth-note">No questions were recorded for this session.</p>';
+      }catch(e){ body.innerHTML='<p class="auth-msg" style="display:block">Couldn’t load.</p>'; }
+    }
+  }));
+}
+/* F23 — default date/time when Ryan creates a new session in the Teacher Editor: the next
+   Thursday 18:00 UK (D12). Not a stored recurrence rule — just a sensible prefill each time. */
+function nextThursday6pm(){
+  const d=new Date(); const day=d.getDay();
+  let diff=(4-day+7)%7;
+  if(diff===0 && d.getHours()>=18) diff=7;
+  const t=new Date(d); t.setDate(d.getDate()+diff); t.setHours(18,0,0,0);
+  return t;
 }
 
 /* =============================== Maths markup — the cross-repo delimiter contract ===============================
@@ -2389,9 +2610,11 @@ function renderAuthBox(){
   if(authUser){
     const tch = (authProfile && authProfile.role==='teacher') ? `<button class="auth-link" id="authTeach">📊 Teacher dashboard</button>` : '';
     const par = (authProfile && authProfile.role==='parent') ? `<button class="auth-link" id="authParent">📈 Parent dashboard</button>` : '';   /* F13 */
-    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}<button class="auth-link" id="authOut">Sign out</button>`;
+    const qa = `<button class="auth-link" id="authQanda">🎙 Weekly Q&amp;A</button>`;   /* F23 — visible to every signed-in account, not role-gated */
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}${qa}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const pa=$('authParent'); if(pa) pa.addEventListener('click', ()=>{ location.hash='#/parent'; });
+    const qb=$('authQanda'); if(qb) qb.addEventListener('click', ()=>{ location.hash='#/qanda'; });
     const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
   } else {
     box.innerHTML = `<button class="auth-link solid" id="authIn">Sign in / Create account</button>`;
