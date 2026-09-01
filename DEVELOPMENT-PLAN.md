@@ -684,8 +684,10 @@ Summary of the committed design:
 - **Milestone 1 = Ryan's §22 prototype:** order of operations (N3), 3 objectives,
   ≥5 templates each, full scaffold loop, review section, energy, mastery — then
   generalise.
-**Build gates:** pilot complete · bank depth per objective · F33 shipped · D16/D17
-answered · its own red-team (first feature serving AI content to children directly).
+**Build gates:** pilot complete · bank depth per objective · ~~F33 shipped~~
+✅ **cleared 2026-09-01** · D16/D17 answered · its own red-team (first feature
+serving AI content to children directly). **Remaining before F19 build starts:**
+D16 (mastery model), D17 (energy meter sign-off), pilot/bank-depth status, red-team.
 **AC (top level):** ☐ wrong answers always route to same-misconception scaffolds
 ☐ no exact-question repeats across retakes ☐ persistent misconceptions resurface
 cross-topic and retire on mastery ☐ score reflects first-attempt accuracy + scaffold
@@ -709,14 +711,24 @@ renders as literal backslashes:
   <sup> <sub>`)
 Simple arithmetic stays plain text; fractions, indices, roots and anything structural are
 LaTeX. Full statement: GENERATOR-SERVICE.md §4 "Markup".
-**Status: NOT STARTED.** The review tab now renders this markup (F10b, KaTeX on demand)
-so scaffold items are readable to Ryan, but that is the RENDER half only — the palette,
-authoring, student views and print remain unbuilt, and student surfaces still show raw
-markup. F12-lite serving approved AI questions will hit this.
+**Status: ✅ SHIPPED 2026-09-01** (built, not yet Ryan-verified live — same
+no-Node/Playwright caveat as F35-F37). Turned out to be a gap-closing job, not
+a from-scratch build: `ensureKatex()`/`renderMathIn()` already existed (F10b)
+and were already wired into the Teacher Editor review tab AND the live student
+Question Generator card — the plan's "student surfaces still show raw markup"
+note was stale. Closed the remaining five gaps: main quiz, F35's Prior
+Knowledge Checker, the generator mark scheme (was a DOM sibling of the card,
+not covered by the existing call), the From Method to Meaning worksheet, and
+video Key Facts/Quick Fire notes. Added the palette (16 buttons — fraction,
+powers, roots, ≤≥≠, π, ×÷, sin/cos/tan, θ, vector; calculus/matrices left for
+a follow-up if a higher-tier/A-Level course needs them) to the existing shared
+rich-text toolbar, plus a live preview strip. Fixed a print-timing race: KaTeX
+loads async, so the worksheet's print button now awaits `renderMathIn` before
+`window.print()`, or a fast print could have captured raw markup.
 
-**AC:** ☐ Ryan writes a fractional equation without HTML/LaTeX knowledge (palette)
-☐ same markup renders identically in editor preview, student view, print ☐ existing
-content unaffected.
+**AC:** ☑ Ryan writes a fractional equation without HTML/LaTeX knowledge (palette)
+☑ same markup renders identically in editor preview, student view, print ☑ existing
+content unaffected — pending Ryan's live verification.
 
 ### F34 · Question import (Ryan-owned content) — Could, Phase 4–5, L–XL
 Upload PDF/Word/image/scan of **Ryan's own** material → extraction into editable

@@ -490,6 +490,10 @@
   .rich-tb .rich-sw{width:19px;height:19px;padding:0;border-radius:50%;border:1.5px solid var(--line)}
   .rich-tb .rich-sw:hover{border-color:var(--ink)}
   .rich-sep{width:1px;background:var(--line);margin:1px 3px}
+  /* F33 — maths palette buttons reuse .rich-tb button styling; preview strip sits under the toolbar */
+  .rich-preview{margin:6px 0 10px;padding:8px 11px;border:1.5px dashed var(--purple-line);border-radius:9px;background:var(--purple-bg);font-size:13px}
+  .rich-preview-lb{font-size:11px;font-weight:700;color:var(--purple);display:block;margin-bottom:3px}
+  .rich-preview-body img{max-width:200px}
   .rich figure,.fact-list figure{margin:6px 0}
   .rich figcaption,.fact-list figcaption{font-size:11px;font-weight:700;color:var(--muted);margin-top:3px}
   .rich table{border-collapse:collapse;margin:6px 0;font-size:12px}
@@ -1796,8 +1800,8 @@ function ensureKatex(){
    a failure to load, or a malformed expression, leaves the raw source visible instead of
    throwing — an unrenderable formula is a review finding, not a crash. */
 function renderMathIn(el){
-  if(!el) return;
-  ensureKatex().then(ok=>{
+  if(!el) return Promise.resolve();
+  return ensureKatex().then(ok=>{
     if(!ok || !window.renderMathInElement) return;   /* offline / blocked → raw markup stands */
     try{
       window.renderMathInElement(el, {
@@ -2410,6 +2414,7 @@ function loadLesson(id, section){
         : '');
     wsWrap.appendChild(d);
   });
+  renderMathIn(wsWrap);   /* F33 — also awaited before printing, see $('wsPrint') */
 
   /* footer nav */
   $('prevBtn').style.visibility = cur.prev ? 'visible':'hidden';
@@ -2573,6 +2578,7 @@ function buildVideos(){
     hint.textContent='🔒 Watch the video above to unlock the next one.';
     vl.appendChild(hint);
   }
+  renderMathIn(vl);   /* F33 — Key Facts / Quick Fire Questions can carry LaTeX */
 }
 $('videoList').addEventListener('click', e=>{
   const vbtn=e.target.closest('[data-video]');
@@ -2749,6 +2755,7 @@ function renderQuiz(){
   if(qs){ const readText = Q.q + '. ' + Q.opts.map((o,i)=>'Option '+'ABCD'[i]+'. '+o).join('. '); qs.addEventListener('click',()=>TTS.speak(readText, qs)); }
   const hb=$('qHint');
   if(hb) hb.addEventListener('click',()=>{ quiz.hintsUsed[quiz.i]=(quiz.hintsUsed[quiz.i]||0)+1; renderQuiz(); });   /* F8 */
+  renderMathIn(area);   /* F33 */
 }
 
 /* =========== F35 — Prior Knowledge Checker ===============================================
@@ -2789,6 +2796,7 @@ function renderPkc(){
   area.querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>{ pkc.answers[pkc.i]=+b.dataset.opt; renderPkc(); }));
   $('pkcPrev').disabled = pkc.i===0;
   $('pkcNext').textContent = pkc.i===qs.length-1 ? 'Finish →' : 'Next →';
+  renderMathIn(area);   /* F33 */
 }
 function pkcResultsHtml(){
   const qs=pkcQuestions(), res=(prog().prior && prog().prior.correct)||[];
@@ -2800,12 +2808,13 @@ function finishPkc(){
   const p=prog(); p.prior={ done:true, correct }; saveProgress();
   $('pkcArea').innerHTML = pkcResultsHtml();
   $('pkcNum').textContent=''; $('pkcNav').style.display='none';
+  renderMathIn($('pkcArea'));   /* F33 */
   renderPkcCard(); renderRightPanels();
 }
 $('pkcBtn').addEventListener('click', ()=>{
   openAct('secPkc');
   $('pkcNav').style.display='';
-  if(prog().prior && prog().prior.done){ $('pkcArea').innerHTML=pkcResultsHtml(); $('pkcNum').textContent=''; $('pkcNav').style.display='none'; }
+  if(prog().prior && prog().prior.done){ $('pkcArea').innerHTML=pkcResultsHtml(); $('pkcNum').textContent=''; $('pkcNav').style.display='none'; renderMathIn($('pkcArea')); }
   else { startPkc(); renderPkc(); }
 });
 $('pkcPrev').addEventListener('click', ()=>{ if(pkc.i>0){ pkc.i--; renderPkc(); } });
@@ -2877,7 +2886,11 @@ $('wsBtn').addEventListener('click', ()=>{
     $('wsModal').classList.add('show');
   }
 });
-$('wsPrint').addEventListener('click', ()=> window.print());
+/* F33 — renderMathIn is async (KaTeX loads from CDN on first use); printing before it resolves
+   would capture raw markup in the printout. Awaiting here (it's already been called once when the
+   worksheet was built, so this typically resolves instantly) guarantees the printed page matches
+   what's on screen. */
+$('wsPrint').addEventListener('click', async ()=>{ await renderMathIn($('wsSections')); window.print(); });
 /* F27 — reveal a section's mark scheme (the button click IS the "I've attempted it" confirmation) */
 $('wsSections').addEventListener('click', e=>{
   const b=e.target.closest('[data-ms]'); if(!b) return;
@@ -3045,6 +3058,7 @@ $('genBtn').addEventListener('click', async ()=>{
   $('msBtn').textContent='📋 Show Mark Scheme';
   renderSelfReport(g);
   renderMathIn($('genCard'));       /* bank questions carry \( … \) — render, don't show source */
+  renderMathIn($('genMs'));         /* F33 — genMs is a sibling of genCard, not covered by the above */
   startGenTimer(g.marks);
   completeStep('generate');
 });
@@ -3123,6 +3137,29 @@ function lines(v){ return v.split('\n').map(s=>s.trim()).filter(Boolean); }
    with styleWithCSS=true emits <span style="font-size:…"> (allowed by the sanitiser). */
 const RICH_COLOURS = [['#0f172a','Black'],['#2e7d32','Green'],['#c62828','Red'],['#d9a521','Gold'],['#2563eb','Blue']];
 const RICH_SIZES   = [['2','Small'],['3','Normal'],['5','Large'],['6','Huge']];
+/* F33 — maths symbol palette. Each button inserts a self-contained \(...\) snippet (the
+   established inline-maths delimiter — see KATEX_DELIMITERS/renderMathIn) with placeholder
+   content the teacher edits in place, e.g. "a"/"b" in a fraction. Scoped to what a Foundation
+   GCSE course actually needs day to day, not an exhaustive CAS palette — calculus/matrices can
+   follow the same pattern later if a higher-tier/A-Level course needs them. */
+const MATH_SNIPPETS = [
+  ['a/b', '\\(\\frac{a}{b}\\)', 'Fraction'],
+  ['x²', '\\(x^{2}\\)', 'Squared'],
+  ['xⁿ', '\\(x^{n}\\)', 'Power'],
+  ['√', '\\(\\sqrt{x}\\)', 'Square root'],
+  ['ⁿ√', '\\(\\sqrt[n]{x}\\)', 'Nth root'],
+  ['≤', '\\(\\le\\)', 'Less than or equal to'],
+  ['≥', '\\(\\ge\\)', 'Greater than or equal to'],
+  ['≠', '\\(\\ne\\)', 'Not equal to'],
+  ['π', '\\(\\pi\\)', 'Pi'],
+  ['×', '\\(\\times\\)', 'Multiply'],
+  ['÷', '\\(\\div\\)', 'Divide'],
+  ['sin', '\\(\\sin(x)\\)', 'Sine'],
+  ['cos', '\\(\\cos(x)\\)', 'Cosine'],
+  ['tan', '\\(\\tan(x)\\)', 'Tangent'],
+  ['θ', '\\(\\theta\\)', 'Theta'],
+  ['v⃗', '\\(\\vec{v}\\)', 'Vector'],
+];
 /* ONE shared toolbar for every rich field, rendered once and acting on whichever field has
    the caret. A toolbar per field looked tempting but doesn't scale: the quiz alone is 10
    questions × 6 rich fields, which would mean ~780 toolbar buttons in the form and made
@@ -3139,6 +3176,13 @@ function richToolbarHtml(){
     <span class="rich-sep"></span>
     ${RICH_COLOURS.map(c=>`<button type="button" class="rich-sw" data-rcolor="${c[0]}" title="${c[1]}" style="background:${c[0]}"></button>`).join('')}
     <button type="button" data-rcmd="removeFormat" title="Clear formatting">✕ Clear</button>
+    <span class="rich-sep"></span>
+    <span class="rich-tb-hint">Maths:</span>
+    ${MATH_SNIPPETS.map(m=>`<button type="button" data-math="${esc(m[1])}" title="${esc(m[2])} — inserted as ${esc(m[1])}, then edit the placeholder">${m[0]}</button>`).join('')}
+  </div>
+  <div class="rich-preview" id="richPreview" style="display:none">
+    <span class="rich-preview-lb">Preview:</span>
+    <div class="rich-preview-body" id="richPreviewBody"></div>
   </div>`;
 }
 function rich(cls, html, opts){
@@ -3423,6 +3467,7 @@ function wireForm(f){
   f.addEventListener('focusout', onRichBlur);
   f.addEventListener('paste', onRichPaste);
   f.addEventListener('focusin', onRichFocus);
+  f.addEventListener('input', onRichInput);   /* F33 — live maths preview */
   /* the shared toolbar lives outside #adForm, so wire it separately */
   const tb = $('richTb');
   if(tb && !tb._wired){ tb._wired = true; tb.addEventListener('mousedown', onRichBold); }
@@ -3430,9 +3475,30 @@ function wireForm(f){
 /* Toolbar: mousedown+preventDefault keeps the caret/selection in the rich field (F26).
    styleWithCSS makes colour/size come back as <span style="…"> rather than legacy <font>. */
 let lastRichField = null;
-function onRichFocus(e){ const r = e.target.closest && e.target.closest('.rich'); if(r) lastRichField = r; }
+function onRichFocus(e){ const r = e.target.closest && e.target.closest('.rich'); if(r){ lastRichField = r; updateMathPreview(); } }
+/* F33 — live preview: clones the focused field's current HTML into the preview strip and
+   renders any maths in it, so the teacher sees exactly what students will see. Debounced on
+   input so a fast typist isn't fighting a re-render on every keystroke; instant on focus change
+   and on every palette click (via onRichBold) since those are discrete, deliberate actions. */
+function updateMathPreview(){
+  const pv=$('richPreview'), body=$('richPreviewBody');
+  if(!pv || !body) return;
+  if(!lastRichField || !document.body.contains(lastRichField) || !lastRichField.innerHTML.trim()){
+    pv.style.display='none'; return;
+  }
+  body.innerHTML = lastRichField.innerHTML;
+  pv.style.display='';
+  renderMathIn(body);
+}
+let _mathPreviewT=null;
+function onRichInput(e){
+  const r = e.target.closest && e.target.closest('.rich');
+  if(!r) return;
+  clearTimeout(_mathPreviewT);
+  _mathPreviewT = setTimeout(updateMathPreview, 300);
+}
 function onRichBold(e){
-  const b = e.target.closest('[data-rcmd],[data-rcolor],[data-rsize]');
+  const b = e.target.closest('[data-rcmd],[data-rcolor],[data-rsize],[data-math]');
   if(!b) return;
   e.preventDefault();                       /* keeps the caret/selection in the focused field */
   if(!lastRichField || !document.body.contains(lastRichField)){ toast('Click into a text box first, then use the toolbar.'); return; }
@@ -3441,7 +3507,9 @@ function onRichBold(e){
   if(b.dataset.rcmd)        document.execCommand(b.dataset.rcmd, false, null);
   else if(b.dataset.rcolor) document.execCommand('foreColor', false, b.dataset.rcolor);
   else if(b.dataset.rsize)  document.execCommand('fontSize', false, b.dataset.rsize);
+  else if(b.dataset.math)   document.execCommand('insertText', false, b.dataset.math);   /* F33 */
   collectAdminForm();
+  updateMathPreview();   /* F33 */
 }
 /* Paste: clean it before it lands, so Word/web pastes arrive as tidy text, not junk markup. */
 function onRichPaste(e){
