@@ -150,7 +150,10 @@ const LESSONS = {
   priorCheck:[
     { q:'Which is smaller, −8 or −3?', opts:['−8','−3','They are equal','Can’t tell'], a:0, priorIndex:0 },
     { q:'What is 7 × 8?', opts:['54','56','64','48'], a:1, priorIndex:1 },
-    { q:'What is 234 + 158?', opts:['382','392','402','412'], a:1, priorIndex:2 }
+    { q:'What is 234 + 158?', opts:['382','392','402','412'], a:1, priorIndex:2 },
+    { q:'What is the value of the 7 in 3,752?', opts:['7','70','700','7000'], a:2, priorIndex:3 },
+    { q:'What is 4.5 × 100?', opts:['0.45','45','450','4500'], a:2, priorIndex:4 },
+    { q:'Which of these is a square number?', opts:['15','21','25','30'], a:2, priorIndex:5 }
   ],
   quizPass:80,
   quiz:[

@@ -497,6 +497,7 @@
   .rich img{max-width:200px;border-radius:6px;margin:4px 0}
   .rich b{font-weight:800}
   .ad-q{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:10px;background:var(--surf2)}
+  .ad-q.pk-unapproved{background:#fffbeb;border-color:#fde68a}
   .ad-row{display:flex;gap:8px;align-items:center}
   .ad-mini{font-size:11px;padding:5px 10px}
   .ad-note{font-size:11px;color:var(--muted);font-weight:500}
@@ -2758,7 +2759,10 @@ function renderQuiz(){
    (see priorLineState() / rcPrior render below), stored in prog().prior so it rides the
    same localStorage+cloud sync as the rest of progress — no new table. */
 const pkc = { i:0, answers:[] };
-function pkcQuestions(){ return (cur && cur.priorCheck) || []; }
+/* F35 — only approved questions reach students. Back-compat: a question authored before this
+   flag existed has no `approved` field at all, so it defaults to shown (approved!==false), not
+   hidden — otherwise every already-working question would vanish the moment this shipped. */
+function pkcQuestions(){ return ((cur && cur.priorCheck) || []).filter(q=>q.approved!==false); }
 function renderPkcCard(){
   const card = $('secPkc'); if(!card) return;
   const has = pkcQuestions().length>0;
@@ -3581,16 +3585,22 @@ function videoEditor(v,vi){
 /* F35 — Prior Knowledge Checker question editor. Deliberately simpler than quizEditor: no
    difficulty/topic/hints — just a question, 4 options, the correct one, and which existing
    `prior` checklist line (passed in as priorLines) it verifies. Radio group is named "pcor-"
-   rather than "cor-" so it can't collide with the main quiz's radio groups sharing the form. */
+   rather than "cor-" so it can't collide with the main quiz's radio groups sharing the form.
+   Approved (checked by default — unchecking hides it from students, see pkcQuestions()) plus a
+   Clear & retry button that blanks the question in place so Ryan can retype it without losing
+   its priorIndex tag or having to re-add a fresh one. */
 function pkcEditor(q,qi,priorLines){
-  return `<div class="ad-q" data-qi="${qi}">
+  return `<div class="ad-q ${q.approved===false?'pk-unapproved':''}" data-qi="${qi}">
     <div class="ad-row"><b style="font-size:12px">Q${qi+1}</b>
       <select class="ad-in pk-line" style="width:auto;flex:1">
         <option value="">— which prior-knowledge line does this check? —</option>
         ${(priorLines||[]).map((line,pi)=>`<option value="${pi}" ${q.priorIndex===pi?'selected':''}>${esc(line)}</option>`).join('')}
       </select>
+      <label class="ad-lb" style="margin:0;font-weight:700;white-space:nowrap"><input type="checkbox" class="pk-approved" ${q.approved!==false?'checked':''}> ✓ Approved</label>
+      <button class="btn ghost ad-mini" data-act="clearPkc" data-qi="${qi}" title="Blank this question so you can retype it">↻ Clear &amp; retry</button>
       <button class="btn ghost ad-mini" data-act="delPkc" data-qi="${qi}">🗑</button>
     </div>
+    ${q.approved===false ? `<div class="ad-note" style="color:#b45309">⚠ Not approved — hidden from students until you tick Approved again.</div>` : ''}
     <label class="ad-lb">Question</label>
     ${rich('pk-text', q.q)}
     ${(q.opts||['','','','']).map((o,oi)=>`
@@ -3771,6 +3781,10 @@ function collectAdminForm(){
       a: cor ? +cor.value : (old.a||0)
     };
     if(pi!=='') row.priorIndex = +pi; else delete row.priorIndex;
+    /* F35 — approved defaults to true (back-compat); only stored when explicitly unticked,
+       matching the "don't persist defaults" convention used elsewhere in this form. */
+    const approvedBox = el.querySelector('.pk-approved');
+    if(approvedBox && !approvedBox.checked) row.approved = false; else delete row.approved;
     return row;
   });
 
@@ -3823,6 +3837,7 @@ function onFormClick(e){
   if(act==='delQuiz') L.quiz.splice(qi,1);
   if(act==='addPkc') (L.priorCheck=L.priorCheck||[]).push({ q:'', opts:['','','',''], a:0 });   /* F35 */
   if(act==='delPkc') L.priorCheck.splice(qi,1);
+  if(act==='clearPkc'){ const old=L.priorCheck[qi]||{}; L.priorCheck[qi] = { q:'', opts:['','','',''], a:0, priorIndex:old.priorIndex, approved:false }; if(L.priorCheck[qi].priorIndex===undefined) delete L.priorCheck[qi].priorIndex; }
   if(act==='qUp' && qi>0){ const t=L.quiz[qi-1]; L.quiz[qi-1]=L.quiz[qi]; L.quiz[qi]=t; }
   if(act==='qDown' && qi<L.quiz.length-1){ const t=L.quiz[qi+1]; L.quiz[qi+1]=L.quiz[qi]; L.quiz[qi]=t; }
   if(act==='addQuizHint'){ (L.quiz[qi].hints = L.quiz[qi].hints || []).push(''); }        /* F8 */
