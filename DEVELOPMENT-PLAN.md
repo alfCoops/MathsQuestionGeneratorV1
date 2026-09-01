@@ -1,12 +1,90 @@
-# MasterMaths Platform — Development Plan v3 (MoSCoW)
+# MasterMaths Platform — Development Plan v4 (MoSCoW)
 
-Last updated: 31 July 2026 · Owner: Alfie · Product owner: Ryan
+Last updated: 1 September 2026 · Owner: Alfie · Product owner: Ryan
+v4 folds in the rest of Ryan's running update doc (dated 31-07 at the top, but the
+bulk of new material is appended undated after a "7th August" marker): F35 Prior
+Knowledge Checker, F36 student avatars, F37 Lesson Overview Page redesign, F38
+(rewrites F20b) From Method to Meaning as an interactive mountain journey incl. a
+live AI audio tutor, F39 Study Planner, F40 Topic Resources. The §1–§22 "Adaptive
+Diagnostic Quiz" and equation-editor/import material in the same doc is **not**
+new — it's the source spec v3 already folded in as F19/F33/F34; see "What changed
+in v4" below for the exact diff instead of re-reading the doc.
 v3 folds in Ryan's 31-07 authoring & adaptive-quiz specification (F19 rewritten, F33/F34
 added, F12 split for the pilot) and records the exam-paper-import ruling.
 v2.3 folds in Ryan's multi-board/qualification outline and the Edexcel F+H specs. v2.2 adds F32 (spec-grounded generation service — the RAG backbone for F19/F12 and the §4
 authoring pipeline). v2.1 records Ryan's D1–D6 answers, folds his 15-07-26 improvements into the remaining
 phases as F26–F31, and restructures Phases 2b→5 accordingly. Phase 0, 1 and 2a build
 notes/deviations are preserved from v2. Status: ☐ not started · ◐ in progress · ✅ done · ⏸ parked · ✖ won't
+
+## What changed in v4 (Ryan's running update doc, 7-Aug section onward)
+
+Diffed Ryan's PDF against v3 line by line. §§1–22 and the equation-editor/import
+material at the top (pages 1–23 of his doc) restate the 31-07 spec **already
+shipped into this plan as F19/F33/F34 in v3** — no new scope there, including the
+"chillies instead of easy/medium/hard" difficulty-label line, folded into F19
+below. Everything from the **7th August** marker onward is new and wasn't tracked:
+
+- **F35 (new): Prior Knowledge Checker.** A short (~5 min) pre-lesson diagnostic
+  quiz on prerequisite skills (not the lesson's own objectives), sat *before*
+  "Watch Lesson & Read Notes", surfaced as an unnumbered purple-accented card
+  above the main 4-step tracker. Results should drive the secure/needs-review
+  ticks already shown in the existing "Prior Knowledge Checklist" panel (which
+  today is a static authored list — this makes it live). Reuses the existing
+  quiz engine and content schema; needs a second per-lesson question set
+  (prerequisite-skill items) authored against the Foundation spec's knowledge
+  progression.
+- **F36 (new): Student avatars.** Ryan's mockups assume students design a
+  personal avatar during onboarding and see it throughout the platform (lesson
+  completion state, the From Method to Meaning mountain climber). **Nothing like
+  this exists in the codebase today** (confirmed — zero references). This is a
+  genuine new subsystem and a hard dependency of F37's completion state and all
+  of F38, not a styling tweak.
+- **F37 (new): Lesson Overview Page redesign.** Reorganises the existing lesson
+  dashboard: keep the numbered 1→2→3→4→★ progress tracker exactly as shipped,
+  add the F35 card above it, and — the one component genuinely new-in-kind —
+  merge the three existing right-column panels (Prior Knowledge Checklist,
+  Keywords, Common Misconceptions) into one tabbed "Lesson Toolkit" card. All
+  three panels already exist as separate `rc*` sections rendering the same
+  per-lesson content fields (`prior`, `keywords`, `misconceptions`) — this is a
+  UI/layout change over existing data, not a new schema, except for the
+  secure/needs-review state which depends on F35 results.
+- **F38 (new — rewrites F20b): "From Method to Meaning" as an interactive
+  mountain journey.** F20b ("Interactive From Method to Meaning worksheets",
+  Could/L/Phase 4) already anticipated turning the printable worksheet
+  interactive; this is now a full, opinionated spec for it and replaces F20b's
+  placeholder. Keeps the existing Clarify/Justify/Challenge/Generalise question
+  content verbatim (`worksheet:[{name,grade,g3,qs}]` — unchanged), but wraps it
+  in: a full-screen mountain-climb UI with milestone stages, the student's F36
+  avatar moving up the mountain, one-question-at-a-time presentation, a maths
+  input toolbar for typed answers (this is F33's palette — do F33 first), and
+  a choice between typing an explanation or **a live two-way voice conversation
+  with an AI tutor** that Socratically probes the student's reasoning rather
+  than marking right/wrong. The voice-tutor half is a materially new technical
+  capability (real-time audio AI, not existing infra) and a materially new
+  child-safety/data question (see §6) — flagged for a lite/full split below,
+  same pattern as F12.
+- **F39 (new): Study Planner.** A new sidebar section: a calendar (week/month)
+  of study sessions the student schedules or accepts from recommendations,
+  driven by their real topic accuracy (F11 data, already collected) and an
+  "Add to Study Planner" hook from any lesson/topic page. Net-new: calendar UI,
+  a session-scheduling data model, and a recommendation pass over existing
+  quiz-results data.
+- **F40 (new): Topic Resources.** A resources library (formula sheets per exam
+  board, calculator-model-specific video tutorials, exam-skills guides,
+  topic-contextual panel, searchable/filterable main library). Most of the
+  *code* here is a resource browser over structured metadata; the actual
+  **video content (calculator tutorials etc.) does not exist and is a Ryan
+  production dependency**, not something this codebase can generate — flagging
+  so effort isn't mis-scoped as pure engineering.
+- **Onboarding/login visual reference (Canva link).** Ryan's doc points at a
+  Canva design for the login/onboarding flow (which now also needs to include
+  an avatar-creation step per F36). **I cannot open Canva links** — no browser/
+  account access — so this can't be matched pixel-for-pixel from the doc alone;
+  treat as an amendment to F1/F15's onboarding once Ryan exports screenshots or
+  a style reference. Not spec'd as its own F-number below.
+- **New decisions D18–D21** (below) — none of them block writing this plan, but
+  F38's voice tutor and F36's avatar scope shouldn't start build without D18/D19
+  answered given the child-data angle.
 
 ## What changed in v3 (31-07)
 
@@ -165,12 +243,18 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F19 | Quiz engine v2 (misconception distractors, variant pools, grade stepping) | Should | L (+authoring) | F11, **F32** | 4 | ☐ |
 | F12-lite | Practice section serves approved AI questions (sanitised student read-path, no-repeat, self-report, genBank fallback; NO adaptivity) | Should | M | F32, F10b | **pre-pilot** | ✅ **SHIPPED 2026-08-08** (browser-verified against the live bank: all 5 approved items served before any repeat, then genBank fallback; LaTeX rendered; self-report shown; signed-in no-repeat persists via served_questions). Matching is primary-spec-ref with bare-ref normalisation. NOTE the cloud-content trap this exposed — every cloud lesson had specRefs:null (published pre-2b), now defaulted from the mm-content seed at load; Ryan's next 💾 save heals the cloud copy. OLD: `practice_questions` verified live 2026-08-08: it contains exactly the 5 approved `kind:"generator"` items, no approved MCQ/ladder rung appears (by design), and it leaks no trace/options/scaffold/similarity. But **nothing in `index.html` queries it** — the practice section still serves the local `genBank`, so an approved item does NOT yet reach a student. That client read + no-repeat + self-report is the remaining work. |
 | F12-full | Adaptive staircase (misconception scaffolding, working-at grade, per-objective mastery) | Could | XL | F19, F11 | post-pilot | ☐ |
-| F20b | Interactive "From Method to Meaning" worksheets | Could | L | F16, F26 | 4 | ☐ |
+| F20b | ~~Interactive "From Method to Meaning" worksheets~~ — superseded by **F38**'s full spec | Could | L | F16, F26 | 4 | ✖ superseded |
 | F18 | Digital maths toolkit (number line, hundred square, ×-grid, fraction bars, counters) | Could | XL | — | 5 | ☐ |
 | F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |
 | F13 | Parent dashboard (Sherpa-style, view-only) | Could | L | F10 | 5 | ☐ |
 | F23 | Weekly Q&A (stream + upvote queue + archive) | Could | M–L | F1 | 5 | ☐ |
 | F24 | Points + leaderboard (opt-in, display names) | Could | M | F1, F9 | 5 | ☐ |
+| F35 | **Prior Knowledge Checker** — pre-lesson prerequisite diagnostic, drives live secure/needs-review state | Should | M–L | quiz engine (reused) | **2d** | ☐ |
+| F36 | **Student avatars** — created at onboarding, shown in lesson completion + F38 | Must (for F37/F38) | M | F1/F15 onboarding | **2d** | ☐ |
+| F37 | **Lesson Overview Page redesign** — F35 card, unified tabbed Lesson Toolkit, unchanged progress tracker | Should | M–L | F35, F36 | **2d** | ☐ |
+| F38 | **From Method to Meaning v2** — mountain-journey UI, avatar climber, typed or live-voice reasoning (supersedes F20b) | Could | XL+ | F33, F36; voice half needs D18/D19 | 4 | ☐ |
+| F39 | **Study Planner** — calendar, session scheduling, accuracy-driven recommendations, "Add to Study Planner" from lessons | Could | XL | F11 | 5 | ☐ |
+| F40 | **Topic Resources** — formula sheets, calculator tutorials, exam-skills guides, searchable library | Could | L (code) + Ryan video production | F1 | 5 | ☐ |
 | — | Student forum / community chat + reply notifications | **Won't** | — | — | — | ✖ |
 | — | Trustpilot / Google reviews display | Website task (Wix) | — | — | — | → |
 | — | Native app, offline mode, AI marking, school accounts | Won't (this phase) | — | — | — | ✖ |
@@ -198,11 +282,31 @@ output starts filling the review queue for Ryan immediately.
 F10 teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21
 end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + T3).
 
+**Phase 2d — Lesson Overview redesign (new, v4).** F36 avatars **first** (both F37's
+completion state and F38 need a stored avatar to point at) → F35 Prior Knowledge
+Checker (needs its own authored content per lesson: prerequisite-skill questions
+mapped to the existing checklist items) → F37 Lesson Overview redesign, which is
+mostly layout over data that already exists (Success Criteria, Keywords, Common
+Misconceptions are already per-lesson fields — only the tabbed-toolkit shell and
+the secure/needs-review computation from F35 are new). Slotted before Phase 3 because
+it's low-risk UI work Ryan is actively asking for, and it doesn't block on F19/F32.
+
+**Phase 3 — Visibility & retention.**
+F10 teacher dashboard (now also the home of the **comp-access toggle** per D5) → F21
+end-of-unit summaries with tutoring signpost → F30 streak emails (needs F9 + T3).
+
 **Phase 4 — Advanced learning.** F19 quiz v2 (start the authoring pipeline during 2c —
-see §4) · F12 adaptive generator once FastAPI is live · F20b interactive worksheets.
+see §4) · F33 equation editor (do before F38 — it supplies F38's write-it-down maths
+toolbar) · F12 adaptive generator once FastAPI is live · **F38** From Method to Meaning
+v2 (supersedes F20b) — build the typed-response path first, gate the live-voice-tutor
+path behind D18/D19 (see §6/§7); consider an F38-lite (typed only) / F38-full (+voice)
+split, same shape as F12's split, if D18/D19 stay unanswered when this phase starts.
 
 **Phase 5 — Commercial & community.** F14 subscriptions (spec now concrete per D5) ·
-F13 parent portal · F23 weekly Q&A · F24 leaderboard.
+F13 parent portal · F23 weekly Q&A · F24 leaderboard · **F39** Study Planner (reuses
+F11's accuracy data for recommendations) · **F40** Topic Resources (code ships
+independent of Ryan's video production, but the library is thin until videos land —
+sequence Ryan's filming alongside the build, not after it).
 
 ---
 
@@ -311,6 +415,131 @@ targeted signpost. Hidden in focus mode.
 - **F8 (per D3):** AI-drafted hints/examples with Ryan approval confirmed as the workflow.
 - **F12 (per D2 ethos):** timers remain strictly opt-in.
 
+### F35 · Prior Knowledge Checker — Should, Phase 2d, M–L
+A short (~5 min) diagnostic sat before "Watch Lesson & Read Notes", testing
+**prerequisite** skills (not the lesson's new content) drawn from the Foundation
+spec's knowledge progression for that topic. Reuses the existing MCQ quiz engine
+and rendering; needs a new per-lesson content field (prerequisite question set,
+each item tagged to one existing `prior` checklist line) authored in the Teacher
+Editor. Presented as an unnumbered card above the 4-step tracker (not one of the
+four main steps) with its own "~5 minutes" pill and a Start/✓ Review Results
+button. On completion, each `prior` checklist item shows secure (✓ green) or
+needs-review (⚠ amber) instead of always-plain, and the toolkit's Prior Knowledge
+tab exposes "Review results from your checker →".
+**AC:** ☐ question set is prerequisite-only, verified against a lesson's actual
+`prior` list, not the lesson's own objectives ☐ completes in ~5 minutes for a
+representative student ☐ checklist ticks reflect real results, not static text
+☐ skippable without blocking access to the lesson (it's prep, not a gate)
+☐ back-compatible: a lesson with no PKC content set shows no card.
+
+### F36 · Student avatars — Must (for F37/F38), Phase 2d, M
+A small preset-avatar picker (not a full custom illustration builder — confirm
+scope with Ryan, see D19) shown once during onboarding (after tier selection,
+before "Start Learning") and editable later from Settings. Stored per student
+profile; rendered at the Lesson Overview completion state and as the climber in
+F38's mountain journey. This is genuinely new — there is no avatar concept
+anywhere in the current schema or UI.
+**AC:** ☐ every student has a default avatar even if they skip the picker
+("Skip for now" per Ryan's onboarding mockup) ☐ avatar persists across devices
+(stored server-side, not localStorage-only, per F2's sync pattern) ☐ changeable
+later without re-onboarding.
+
+### F37 · Lesson Overview Page redesign — Should, Phase 2d, M–L
+Reorganises the existing lesson dashboard. **Keep the numbered 1→2→3→4→★
+progress tracker exactly as shipped** — this is explicitly Ryan's most important
+constraint in the spec, don't redesign it into a different visual system. Add:
+the F35 card directly above step 1, outside the numbered sequence; a compact
+mini stage-strip on the From Method to Meaning card once F38 ships (Clarify
+3/3 → Justify 1/3 → …); and — the one real new component — merge the three
+existing right-column panels (`rcSuccess`, `rcPrior`, `rcKeywords`, `rcMisc`;
+today four separate always-open cards) into a tabbed "Lesson Toolkit" card
+(Prior Knowledge / Keywords / ⚠ Watch Outs — Common Misconceptions relabelled
+per Ryan's friendlier heading, content unchanged) so the column isn't four long
+scrolling panels. Success Criteria stays its own card above the toolkit.
+Completion area gains the F36 avatar; keeps its existing two-state logic
+("Keep going…" vs the celebratory complete state) unchanged in behaviour, just
+restyled.
+**AC:** ☐ progress tracker numbering/labels unchanged ☐ existing Success
+Criteria/Prior Knowledge/Keywords/Misconceptions content renders with zero data
+loss inside the new toolkit tabs ☐ PKC card never counted in the 4-step tracker
+☐ responsive: stacks to one column on mobile in the order specified ☐ zero
+console errors, old lessons without F35/F36 data still render sensibly.
+
+### F38 · From Method to Meaning v2 — Could, Phase 4, XL+ (supersedes F20b)
+Replaces the printable-worksheet UI with a full-screen interactive experience,
+**keeping the existing Clarify/Justify/Challenge/Generalise question content and
+grading verbatim** — this is a delivery-mechanism change, not a content rewrite.
+Mountain-climb metaphor: five milestones (Clarify → Justify → Challenge →
+Generalise → Mastery), the student's F36 avatar visibly moving up the mountain
+as each stage completes, one question at a time (not all twelve at once),
+horizontal stage-progress indicator. Under each question: **Talk it out** (live
+two-way voice conversation with an AI tutor that Socratically probes reasoning —
+asks follow-up questions, never states the answer, adapts prompt style per stage)
+or **Write it down** (text box + a maths symbol toolbar — this is F33's palette,
+build F33 first). Stage-completion feedback reinforces the *kind* of thinking
+demonstrated ("You can explain why the mathematics works"), not just "Correct".
+Ends at a Mastery summit screen with the avatar and a MasterMaths flag/trophy.
+
+**This has two materially different builds bundled into one spec — recommend
+splitting them the way F12 was split:**
+- **F38-lite (typed only):** mountain UI, avatar, stage progression, Write-it-down
+  path with the F33 toolbar. No new safety surface beyond existing text content.
+- **F38-full (+ live voice tutor):** requires a real-time audio AI integration
+  (not existing infra — this app has no audio pipeline today), and raises a
+  genuine child-data question: a minor's live voice, sent to a third-party AI
+  service, MUST be assessed against CLAUDE.md rule 4 (data minimisation, UK GDPR/
+  ICO Children's Code) before any build starts. **Do not start F38-full until
+  D18/D19 are answered** (see §7) — this isn't a build-order nicety, it's a
+  compliance gate.
+**AC (F38-lite):** ☐ all 12 existing questions present, unmodified, at their
+existing grade levels ☐ avatar climbs the mountain on stage completion ☐ maths
+toolbar available in Write-it-down ☐ progress not lost on refresh (persisted,
+not just in-memory) ☐ mobile: stacks per spec, stage names remain readable.
+**AC (F38-full, once D18/D19 clear):** ☐ voice tutor never states the answer
+before the student has reasoned it out ☐ conversation audio is not retained
+beyond the session unless Ryan explicitly opts to keep it for review, and that
+default is OFF ☐ probing style changes per stage (Clarify/Justify/Challenge/
+Generalise) per the spec's example scripts.
+
+### F39 · Study Planner — Could, Phase 5, XL
+New sidebar section. Summary strip (this week's study time, lessons planned/
+completed, next session, streak) above a week/month calendar of scheduled study
+sessions (Learn / Practice / Revise / Mock Exam types, distinguished by icon,
+not colour alone — accessibility). "+ Add Study Session" modal pulls course/
+topic/lesson from existing content; "Add to Study Planner" also appears inline
+on lesson/topic pages and pre-fills that modal. Recommendations ("Your accuracy
+in Trigonometry is currently 58% — schedule 30 minutes of practice") read
+**existing F11 quiz-results data** (topic, misconception, correct) — no new data
+collection needed, just a read-side aggregation + a supportive-language rule
+("could use more practice", never "you are bad at this"). Completed sessions
+feed the existing streak (F9) and progress stats.
+**AC:** ☐ calendar sessions persist server-side (F2 sync pattern) ☐
+recommendations are computed from real F11 data, never hardcoded ☐ "Add to Study
+Planner" from a lesson pre-fills topic/lesson, only date/time/duration required
+☐ completed sessions visibly contribute to streak/stats ☐ language never
+frames a weak topic as a personal failing (see §6).
+
+### F40 · Topic Resources — Could, Phase 5, L (code) + ongoing Ryan production
+A resources system: **Formula Sheets** (per exam board, view/fullscreen/download);
+**Calculator Skills** video tutorials (organised by calculator model — e.g. Casio
+ClassWiz — since button sequences differ; GCSE vs A-Level lists per spec);
+**Exam Skills** guides (show your working, command words, non-calculator
+technique, time management); a **topic-contextual panel** on My Learning showing
+only what's relevant to the current topic; and a searchable/filterable **Main
+Resources Library** in the sidebar. Video playback should stay inside the
+platform, with captions (accessibility rule, not optional).
+**Scope flag:** the *code* (browser, search, filters, contextual panel, formula-
+sheet viewer) is a normal build. The **video content itself does not exist** —
+calculator tutorials, exam-skills videos — and producing it is Ryan's job, not
+this codebase's. Sequence Ryan's filming alongside the build so the library
+isn't empty on ship day; don't let the effort estimate imply engineering can
+fill it.
+**AC:** ☐ formula sheet correctly matches student's qualification/exam board
+☐ only calculator tutorials relevant to the student's course/model show
+☐ resources panel changes contextually per topic (verified on ≥2 different
+topics) ☐ search/filter work across the full library ☐ videos have captions
+☐ nothing communicated by colour alone.
+
 ## 4. Authoring pipeline (now specified as F32)
 
 Start during Phase 2c: F32's service drafts variant questions + misconception distractors
@@ -328,6 +557,12 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | `email_log` | NEW — streak emails sent (dedupe/caps for F30) |
 | `questions_review` | (from v2) now F32's output target: + spec_ref, grade_band, similarity_score, source ('ai'), approved_by, edited_diff |
 | `generation_examples` | NEW — Ryan's approved/edited items kept as few-shot examples for F32 |
+| `profiles` | + `avatar_id` (or similar) for F36 |
+| content schema | + lesson `priorKnowledgeCheck` question set (F35), keyed to existing `prior` checklist lines |
+| `study_sessions` | NEW (F39) — user_id, course/topic/lesson, scheduled_at, duration, activity type, completed_at |
+| `study_session_events` | NEW (F39) — feeds streak/recommendation calculations without re-deriving from `quiz_results` on every page load |
+| resources content | NEW (F40) — formula sheets, video tutorials with board/qualification/calculator-model tags, exam-skills guides; static content table or CMS-style JSON, TBD at build time |
+| F38 voice sessions | **NOT defined yet — deliberately.** No schema until D18/D19 settle whether/how conversation data is retained. Default assumption: not stored beyond the live session. |
 
 ## 6. Risks & obligations (additions to v2)
 
@@ -346,6 +581,24 @@ Meaning" tasks himself; F26 is what makes that pleasant.
   "Edexcel style conversion" of lifted questions would be infringement with better
   typography. All imports pass the similarity gate and enter as pending. The AI generator
   is the sanctioned route to original Edexcel-style items.
+- **F38's live voice tutor (v4) is the biggest child-data question in this plan.**
+  Students are minors (rule 4: data minimisation, UK GDPR/ICO Children's Code).
+  A live microphone feature that streams a child's voice to a third-party AI
+  service needs, before any build: explicit parental/account-holder consent
+  flow (not just a generic ToS checkbox), a retention default of **not stored**
+  unless Ryan explicitly opts in per-session for review purposes, a clear
+  answer on which vendor/API is used and what THEIR data-retention policy is
+  for under-18 voice data, and a fallback (Write-it-down) that is never treated
+  as a lesser option so no student is pressured into voice. See D18/D19 —
+  do not start F38-full without them answered.
+- **F36 avatar scope creep:** "students design their own avatar" can mean
+  anything from picking one of 12 preset icons to a full custom illustration
+  builder. Confirm the smaller scope (D19) before estimating F37/F38 — the
+  Lesson Overview and mountain-journey specs only need avatar to *exist and
+  render*, not to be a rich creation tool.
+- **F40 effort is misleading if read as pure engineering.** The resources
+  *browser* is a normal build; the *videos* are Ryan's to produce. Don't let
+  the L estimate imply the library ships full on day one.
 - (All v2 risks stand.)
 
 ## 7. Decisions
@@ -376,7 +629,13 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | **D16** | **Mastery model reconciliation: per-objective 4-tier mastery (his 31-07 spec) alongside or replacing lesson-level 🟢🟡🔴 (his D6)?** | F19 build |
 | **D17** | **Energy meter sign-off: values, celebration behaviour, and confirmation it hides in focus mode (SEND ethos)** | F19 build |
 | **D16** | **Mastery model reconciliation**: Ryan's 4-tier per-objective mastery (0/1–39/40–79/80–100, weighted by scaffolds used) vs the shipped lesson-level 🟢🟡🔴 (D6). Proposal: per-objective tiers power F19 and the dashboard; lesson-level 🟢🟡🔴 stays as the student-facing summary. Needs his sign-off | F19 R1 |
-| **D17** | **Energy meter vs SEND ethos**: confirm it hides in focus mode and with hide-timers-style prefs (his own reduced-distraction principle) and that incorrect answers never remove energy (his rule — keep it) | F19 R1 |### F19 · Adaptive Diagnostic Quiz v2 — Should, Phase 4, XL+ (Ryan's 31-07 spec)
+| **D17** | **Energy meter vs SEND ethos**: confirm it hides in focus mode and with hide-timers-style prefs (his own reduced-distraction principle) and that incorrect answers never remove energy (his rule — keep it) | F19 R1 |
+| **D18** | **F38 voice tutor: which real-time audio AI vendor/API, and what is its data-retention policy for a minor's voice?** Blocks any F38-full build start | Before F38-full |
+| **D19** | **F38/F36 consent + retention: does a live voice conversation with an AI tutor need explicit parental/account-holder consent beyond the existing account ToS, and is conversation audio ever retained (default should be no)?** | Before F38-full |
+| **D20** | **F36 avatar scope: preset icon picker (small build) vs a fuller custom-avatar builder (much larger build)?** | Before F37/F38 estimation firms up |
+| **D21** | **F39/F40 priority vs effort: both are XL/L-plus-production and sit in Phase 5 behind F14/F13/F23/F24 — does Ryan want either pulled forward, given they're the features he's most recently asked for?** | Before Phase 5 planning |
+
+### F19 · Adaptive Diagnostic Quiz v2 — Should, Phase 4, XL+ (Ryan's 31-07 spec)
 Full specification lives in Ryan's 31-07 document (repo: docs/ryan-quiz-spec-2026-07-31).
 Summary of the committed design:
 - **Per-question:** 4 options, every distractor mapped to a misconception ID with
