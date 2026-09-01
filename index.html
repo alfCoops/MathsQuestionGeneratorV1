@@ -986,6 +986,22 @@ function defaultSpecRefs(courses){
   }));
   return courses;
 }
+
+/* F35 — same trap, same fix, for priorCheck (see the specRefs note above): the cloud copy
+   predates this field, cloud overrides mm-content.js, so without this backfill the mm-content.js
+   priorCheck questions would never reach the running app even though they're right there in
+   the file. */
+const SEED_PRIOR_CHECK = {};
+COURSES.forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+  if(L && Array.isArray(L.priorCheck) && L.priorCheck.length) SEED_PRIOR_CHECK[id] = L.priorCheck.slice();
+}));
+function defaultPriorCheck(courses){
+  (courses||[]).forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+    if(L && !(Array.isArray(L.priorCheck) && L.priorCheck.length) && SEED_PRIOR_CHECK[id])
+      L.priorCheck = SEED_PRIOR_CHECK[id].slice();
+  }));
+  return courses;
+}
 function courseById(id){ return COURSES.find(c=>c.id===id); }
 function currentCourse(){ return courseById(currentCourseId) || COURSES[0]; }
 function courseLabel(c){ return [c.qualification, c.board, c.tier].filter(Boolean).join(' · '); }
@@ -999,7 +1015,7 @@ let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLess
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
-    COURSES = defaultSpecRefs(buildCourses(d));
+    COURSES = defaultPriorCheck(defaultSpecRefs(buildCourses(d)));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
