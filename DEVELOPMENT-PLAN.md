@@ -634,6 +634,7 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | D6 | Mastery thresholds / pass mark | **80/50 confirmed · pass stays 80%** |
 | D16 | Mastery model reconciliation | **Alongside, not replacing**: per-objective 4-tier mastery (Not Started/Learning/Developing/Mastered) powers F19's internal logic and a future breakdown view; the shipped lesson-level 🟢🟡🔴 (D6) stays exactly as-is as the student-facing summary — no change to what students see today |
 | D17 | Energy meter sign-off | **Confirmed as spec'd**: values as written (+15 first-attempt correct, +10 after 1 scaffold, +5 after 2+, +5 correct review, bonus for completing/mastering an objective, never removed for wrong answers); hidden in Focus mode and when timers are hidden (matches Ryan's reduced-distraction ethos) |
+| D12 | Q&A platform + cadence | **Zoom** (not YouTube Live — no public live-embed needed, changes F23's shape to scheduling + question queue rather than video streaming) · **weekly, fixed slot: Thursday 6:00pm UK time** |
 
 **Still open:**
 
@@ -643,7 +644,6 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | D8 | Foundation grade cap for stepping (grade 5?) + 2-fail/2-pass sign-off | Phase 4 |
 | D9 | Leaderboard opt-in default OFF — confirm | Phase 5 |
 | D10 | Display-name policy (moderation/suggestions) — confirm shipped behaviour is fine | soon (accounts live) |
-| D12 | Q&A platform (YouTube Live vs Zoom) + cadence | Phase 5 |
 | **D13** | **Default font: keep Inter with dyslexia fonts one tap away, or OpenDyslexic everywhere?** (see F28 note) | Phase 2b |
 | **D14** | **Streak email details: send time (17:00?), copy tone, max misses before stopping** | Phase 3 |
 | **D15** | **Multi-board rollout: what comes after Edexcel Foundation (Edexcel Higher vs second board), and shared-core content with board-specific assessment vs fully separate courses?** | Before any second-course authoring |
