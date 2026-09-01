@@ -837,6 +837,15 @@
       <div class="seg avatar-seg" id="avatarBody"></div>
     </div>
     <div id="prefsBody"></div>
+    <!-- F13 — shown only to signed-in students; a student's own code to share, not a setting -->
+    <div class="pref-row" id="parentAccessRow" style="display:none">
+      <span class="pref-lb">Parent access</span>
+      <p class="ad-note" style="margin:0 0 6px">Share this code with a parent so they can see your lesson progress — completion, quiz pass/fail, streak. They never see your actual answers or question details.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <code id="parentCodeVal" style="font-size:15px;font-weight:800;letter-spacing:1px">…</code>
+        <button class="btn ghost ad-mini" id="parentCodeCopy">📋 Copy</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1437,6 +1446,23 @@ function touchStreak(){
   streak.current = (streak.last===ymd(y)) ? (streak.current||0)+1 : 1;   // consecutive day → ++, else reset
   streak.last=today; streak.best=Math.max(streak.best||0, streak.current);
   try{ localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); }catch(e){}
+  syncStreakToCloud();   /* F13 — server copy so a linked parent (or any future cross-device view) can read it */
+}
+/* F13 — local storage stays the source of truth for THIS device; the cloud copy is a
+   read surface for other accounts (parent dashboard), same debounced-upsert shape as
+   savePrefs(). Best-effort: a failed sync just means the parent view is briefly stale,
+   never blocks the student's own experience. */
+let _streakCloudT=null;
+function syncStreakToCloud(){
+  if(!sbClient || !authUser) return;
+  clearTimeout(_streakCloudT);
+  _streakCloudT=setTimeout(()=>{
+    try{
+      sbClient.from('profiles').upsert({
+        user_id:authUser.id, streak_current:streak.current||0, streak_best:streak.best||0, streak_last:streak.last||null
+      }, {onConflict:'user_id'});
+    }catch(e){}
+  }, 700);
 }
 function progressStats(){
   const cp = allProgress[currentCourseId] || {};
@@ -1500,6 +1526,7 @@ function parseHash(){
   if(/^#\/?login\b/.test(h))   return { view:'login' };
   if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
   if(/^#\/?teacher\b/.test(h)) return { view:'teacher' };
+  if(/^#\/?parent\b/.test(h))  return { view:'parent' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1513,6 +1540,7 @@ function route(){
   if(r.view==='login')   return renderLogin();
   if(r.view==='privacy') return renderPrivacy();
   if(r.view==='teacher') return renderTeacher();
+  if(r.view==='parent')  return renderParent();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -1587,7 +1615,8 @@ function renderCourses(){
   root.innerHTML = continueBannerHtml() + achievementsHtml() + `
     <div class="courses-head"><div><h2>Choose your course</h2><p>Pick your qualification and board to start learning.</p></div>${bookingCtaHtml()}</div>
     ${groups}
-    <p class="cat-note">More boards and tiers are on the way — anything greyed out is coming soon.</p>`;
+    <p class="cat-note">More boards and tiers are on the way — anything greyed out is coming soon.</p>
+    <p class="cat-note">Are you a parent? <a href="#/parent" style="color:inherit;font-weight:700">Link to your child's progress →</a></p>`;   /* F13 */
   root.querySelectorAll('[data-course]').forEach(b=>b.addEventListener('click',()=>{
     setCourse(b.dataset.course);
     const first = (WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:null;
@@ -1747,6 +1776,76 @@ function wireTeacherBody(){
       const rec=_tchData.profiles.find(p=>p.user_id===uid); if(rec) rec.comp_access=val;
     }catch(e){ cb.checked=!val; toast('Couldn’t update comp access.'); }
   }));
+}
+
+/* =============================== F13 — parent dashboard (#/parent) ===============================
+   View-only, HIGH-LEVEL ONLY (lesson completion, quiz pass/fail, streak, last active — never
+   question-level or misconception detail; a linked parent is a third party to a minor's
+   learning data, CLAUDE.md rule 4). Linking is student-initiated: the student shares their own
+   invite code (Settings → Parent access, see renderParentAccessRow); redeeming it here is the
+   ONLY thing that grants read access, and only to that one student — unlike F10's teacher
+   read-all, this is scoped per parent_links row (RLS: is_linked_parent(), migrations.sql). */
+async function renderParent(){
+  document.title = 'Parent dashboard — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Parent</span>';
+  if(!authReady){ const r=pageChrome(); r.innerHTML='<p class="auth-note">Loading…</p>'; return; }
+  if(!sbClient || !authUser){
+    toast('Sign in first, then come back here to link a child’s account.'); location.hash = '#/login'; return;
+  }
+  const root = pageChrome();
+  root.innerHTML = `
+    <div class="tch-head"><h2>Parent dashboard</h2><p>A high-level view of your child's progress — lesson completion, quiz results and streak. Not question-by-question detail.</p></div>
+    <div class="ad-panel" style="max-width:440px">
+      <label class="ad-lb">Link a child's account <span class="ad-note">(they find their code in ⚙ Display &amp; reading → Parent access)</span></label>
+      <div class="ad-row"><input class="ad-in" id="parentCodeInput" placeholder="invite code" autocomplete="off"><button class="btn solid ad-mini" id="parentCodeRedeem">Link</button></div>
+    </div>
+    <div id="parentStudents" style="margin-top:16px"></div>`;
+  $('parentCodeRedeem').addEventListener('click', onParentCodeRedeem);
+  $('parentCodeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onParentCodeRedeem(); });
+  loadParentStudents();
+}
+async function onParentCodeRedeem(){
+  const inp=$('parentCodeInput'); const code=(inp.value||'').trim().toLowerCase();
+  if(!code){ toast('Enter a code first.'); return; }
+  try{
+    const { data, error } = await sbClient.rpc('redeem_invite_code', { code });
+    if(error) throw error;
+    if(!data){ toast('That code doesn’t match a student account — check it with your child.'); return; }
+    toast('Linked ✓'); inp.value='';
+    if(authProfile){ authProfile.role='parent'; renderAuthBox(); }   /* sidebar picks up the Parent dashboard link immediately */
+    loadParentStudents();
+  }catch(e){ toast('Couldn’t link that code — try again in a moment.'); }
+}
+async function loadParentStudents(){
+  const el=$('parentStudents'); if(!el) return;
+  el.innerHTML = '<p class="auth-note">Loading…</p>';
+  try{
+    const { data:links, error:linkErr } = await sbClient.from('parent_links').select('student_user_id');
+    if(linkErr) throw linkErr;
+    if(!links || !links.length){ el.innerHTML = '<p class="auth-note">No linked students yet — enter a code above.</p>'; return; }
+    const ids = links.map(l=>l.student_user_id);
+    const [{ data:profiles, error:pErr }, { data:progress, error:prErr }] = await Promise.all([
+      sbClient.from('profiles').select('user_id,display_name,streak_current,streak_best'),
+      sbClient.from('progress').select('user_id,lesson_id,steps,updated_at')
+    ]);
+    if(pErr || prErr) throw (pErr||prErr);
+    el.innerHTML = ids.map(sid=>parentStudentCardHtml(sid, profiles||[], progress||[])).join('');
+  }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load student progress.</p>'; }
+}
+function parentStudentCardHtml(sid, profiles, progress){
+  const prof = profiles.find(p=>p.user_id===sid);
+  const rows = progress.filter(r=>r.user_id===sid);
+  const lastActive = rows.reduce((m,r)=> (!m || r.updated_at>m) ? r.updated_at : m, null);
+  const items = rows.map(r=>{
+    const s=r.steps||{};
+    const state = s.complete ? '✓ Complete' : (s.learn||s.quiz||s.worksheet||s.generate) ? '● In progress' : 'Not started';
+    return `<li>${esc(LESSONS[r.lesson_id]?LESSONS[r.lesson_id].title.replace(/^\d\w+\.\s*/,''):r.lesson_id)} <span class="ad-note">${state}</span></li>`;
+  }).join('');
+  return `<div class="ad-panel" style="margin-bottom:12px">
+    <h4 style="margin:0 0 4px">${esc((prof&&prof.display_name)||'Student')}</h4>
+    <p class="ad-note" style="margin:0 0 10px">Last active: ${lastActive ? new Date(lastActive).toLocaleDateString('en-GB') : 'never'} &nbsp;·&nbsp; Streak: ${(prof&&prof.streak_current)||0} day${((prof&&prof.streak_current)||0)===1?'':'s'} (best ${(prof&&prof.streak_best)||0})</p>
+    <ul class="tch-list">${items || '<li>No lessons started yet.</li>'}</ul>
+  </div>`;
 }
 
 /* =============================== Maths markup — the cross-repo delimiter contract ===============================
@@ -2261,8 +2360,10 @@ function renderAuthBox(){
   if(!sbClient){ box.innerHTML=''; return; }
   if(authUser){
     const tch = (authProfile && authProfile.role==='teacher') ? `<button class="auth-link" id="authTeach">📊 Teacher dashboard</button>` : '';
-    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}<button class="auth-link" id="authOut">Sign out</button>`;
+    const par = (authProfile && authProfile.role==='parent') ? `<button class="auth-link" id="authParent">📈 Parent dashboard</button>` : '';   /* F13 */
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
+    const pa=$('authParent'); if(pa) pa.addEventListener('click', ()=>{ location.hash='#/parent'; });
     const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
   } else {
     box.innerHTML = `<button class="auth-link solid" id="authIn">Sign in / Create account</button>`;
@@ -4098,7 +4199,28 @@ function renderPrefs(){
       <div class="seg" data-k="${c.k}">${c.opts.map(o=>`<button data-v='${JSON.stringify(o[0])}' class="${String(prefs[c.k])===String(o[0])?'on':''}">${o[1]}</button>`).join('')}</div>
     </div>`).join('') + `<button class="pref-reset" id="prefReset" title="Put every setting back to its normal default.">Reset to defaults</button>`;
 }
-function openPrefs(){ renderPrefs(); $('prefsModal').classList.add('show'); }
+/* F13 — the student's own invite code (for a parent to redeem, see #/parent). Only shown to
+   signed-in students (not teacher/parent accounts — this is "my code to share", not a setting).
+   Cached in-memory once fetched so reopening the modal doesn't re-call the RPC every time. */
+let _parentCode = null;
+async function renderParentAccessRow(){
+  const row=$('parentAccessRow'); if(!row) return;
+  if(!sbClient || !authUser || !authProfile || authProfile.role!=='student'){ row.style.display='none'; return; }
+  row.style.display='';
+  if(_parentCode){ $('parentCodeVal').textContent=_parentCode; return; }
+  $('parentCodeVal').textContent='…';
+  try{
+    const { data, error } = await sbClient.rpc('get_or_create_invite_code');
+    if(error) throw error;
+    _parentCode = data;
+    $('parentCodeVal').textContent = _parentCode || '—';
+  }catch(e){ $('parentCodeVal').textContent='—'; }
+}
+$('parentCodeCopy').addEventListener('click', async ()=>{
+  if(!_parentCode) return;
+  try{ await navigator.clipboard.writeText(_parentCode); toast('Code copied.'); }catch(e){ toast('Couldn’t copy — select and copy the code manually.'); }
+});
+function openPrefs(){ renderPrefs(); renderParentAccessRow(); $('prefsModal').classList.add('show'); }
 $('prefsBtn').addEventListener('click', openPrefs);
 $('prefsBody').addEventListener('click', e=>{
   const btn=e.target.closest('.seg button');

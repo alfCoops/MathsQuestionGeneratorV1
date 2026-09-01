@@ -206,3 +206,92 @@ create table if not exists public.served_questions (
 alter table public.served_questions enable row level security;
 drop policy if exists "own served" on public.served_questions;
 create policy "own served" on public.served_questions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- F13 — Parent dashboard (view-only, high-level only: completion/streak/last
+-- active — never question-level or misconception detail; the linked account
+-- is a third party to a minor's learning data, CLAUDE.md rule 4).
+--
+-- Linking is student-initiated: the student gets an invite code (get_or_
+-- create_invite_code) and shares it themselves; a parent redeems it
+-- (redeem_invite_code), which creates ONE row in parent_links and is the
+-- ONLY thing that grants read access — unlike F10's is_teacher(), which is
+-- a blanket "any teacher reads every student" policy, a parent must only
+-- ever read the specific student(s) who shared a code with them.
+--
+-- Streak columns formalise what was previously device-local-only
+-- (index.html's STREAK_KEY) so a parent (or any future cross-device view)
+-- has something server-side to read; local storage stays the source of
+-- truth for the signed-in device itself.
+-- ============================================================================
+alter table public.profiles add column if not exists invite_code   text unique;
+alter table public.profiles add column if not exists streak_current int not null default 0;
+alter table public.profiles add column if not exists streak_best    int not null default 0;
+alter table public.profiles add column if not exists streak_last    date;
+
+create table if not exists public.parent_links (
+  parent_user_id  uuid references auth.users(id) on delete cascade,
+  student_user_id uuid references auth.users(id) on delete cascade,
+  created_at      timestamptz default now(),
+  primary key (parent_user_id, student_user_id)
+);
+alter table public.parent_links enable row level security;
+drop policy if exists "parent reads own links"  on public.parent_links;
+drop policy if exists "student reads own links" on public.parent_links;
+create policy "parent reads own links"  on public.parent_links for select using (auth.uid() = parent_user_id);
+create policy "student reads own links" on public.parent_links for select using (auth.uid() = student_user_id);
+
+-- SECURITY DEFINER so the check runs without RLS on parent_links (same
+-- recursion-avoidance reason as is_teacher() above).
+create or replace function public.is_linked_parent(target uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.parent_links pl
+    where pl.parent_user_id = auth.uid() and pl.student_user_id = target);
+$$;
+revoke all on function public.is_linked_parent(uuid) from public;
+grant execute on function public.is_linked_parent(uuid) to authenticated;
+
+drop policy if exists "linked parent reads student progress" on public.progress;
+drop policy if exists "linked parent reads student profile"  on public.profiles;
+create policy "linked parent reads student progress" on public.progress for select using (public.is_linked_parent(user_id));
+create policy "linked parent reads student profile"  on public.profiles for select using (public.is_linked_parent(user_id));
+
+-- Student-only: get (or create on first call) their own invite code. A
+-- 10-hex-char code is reasonably brute-force resistant; Supabase RPC calls
+-- aren't rate-limited by default, so this is an accepted risk at this
+-- scale (one-tutor business) rather than a solved one — a cooldown/
+-- failed-attempts column would be the follow-up if it ever matters.
+create or replace function public.get_or_create_invite_code()
+returns text
+language plpgsql security definer set search_path = public as $$
+declare code text;
+begin
+  select invite_code into code from public.profiles where user_id = auth.uid();
+  if code is null then
+    code := substr(md5(random()::text || clock_timestamp()::text), 1, 10);
+    update public.profiles set invite_code = code where user_id = auth.uid();
+  end if;
+  return code;
+end; $$;
+revoke all on function public.get_or_create_invite_code() from public;
+grant execute on function public.get_or_create_invite_code() to authenticated;
+
+-- Parent-only action: redeem a code to create the link. Promotes the
+-- redeemer's own role to 'parent' UNLESS they're already 'teacher' (never
+-- downgrade Ryan's own account if he ever redeemed a code for testing).
+create or replace function public.redeem_invite_code(code text)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare student_id uuid;
+begin
+  select user_id into student_id from public.profiles where invite_code = code;
+  if student_id is null or student_id = auth.uid() then return false; end if;
+  insert into public.parent_links(parent_user_id, student_user_id)
+    values (auth.uid(), student_id) on conflict do nothing;
+  update public.profiles set role = 'parent' where user_id = auth.uid() and role = 'student';
+  return true;
+end; $$;
+revoke all on function public.redeem_invite_code(text) from public;
+grant execute on function public.redeem_invite_code(text) to authenticated;

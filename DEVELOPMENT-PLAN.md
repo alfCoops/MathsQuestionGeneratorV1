@@ -246,7 +246,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F20b | ~~Interactive "From Method to Meaning" worksheets~~ — superseded by **F38**'s full spec | Could | L | F16, F26 | 4 | ✖ superseded |
 | F18 | Digital maths toolkit (number line, hundred square, ×-grid, fraction bars, counters) | Could | XL | — | 5 | ☐ |
 | F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |
-| F13 | Parent dashboard (Sherpa-style, view-only) | Could | L | F10 | 5 | ☐ |
+| F13 | Parent dashboard (Sherpa-style, view-only) | Could | L | F10 | 5 | ✅ **BUILT 2026-09-01, NOT YET LIVE** — code + migration written; the migration cannot be applied until Ryan regains Supabase dashboard access (same blocker as T3). Student-initiated linking (invite code, redeemed at `#/parent`), high-level content only (completion, quiz pass/fail, streak, last active — never question-level/misconception detail, per D-scope decided with Ryan). Formalised streak server-side as a side effect (was device-local-only). |
 | F23 | Weekly Q&A (stream + upvote queue + archive) | Could | M–L | F1 | 5 | ☐ |
 | F24 | Points + leaderboard (opt-in, display names) | Could | M | F1, F9 | 5 | ☐ |
 | F35 | **Prior Knowledge Checker** — pre-lesson prerequisite diagnostic, drives live secure/needs-review state | Should | M–L | quiz engine (reused) | **2d** | ✅ **SHIPPED 2026-09-01** — Ryan-verified live on 1a; questions authored for 1a + 1b (1c/1d/Week 2+ have no content yet) |
