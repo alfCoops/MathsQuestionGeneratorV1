@@ -145,6 +145,13 @@ const LESSONS = {
       }},
     { title:'Video 5: Comparing and Estimating', url:'', notes:null }
   ],
+  /* F35 — Prior Knowledge Checker: prerequisite skills only, not this lesson's own content.
+     priorIndex maps each question to a line in `prior` above. */
+  priorCheck:[
+    { q:'Which is smaller, −8 or −3?', opts:['−8','−3','They are equal','Can’t tell'], a:0, priorIndex:0 },
+    { q:'What is 7 × 8?', opts:['54','56','64','48'], a:1, priorIndex:1 },
+    { q:'What is 234 + 158?', opts:['382','392','402','412'], a:1, priorIndex:2 }
+  ],
   quizPass:80,
   quiz:[
     { d:'easy', q:'Which symbol means "greater than"?', opts:['<','>','=','≠'], a:1,

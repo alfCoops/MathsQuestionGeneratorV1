@@ -249,9 +249,9 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F13 | Parent dashboard (Sherpa-style, view-only) | Could | L | F10 | 5 | ☐ |
 | F23 | Weekly Q&A (stream + upvote queue + archive) | Could | M–L | F1 | 5 | ☐ |
 | F24 | Points + leaderboard (opt-in, display names) | Could | M | F1, F9 | 5 | ☐ |
-| F35 | **Prior Knowledge Checker** — pre-lesson prerequisite diagnostic, drives live secure/needs-review state | Should | M–L | quiz engine (reused) | **2d** | ☐ |
-| F36 | **Student avatars** — created at onboarding, shown in lesson completion + F38 | Must (for F37/F38) | M | F1/F15 onboarding | **2d** | ☐ |
-| F37 | **Lesson Overview Page redesign** — F35 card, unified tabbed Lesson Toolkit, unchanged progress tracker | Should | M–L | F35, F36 | **2d** | ☐ |
+| F35 | **Prior Knowledge Checker** — pre-lesson prerequisite diagnostic, drives live secure/needs-review state | Should | M–L | quiz engine (reused) | **2d** | ✅ *(built, not browser-verified — see note)* |
+| F36 | **Student avatars** — preset emoji picker in Display & reading settings, shown in sidebar | Must (for F37/F38) | M | prefs (reused, no migration) | **2d** | ✅ *(built, not browser-verified — see note)* |
+| F37 | **Lesson Overview Page redesign** — F35 card, unified tabbed Lesson Toolkit, unchanged progress tracker | Should | M–L | F35, F36 | **2d** | ✅ *(built, not browser-verified — see note)* |
 | F38 | **From Method to Meaning v2** — mountain-journey UI, avatar climber, typed or live-voice reasoning (supersedes F20b) | Could | XL+ | F33, F36; voice half needs D18/D19 | 4 | ☐ |
 | F39 | **Study Planner** — calendar, session scheduling, accuracy-driven recommendations, "Add to Study Planner" from lessons | Could | XL | F11 | 5 | ☐ |
 | F40 | **Topic Resources** — formula sheets, calculator tutorials, exam-skills guides, searchable library | Could | L (code) + Ryan video production | F1 | 5 | ☐ |
@@ -464,6 +464,22 @@ Criteria/Prior Knowledge/Keywords/Misconceptions content renders with zero data
 loss inside the new toolkit tabs ☐ PKC card never counted in the 4-step tracker
 ☐ responsive: stacks to one column on mobile in the order specified ☐ zero
 console errors, old lessons without F35/F36 data still render sensibly.
+
+**Build note (2026-09-01):** F35/F36/F37 implemented together in `index.html` +
+`mm-content.js`, no Supabase migration — both landed inside existing synced
+jsonb: avatar choice in `profiles.prefs.avatarId` (reuses the F16 prefs sync
+path, picker lives in the Display & reading settings modal, not a dedicated
+onboarding step), PKC results in the per-lesson progress object's new `prior`
+key (reuses F2's sync). Avatars are a 10-emoji preset set, not the illustrated
+custom-avatar builder from Ryan's mockup (art-asset work, out of scope — see
+D20). The full celebratory "Lesson Complete" panel with avatar+flag+next-
+lesson CTA from Ryan's mockup was **not** built this pass — the existing
+simple `#completeBtn` footer is unchanged; that's flagged as a natural
+follow-up once Ryan's seen this land. **Not yet browser-verified** — this
+environment has no Node/Playwright; needs the CLAUDE.md verify checklist run
+for real (lesson nav, quiz pass/fail unaffected, Teacher Editor round-trip on
+the new Prior Knowledge Checker panel, zero console errors) before calling it
+done-done. One example PKC question set authored on lesson 1a for that check.
 
 ### F38 · From Method to Meaning v2 — Could, Phase 4, XL+ (supersedes F20b)
 Replaces the printable-worksheet UI with a full-screen interactive experience,

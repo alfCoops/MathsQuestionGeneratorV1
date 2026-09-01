@@ -245,11 +245,18 @@
   .card.red{background:var(--red-bg);border-color:var(--red-line)} .card.red h3{color:var(--red)} .card.red h3 .ic{background:#fee2e2}
   label.pk{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--text2);padding:3px 0;cursor:pointer}
   label.pk input{margin-top:2px;accent-color:var(--purple)}
+  label.pk.secure{color:var(--green);cursor:default}
+  label.pk.needs{color:#b45309;cursor:default}
+  label.pk .pk-ic{font-weight:800}
   .kw{display:flex;flex-wrap:wrap;gap:6px}
   .kw span{background:var(--card);border:1px solid var(--orange-line);color:#9a3412;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:8px}
   ul.dots{list-style:none;display:flex;flex-direction:column;gap:6px}
   ul.dots li{display:flex;gap:9px;font-size:13px;color:#7f1d1d}
   ul.dots li::before{content:"•";color:var(--red);font-weight:800}
+  /* F37 — Lesson Toolkit tabs (Prior Knowledge / Keywords / Watch Outs) */
+  .tk-tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+  .tk-tab{font:inherit;font-size:11.5px;font-weight:700;color:var(--muted);background:none;border:none;padding:0 0 9px;cursor:pointer;border-bottom:2px solid transparent}
+  .tk-tab.on{color:var(--purple);border-color:var(--purple)}
 
   /* progress */
   .prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
@@ -571,6 +578,7 @@
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1;min-width:62px;font:inherit;font-size:12.5px;font-weight:700;padding:8px 10px;border:1.5px solid var(--line);border-radius:9px;background:var(--card);color:var(--muted);cursor:pointer}
   .seg button.on{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+  .avatar-seg button{flex:0 0 auto;min-width:0;font-size:20px;padding:7px 10px;line-height:1}
   .pref-reset{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;font-weight:700;text-decoration:underline;cursor:pointer;margin-top:4px}
 
   /* F17 — read-aloud (text-to-speech) button */
@@ -640,6 +648,28 @@
             <div class="step" data-step="worksheet"><div class="node">3</div><div class="lbl">3. From Method to Meaning</div></div>
             <div class="step" data-step="generate"><div class="node">4</div><div class="lbl">4. Question Generator</div></div>
             <div class="step" data-step="complete"><div class="node star">☆</div><div class="lbl">Lesson Complete</div></div>
+          </div>
+        </section>
+
+        <!-- F35 — Prior Knowledge Checker. Deliberately outside the numbered steps above:
+             it's preparation for the lesson, not one of the four graded stages. Hidden by
+             renderPkcCard() when the lesson has no priorCheck content authored. -->
+        <section class="card pkc-card" id="secPkc" style="display:none;border:1px solid #ddd6fe;background:#faf9ff">
+          <div class="act-head">
+            <div class="ico" style="background:var(--purple)">📋</div>
+            <div class="txt"><b>Prior Knowledge Checker</b><span>A short check of what you already know before we start.</span></div>
+            <span class="time-chip">~5 minutes</span>
+            <button class="btn o-purple" id="pkcBtn">Start Checker</button>
+            <span class="chev">▼</span>
+          </div>
+          <div class="body" id="pkcBody">
+            <div class="quiz-top"><span class="qnum" id="pkcNum"></span></div>
+            <div id="pkcArea"></div>
+            <div class="quiz-nav no-print" id="pkcNav">
+              <button class="btn ghost" id="pkcPrev">← Previous</button>
+              <span class="spacer"></span>
+              <button class="btn solid" id="pkcNext">Next →</button>
+            </div>
           </div>
         </section>
 
@@ -742,9 +772,21 @@
       <!-- RIGHT -->
       <div class="col" id="lessonAside">
         <section class="card green"><h3><span class="ic">🎯</span>Success Criteria</h3><ul class="ticks" id="rcSuccess"></ul></section>
-        <section class="card purple"><h3><span class="ic">📋</span>Prior Knowledge Checklist</h3><div id="rcPrior"></div></section>
-        <section class="card orange"><h3><span class="ic">🔑</span>Keywords</h3><div class="kw" id="rcKeywords"></div></section>
-        <section class="card red"><h3><span class="ic">⚠️</span>Common Misconceptions</h3><ul class="dots" id="rcMisc"></ul></section>
+        <!-- F37 — Lesson Toolkit: Prior Knowledge / Keywords / Watch Outs merged into one
+             tabbed card so the right column isn't three long always-open panels. Element ids
+             (rcPrior/rcKeywords/rcMisc) are unchanged from before the merge, so
+             renderRightPanels() needs no changes — this is a wrapper/CSS change only. -->
+        <section class="card">
+          <h3><span class="ic">🧰</span>Lesson Toolkit</h3>
+          <div class="tk-tabs" id="tkTabs">
+            <button class="tk-tab on" data-tk="tkPrior">📋 Prior Knowledge</button>
+            <button class="tk-tab" data-tk="tkKeywords">🔑 Keywords</button>
+            <button class="tk-tab" data-tk="tkMisc">⚠️ Watch Outs</button>
+          </div>
+          <div class="tk-panel" id="tkPrior"><div id="rcPrior"></div></div>
+          <div class="tk-panel" id="tkKeywords" style="display:none"><div class="kw" id="rcKeywords"></div></div>
+          <div class="tk-panel" id="tkMisc" style="display:none"><ul class="dots" id="rcMisc"></ul></div>
+        </section>
       </div>
     </div>
   </main>
@@ -786,6 +828,9 @@
     <button class="modal-x" data-close="prefsModal">✕</button>
     <div class="pref-h">⚙ Display &amp; reading</div>
     <div class="pref-sub">Adjust how the site looks and reads. Saved to this device, and to your account when you're signed in.</div>
+    <div class="pref-row"><span class="pref-lb">Your avatar</span>
+      <div class="seg avatar-seg" id="avatarBody"></div>
+    </div>
     <div id="prefsBody"></div>
   </div>
 </div>
@@ -890,6 +935,7 @@ function sanitizeCourses(courses){
       if(L.misconceptions) L.misconceptions = arr(L.misconceptions);
       if(L.wsTip!=null)    L.wsTip = sanitizeHtml(L.wsTip);
       (L.quiz||[]).forEach(q=>{ if(q.q!=null) q.q=sanitizeHtml(q.q); if(q.opts) q.opts=arr(q.opts); if(q.fb!=null) q.fb=sanitizeHtml(q.fb); if(q.hints) q.hints=arr(q.hints); });
+      (L.priorCheck||[]).forEach(q=>{ if(q.q!=null) q.q=sanitizeHtml(q.q); if(q.opts) q.opts=arr(q.opts); });   /* F35 */
       (L.worksheet||[]).forEach(s=>{ if(s.qs) s.qs=arr(s.qs); if(s.markScheme!=null) s.markScheme=sanitizeHtml(s.markScheme); });
       (L.genBank||[]).forEach(g=>{ if(g.q!=null) g.q=sanitizeHtml(g.q); if(g.ms!=null) g.ms=sanitizeHtml(g.ms); });
       (L.videos||[]).forEach(v=>{
@@ -2194,7 +2240,7 @@ function renderAuthBox(){
   if(!sbClient){ box.innerHTML=''; return; }
   if(authUser){
     const tch = (authProfile && authProfile.role==='teacher') ? `<button class="auth-link" id="authTeach">📊 Teacher dashboard</button>` : '';
-    box.innerHTML = `<span class="auth-nick" title="Signed in">👤 ${esc(displayName())}</span>${tch}<button class="auth-link" id="authOut">Sign out</button>`;
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
   } else {
@@ -2253,6 +2299,30 @@ function renderSectionTimes(){
   const set=(id,key)=>{ const el=$(id); if(el) el.textContent='🕒 '+sectionTime(key); };
   set('timeLearn','learn'); set('timeQuiz','quiz'); set('timeWs','worksheet'); set('timeGen','generate');
 }
+
+/* F35 — secure (✓) / needs-review (⚠) state for one Prior Knowledge Checklist line, from the
+   student's Prior Knowledge Checker results. null = not attempted, or no PKC question checks
+   this particular line yet (back-compat: falls back to the plain checkbox in that case). */
+function priorLineState(pi){
+  const p = prog().prior;
+  if(!p || !p.correct) return null;
+  const qs = pkcQuestions();
+  const results = [];
+  qs.forEach((q,i)=>{ if(q.priorIndex===pi) results.push(!!p.correct[i]); });
+  if(!results.length) return null;
+  return results.every(Boolean);
+}
+function renderRightPanels(){
+  $('rcSuccess').innerHTML = (cur.success||[]).map(s=>`<li>${s}</li>`).join('');
+  $('rcPrior').innerHTML = (cur.prior||[]).map((p,pi)=>{
+    const state = priorLineState(pi);
+    if(state===true)  return `<label class="pk secure"><span class="pk-ic">✓</span>${p}</label>`;
+    if(state===false) return `<label class="pk needs"><span class="pk-ic">⚠</span>${p}</label>`;
+    return `<label class="pk"><input type="checkbox">${p}</label>`;
+  }).join('');
+  $('rcKeywords').innerHTML = (cur.keywords||[]).map(k=>`<span>${k}</span>`).join('');
+  $('rcMisc').innerHTML = (cur.misconceptions||[]).map(m=>`<li>${m}</li>`).join('');
+}
 function loadLesson(id, section){
   if(typeof TTS!=='undefined') TTS.stop();   /* F17 — stop any read-aloud when changing lessons */
   $('adminRoot').style.display='none';
@@ -2281,10 +2351,8 @@ function loadLesson(id, section){
   setLastLocation(currentCourseId, id, section || ((lastLoc && lastLoc.lesson_id===id) ? lastLoc.section : ''));   /* F5/F7 — URL section wins */
 
   /* right column */
-  $('rcSuccess').innerHTML = cur.success.map(s=>`<li>${s}</li>`).join('');
-  $('rcPrior').innerHTML = cur.prior.map(p=>`<label class="pk"><input type="checkbox">${p}</label>`).join('');
-  $('rcKeywords').innerHTML = cur.keywords.map(k=>`<span>${k}</span>`).join('');
-  $('rcMisc').innerHTML = cur.misconceptions.map(m=>`<li>${m}</li>`).join('');
+  renderRightPanels();
+  renderPkcCard();   /* F35 */
 
   /* videos */
   buildVideos();
@@ -2420,7 +2488,7 @@ function maybeUnitSummary(lid){
 function syncVideoFocus(){ $('lessonGrid').classList.toggle('focus', $('secLearn').classList.contains('open') || $('secGen').classList.contains('open')); }
 /* F16 — "one at a time" makes the activity cards behave as an accordion (opening one closes the
    others). With the pref off these behave exactly as before. */
-const ACT_SECTIONS = ['secLearn','secQuiz','secGen'];
+const ACT_SECTIONS = ['secPkc','secLearn','secQuiz','secGen'];
 const CARD_SECTION = { secLearn:'learn', secQuiz:'quiz', secGen:'generate' };   /* F7 */
 function openAct(id){ if(prefs.oneAtATime) ACT_SECTIONS.forEach(s=>{ if(s!==id) $(s).classList.remove('open'); }); $(id).classList.add('open'); syncVideoFocus(); if(CARD_SECTION[id]) noteSection(CARD_SECTION[id]); }
 function toggleAct(id){ if($(id).classList.contains('open')){ $(id).classList.remove('open'); syncVideoFocus(); } else openAct(id); }
@@ -2432,6 +2500,13 @@ document.querySelectorAll('[data-toggle]').forEach(h=>{
 });
 $('learnBtn').addEventListener('click', ()=>{ openAct('secLearn'); });
 $('hiwBtn').addEventListener('click', ()=> toggleAct('secGen'));
+
+/* F37 — Lesson Toolkit tabs (Prior Knowledge / Keywords / Watch Outs) */
+$('tkTabs').addEventListener('click', e=>{
+  const btn=e.target.closest('.tk-tab'); if(!btn) return;
+  $('tkTabs').querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('on', t===btn));
+  ['tkPrior','tkKeywords','tkMisc'].forEach(id=> $(id).style.display = (id===btn.dataset.tk) ? '' : 'none');
+});
 
 /* =============================== videos =============================== */
 function buildVideos(){
@@ -2658,6 +2733,66 @@ function renderQuiz(){
   const hb=$('qHint');
   if(hb) hb.addEventListener('click',()=>{ quiz.hintsUsed[quiz.i]=(quiz.hintsUsed[quiz.i]||0)+1; renderQuiz(); });   /* F8 */
 }
+
+/* =========== F35 — Prior Knowledge Checker ===============================================
+   Own state/DOM, deliberately NOT the `quiz` global above — that's tightly coupled to
+   cur.quiz, and pointing it at a second question set risks corrupting real quiz progress.
+   Same visual classes (.q-opt/.q-text/.fb) as the main quiz for a consistent look. No
+   pass/fail: each question just marks one L.prior checklist line secure or needs-review
+   (see priorLineState() / rcPrior render below), stored in prog().prior so it rides the
+   same localStorage+cloud sync as the rest of progress — no new table. */
+const pkc = { i:0, answers:[] };
+function pkcQuestions(){ return (cur && cur.priorCheck) || []; }
+function renderPkcCard(){
+  const card = $('secPkc'); if(!card) return;
+  const has = pkcQuestions().length>0;
+  card.style.display = has ? '' : 'none';
+  if(!has) return;
+  const done = !!(prog().prior && prog().prior.done);
+  $('pkcBtn').textContent = done ? '✓ Review Results' : 'Start Checker';
+}
+function startPkc(){ pkc.i=0; pkc.answers=[]; }
+function renderPkc(){
+  const qs=pkcQuestions(), Q=qs[pkc.i]; if(!Q) return;
+  $('pkcNum').textContent = `Question ${pkc.i+1} of ${qs.length}`;
+  const answered = pkc.answers[pkc.i];
+  const area = $('pkcArea');
+  area.innerHTML = `<div class="q-text">${Q.q}</div>` +
+    (Q.opts||[]).map((o,i)=>{
+      let cls='q-opt';
+      if(answered!=null){ if(i===answered) cls += answered===Q.a?' picked-right':' picked-wrong'; else if(i===Q.a) cls+=' reveal'; }
+      return `<button class="${cls}" data-opt="${i}" ${answered!=null?'disabled':''}><span class="letter">${'ABCD'[i]}</span>${o}</button>`;
+    }).join('') +
+    (answered!=null
+      ? `<div class="fb ${answered===Q.a?'right':'wrong'}"><b>${answered===Q.a?'✅ Correct!':'❌ Not quite — the answer is '+Q.opts[Q.a]}</b></div>`
+      : '');
+  area.querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>{ pkc.answers[pkc.i]=+b.dataset.opt; renderPkc(); }));
+  $('pkcPrev').disabled = pkc.i===0;
+  $('pkcNext').textContent = pkc.i===qs.length-1 ? 'Finish →' : 'Next →';
+}
+function pkcResultsHtml(){
+  const qs=pkcQuestions(), res=(prog().prior && prog().prior.correct)||[];
+  return qs.map((q,i)=>`<div class="fb ${res[i]?'right':'wrong'}" style="margin-bottom:8px"><b>${res[i]?'✅':'❌'} ${q.q}</b></div>`).join('')
+    + `<div class="ad-note" style="margin-top:6px">See the full secure/needs-review breakdown in <b>Lesson Toolkit → Prior Knowledge</b> on the right.</div>`;
+}
+function finishPkc(){
+  const qs=pkcQuestions(), correct=qs.map((q,i)=>pkc.answers[i]===q.a);
+  const p=prog(); p.prior={ done:true, correct }; saveProgress();
+  $('pkcArea').innerHTML = pkcResultsHtml();
+  $('pkcNum').textContent=''; $('pkcNav').style.display='none';
+  renderPkcCard(); renderRightPanels();
+}
+$('pkcBtn').addEventListener('click', ()=>{
+  openAct('secPkc');
+  $('pkcNav').style.display='';
+  if(prog().prior && prog().prior.done){ $('pkcArea').innerHTML=pkcResultsHtml(); $('pkcNum').textContent=''; $('pkcNav').style.display='none'; }
+  else { startPkc(); renderPkc(); }
+});
+$('pkcPrev').addEventListener('click', ()=>{ if(pkc.i>0){ pkc.i--; renderPkc(); } });
+$('pkcNext').addEventListener('click', ()=>{
+  const qs=pkcQuestions();
+  if(pkc.i < qs.length-1){ pkc.i++; renderPkc(); } else finishPkc();
+});
 
 /* F4 — mastery thresholds (content-configurable per lesson; defaults 80 / 50). */
 function masteryThresholds(){
@@ -2944,7 +3079,7 @@ $('prevBtn').addEventListener('click', ()=>{ if(cur.prev) location.hash=lessonHr
 const BLANK_LESSON = () => ({
   code:'', title:'', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:null,
-  success:[], prior:[], keywords:[], misconceptions:[],
+  success:[], prior:[], keywords:[], misconceptions:[], priorCheck:[],
   videos:[{title:'Video 1',url:'',notes:null}], quizPass:80, quiz:[], wsTip:'', worksheetFile:'',
   worksheet:[
     {name:'Clarify',grade:'Grade 1',g3:false,qs:['<b>1.</b> ']},
@@ -3240,6 +3375,11 @@ function buildAdminForm(){
     ${ta('Keywords','ad-keywords',L.keywords.join(', '),'separate with commas — plain text')}
     <label class="ad-lb">Common misconceptions <span class="ad-note">— one per line (press Enter)</span></label>
     ${rich('ad-misc', L.misconceptions.join('<br>'))}
+  </div>
+
+  <div class="ad-panel"><h4>📋 Prior Knowledge Checker <span class="ad-note">(F35 — a short pre-lesson check of PREREQUISITE skills, not this lesson's own content; tag each question to one Prior knowledge checklist line above so students see secure/needs-review per line)</span></h4>
+    <div id="adPkc">${(L.priorCheck||[]).map((q,qi)=>pkcEditor(q,qi,L.prior)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addPkc">＋ Add prior-knowledge question</button>
   </div>`;
 
   wireForm(f);
@@ -3422,6 +3562,30 @@ function videoEditor(v,vi){
   </div>`;
 }
 
+/* F35 — Prior Knowledge Checker question editor. Deliberately simpler than quizEditor: no
+   difficulty/topic/hints — just a question, 4 options, the correct one, and which existing
+   `prior` checklist line (passed in as priorLines) it verifies. Radio group is named "pcor-"
+   rather than "cor-" so it can't collide with the main quiz's radio groups sharing the form. */
+function pkcEditor(q,qi,priorLines){
+  return `<div class="ad-q" data-qi="${qi}">
+    <div class="ad-row"><b style="font-size:12px">Q${qi+1}</b>
+      <select class="ad-in pk-line" style="width:auto;flex:1">
+        <option value="">— which prior-knowledge line does this check? —</option>
+        ${(priorLines||[]).map((line,pi)=>`<option value="${pi}" ${q.priorIndex===pi?'selected':''}>${esc(line)}</option>`).join('')}
+      </select>
+      <button class="btn ghost ad-mini" data-act="delPkc" data-qi="${qi}">🗑</button>
+    </div>
+    <label class="ad-lb">Question</label>
+    ${rich('pk-text', q.q)}
+    ${(q.opts||['','','','']).map((o,oi)=>`
+      <div class="ad-row" style="margin-top:6px;align-items:flex-start">
+        <input type="radio" name="pcor-${qi}" value="${oi}" ${q.a===oi?'checked':''} title="correct answer" style="margin-top:11px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);margin-top:9px">${'ABCD'[oi]}</span>
+        <div style="flex:1">${rich('pk-opt', o, {attrs:` data-oi="${oi}"`})}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
 function quizEditor(q,qi){
   return `<div class="ad-q" data-qi="${qi}">
     <div class="ad-row"><b style="font-size:12px">Q${qi+1}</b>
@@ -3580,6 +3744,20 @@ function collectAdminForm(){
     return row;
   });
 
+  /* F35 — Prior Knowledge Checker questions (own radio namespace "pcor-", see pkcEditor). */
+  L.priorCheck = [...f.querySelectorAll('#adPkc .ad-q')].map((el,qi)=>{
+    const old = (L.priorCheck||[])[qi] || {};
+    const cor = el.querySelector(`input[name^="pcor-"]:checked`);
+    const pi = el.querySelector('.pk-line').value;
+    const row = { ...old,
+      q: richValue(el.querySelector('.pk-text')),
+      opts: [...el.querySelectorAll('.pk-opt')].map(o=>richValue(o)),
+      a: cor ? +cor.value : (old.a||0)
+    };
+    if(pi!=='') row.priorIndex = +pi; else delete row.priorIndex;
+    return row;
+  });
+
   L.wsTip = richValue(rq('ad-wstip'));
   L.worksheet = [...f.querySelectorAll('#adWs .ad-q')].map(el=>{
     const sec = {
@@ -3627,6 +3805,8 @@ function onFormClick(e){
   if(act==='addNotes') L.videos[vi].notes = BLANK_NOTES();
   if(act==='addQuiz') L.quiz.push({d:'med', q:'', opts:['','','',''], a:0, fb:''});
   if(act==='delQuiz') L.quiz.splice(qi,1);
+  if(act==='addPkc') (L.priorCheck=L.priorCheck||[]).push({ q:'', opts:['','','',''], a:0 });   /* F35 */
+  if(act==='delPkc') L.priorCheck.splice(qi,1);
   if(act==='qUp' && qi>0){ const t=L.quiz[qi-1]; L.quiz[qi-1]=L.quiz[qi]; L.quiz[qi]=t; }
   if(act==='qDown' && qi<L.quiz.length-1){ const t=L.quiz[qi+1]; L.quiz[qi+1]=L.quiz[qi]; L.quiz[qi]=t; }
   if(act==='addQuizHint'){ (L.quiz[qi].hints = L.quiz[qi].hints || []).push(''); }        /* F8 */
@@ -3748,7 +3928,12 @@ function downloadContent(){
    signed-in user's profiles.prefs so they follow across devices. Light + standard font is the
    default, so nothing changes unless a student opts into an aid. */
 const PREFS_KEY = 'mm-prefs';
-const PREF_DEFAULTS = { theme:'light', font:'default', textSize:1, spacing:0, motion:'auto', focus:false, hideTimers:false, oneAtATime:false, overlay:'none' };
+/* F36 — student avatars. Emoji-based preset set (not the full illustrated-avatar builder from
+   Ryan's mockup — that needs real art assets and is a separate follow-up); stored as a prefs key
+   so it reuses the existing prefs sync/localStorage plumbing with zero new code paths. */
+const AVATARS = ['🦊','🦉','🐼','🐧','🐨','🦁','🐸','🐢','🦖','🐬'];
+function avatarGlyph(id){ return AVATARS.includes(id) ? id : AVATARS[0]; }
+const PREF_DEFAULTS = { theme:'light', font:'default', textSize:1, spacing:0, motion:'auto', focus:false, hideTimers:false, oneAtATime:false, overlay:'none', avatarId:AVATARS[0] };
 let prefs = (function(){ try{ return Object.assign({}, PREF_DEFAULTS, JSON.parse(localStorage.getItem(PREFS_KEY))||{}); }catch(e){ return Object.assign({}, PREF_DEFAULTS); } })();
 const ZOOM=[1,1.12,1.26], LN=[1.5,1.75,2.05], LS=['normal','.02em','.05em'];
 function ensureReadableFont(){                     /* lazy-load Atkinson Hyperlegible only when chosen */
@@ -3805,6 +3990,8 @@ const PREF_CONTROLS = [
   {k:'oneAtATime', lb:'Lesson sections',           help:'Open lesson sections one at a time instead of all at once, to reduce clutter.', opts:[[false,'All open'],[true,'One at a time']]},
 ];
 function renderPrefs(){
+  const av=$('avatarBody');
+  if(av) av.innerHTML = AVATARS.map(a=>`<button data-avatar="${a}" class="${prefs.avatarId===a?'on':''}" title="Use this avatar">${a}</button>`).join('');
   const b=$('prefsBody'); if(!b) return;
   b.innerHTML = PREF_CONTROLS.map(c=>`
     <div class="pref-row"${c.help?` title="${esc(c.help)}"`:''}><span class="pref-lb">${c.lb}</span>
@@ -3817,6 +4004,10 @@ $('prefsBody').addEventListener('click', e=>{
   const btn=e.target.closest('.seg button');
   if(btn){ setPref(btn.parentElement.dataset.k, JSON.parse(btn.dataset.v)); return; }
   if(e.target.id==='prefReset'){ prefs=Object.assign({}, PREF_DEFAULTS); applyPrefs(); savePrefs(); renderPrefs(); }
+});
+$('avatarBody').addEventListener('click', e=>{
+  const btn=e.target.closest('button[data-avatar]');
+  if(btn) setPref('avatarId', btn.dataset.avatar);
 });
 
 /* =============================== boot =============================== */
