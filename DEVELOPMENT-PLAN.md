@@ -632,6 +632,8 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | D4 | Badges & streaks | **Signed off + email reminders** → F30 (opt-in, see §6) |
 | D5 | Pricing | **£19.99/mo · Week 1 free · comp access for weekly recurring 1-to-1 students only** → F14/F10 amendments |
 | D6 | Mastery thresholds / pass mark | **80/50 confirmed · pass stays 80%** |
+| D16 | Mastery model reconciliation | **Alongside, not replacing**: per-objective 4-tier mastery (Not Started/Learning/Developing/Mastered) powers F19's internal logic and a future breakdown view; the shipped lesson-level 🟢🟡🔴 (D6) stays exactly as-is as the student-facing summary — no change to what students see today |
+| D17 | Energy meter sign-off | **Confirmed as spec'd**: values as written (+15 first-attempt correct, +10 after 1 scaffold, +5 after 2+, +5 correct review, bonus for completing/mastering an objective, never removed for wrong answers); hidden in Focus mode and when timers are hidden (matches Ryan's reduced-distraction ethos) |
 
 **Still open:**
 
@@ -645,10 +647,6 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 | **D13** | **Default font: keep Inter with dyslexia fonts one tap away, or OpenDyslexic everywhere?** (see F28 note) | Phase 2b |
 | **D14** | **Streak email details: send time (17:00?), copy tone, max misses before stopping** | Phase 3 |
 | **D15** | **Multi-board rollout: what comes after Edexcel Foundation (Edexcel Higher vs second board), and shared-core content with board-specific assessment vs fully separate courses?** | Before any second-course authoring |
-| **D16** | **Mastery model reconciliation: per-objective 4-tier mastery (his 31-07 spec) alongside or replacing lesson-level 🟢🟡🔴 (his D6)?** | F19 build |
-| **D17** | **Energy meter sign-off: values, celebration behaviour, and confirmation it hides in focus mode (SEND ethos)** | F19 build |
-| **D16** | **Mastery model reconciliation**: Ryan's 4-tier per-objective mastery (0/1–39/40–79/80–100, weighted by scaffolds used) vs the shipped lesson-level 🟢🟡🔴 (D6). Proposal: per-objective tiers power F19 and the dashboard; lesson-level 🟢🟡🔴 stays as the student-facing summary. Needs his sign-off | F19 R1 |
-| **D17** | **Energy meter vs SEND ethos**: confirm it hides in focus mode and with hide-timers-style prefs (his own reduced-distraction principle) and that incorrect answers never remove energy (his rule — keep it) | F19 R1 |
 | **D18** | **F38 voice tutor: which real-time audio AI vendor/API, and what is its data-retention policy for a minor's voice?** Blocks any F38-full build start | Before F38-full |
 | **D19** | **F38/F36 consent + retention: does a live voice conversation with an AI tutor need explicit parental/account-holder consent beyond the existing account ToS, and is conversation audio ever retained (default should be no)?** | Before F38-full |
 | **D20** | **F36 avatar scope: preset icon picker (small build) vs a fuller custom-avatar builder (much larger build)?** | Before F37/F38 estimation firms up |
@@ -672,11 +670,15 @@ Summary of the committed design:
   generates a **new** quiz biased toward unresolved misconceptions; question-ID history
   prevents repeats.
 - **Mastery:** per learning objective, 4 tiers (Not Started / Learning / Developing /
-  Mastered, 0/1–39/40–79/80–100) — reconcile with lesson-level 🟢🟡🔴 under **D16**.
+  Mastered, 0/1–39/40–79/80–100), powering this engine and a future breakdown
+  view — runs **alongside**, not replacing, the shipped lesson-level 🟢🟡🔴
+  (D6), which stays as the student-facing summary (**D16, answered**).
 - **Persistent misconceptions:** >1 miss ⇒ persistent ⇒ injected into future relevant
   quizzes cross-topic until secure; then retired.
-- **Energy meter:** additive-only reinforcement (config values), animated; **hidden in
-  focus mode** and reconciled with SEND ethos under **D17**.
+- **Energy meter:** additive-only reinforcement, confirmed values (+15 first-attempt
+  correct, +10 after 1 scaffold, +5 after 2+, +5 correct review, bonus for
+  completing/mastering an objective, never removed for wrong answers), animated;
+  **hidden in focus mode and when timers are hidden** (**D17, answered**).
 - **Architecture:** modular (QuizEngine, ScaffoldManager, MisconceptionTracker,
   MasteryManager, EnergyManager, ReviewManager, ScoreCalculator…), config-file driven,
   engine separate from UI. AI generation via F32 with validation before use (already
@@ -685,9 +687,11 @@ Summary of the committed design:
   ≥5 templates each, full scaffold loop, review section, energy, mastery — then
   generalise.
 **Build gates:** pilot complete · bank depth per objective · ~~F33 shipped~~
-✅ **cleared 2026-09-01** · D16/D17 answered · its own red-team (first feature
-serving AI content to children directly). **Remaining before F19 build starts:**
-D16 (mastery model), D17 (energy meter sign-off), pilot/bank-depth status, red-team.
+✅ **cleared 2026-09-01** · ~~D16/D17 answered~~ ✅ **cleared 2026-09-01** (see
+§7) · its own red-team (first feature serving AI content to children
+directly). **Remaining before F19 build starts:** pilot-complete status and
+approved-bank depth per objective (product/business status, not something I
+can assess from code) · the red-team safety pass.
 **AC (top level):** ☐ wrong answers always route to same-misconception scaffolds
 ☐ no exact-question repeats across retakes ☐ persistent misconceptions resurface
 cross-topic and retire on mastery ☐ score reflects first-attempt accuracy + scaffold
