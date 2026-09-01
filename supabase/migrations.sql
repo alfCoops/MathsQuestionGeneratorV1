@@ -346,3 +346,58 @@ drop policy if exists "signed-in reads votes" on public.qanda_votes;
 drop policy if exists "own vote"              on public.qanda_votes;
 create policy "signed-in reads votes" on public.qanda_votes for select using (auth.uid() is not null);
 create policy "own vote"              on public.qanda_votes for all    using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- F24 — Points + leaderboard (D9: opt-in, default OFF — matches the existing
+-- data-minimisation posture; nothing about a student is shown to other
+-- students unless they choose in).
+--
+-- Integrity: `points` must NEVER be client-writable. The "own profile" policy
+-- above is FOR ALL with no column restriction, so RLS alone does not stop a
+-- student writing points directly via the client SDK — RLS is row-level only,
+-- Postgres has no column-level RLS. The column-level REVOKE below closes that
+-- specifically, independent of RLS, and does not affect the SECURITY DEFINER
+-- function (it runs as its owner, not the calling student).
+--
+-- Known separate gap, not fixed here: the points formula reads streak_current,
+-- which IS still directly client-writable (F13's syncStreakToCloud upserts it
+-- from local storage). A student could inflate their own streak to inflate
+-- points. Properly closing that means re-deriving streak server-side from
+-- progress.updated_at instead of trusting the client's local calculation —
+-- flagged as a follow-up, not done here.
+-- ============================================================================
+alter table public.profiles add column if not exists leaderboard_opt_in boolean not null default false;
+alter table public.profiles add column if not exists points int not null default 0;
+
+create or replace function public.recompute_my_points()
+returns int
+language plpgsql security definer set search_path = public as $$
+declare lessons_complete int; quizzes_passed int; cur_streak int; total int;
+begin
+  select count(*) into lessons_complete from public.progress
+    where user_id = auth.uid() and (steps->>'complete')::boolean is true;
+  select count(*) into quizzes_passed from public.progress
+    where user_id = auth.uid() and (steps->>'quiz')::boolean is true;
+  select coalesce(streak_current,0) into cur_streak from public.profiles where user_id = auth.uid();
+  total := lessons_complete*10 + quizzes_passed*5 + cur_streak;
+  update public.profiles set points = total where user_id = auth.uid();
+  return total;
+end; $$;
+revoke all on function public.recompute_my_points() from public;
+grant execute on function public.recompute_my_points() to authenticated;
+
+revoke update (points) on public.profiles from authenticated;
+
+-- Narrow, opted-in-only leaderboard view — same security_invoker=false pattern as
+-- practice_questions above: exposes ONLY display_name + points for opted-in
+-- students, never the raw profiles row (role/comp_access/streak_last etc. stay hidden).
+create or replace view public.leaderboard
+with (security_invoker = false) as
+select user_id, display_name, points
+from public.profiles
+where leaderboard_opt_in = true
+order by points desc;
+
+revoke all on public.leaderboard from public;
+grant select on public.leaderboard to authenticated;

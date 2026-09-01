@@ -122,6 +122,8 @@
   .qanda-text{flex:1;font-size:13px}
   .qanda-answered{font-size:11px;font-weight:700;color:var(--green);flex-shrink:0}
   .qanda-del{background:none;border:none;color:var(--muted);cursor:pointer;flex-shrink:0}
+  /* F24 — leaderboard: highlight the signed-in student's own row */
+  .lb-me{background:var(--purple-bg);border-radius:8px;padding:6px 8px!important;font-weight:700;color:var(--purple)}
   .tch-list li{padding:7px 11px;background:var(--surf2);border:1px solid var(--line);border-radius:8px}
   .tch-list b{color:var(--red)}
   .tch-dim{color:var(--muted);font-size:11px}
@@ -870,6 +872,11 @@
         <button class="btn ghost ad-mini" id="parentCodeCopy">📋 Copy</button>
       </div>
     </div>
+    <!-- F24 — opt-in only, default OFF (D9); shown to any signed-in student -->
+    <div class="pref-row" id="leaderboardRow" style="display:none">
+      <span class="pref-lb">Leaderboard</span>
+      <label class="ad-lb" style="font-weight:400"><input type="checkbox" id="leaderboardOptIn"> Show my nickname and points on the <a href="#/leaderboard" style="color:inherit;font-weight:700">leaderboard</a>, visible to other students</label>
+    </div>
   </div>
 </div>
 
@@ -1483,6 +1490,7 @@ function touchStreak(){
   streak.last=today; streak.best=Math.max(streak.best||0, streak.current);
   try{ localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); }catch(e){}
   syncStreakToCloud();   /* F13 — server copy so a linked parent (or any future cross-device view) can read it */
+  recomputeMyPoints();   /* F24 — streak feeds the points formula */
 }
 /* F13 — local storage stays the source of truth for THIS device; the cloud copy is a
    read surface for other accounts (parent dashboard), same debounced-upsert shape as
@@ -1499,6 +1507,17 @@ function syncStreakToCloud(){
       }, {onConflict:'user_id'});
     }catch(e){}
   }, 700);
+}
+/* F24 — points are recomputed SERVER-SIDE from the student's own progress rows (see
+   recompute_my_points() in migrations.sql); the client only ever triggers a recompute, never
+   supplies a number — points is a locked-down column specifically so a leaderboard can't be
+   gamed via devtools. Debounced longer than queueCloudSave's 800ms so the progress row this
+   was triggered by has actually landed server-side before the recompute reads it. */
+let _pointsT=null;
+function recomputeMyPoints(){
+  if(!sbClient || !authUser) return;
+  clearTimeout(_pointsT);
+  _pointsT=setTimeout(()=>{ try{ sbClient.rpc('recompute_my_points'); }catch(e){} }, 1200);
 }
 function progressStats(){
   const cp = allProgress[currentCourseId] || {};
@@ -1564,6 +1583,7 @@ function parseHash(){
   if(/^#\/?teacher\b/.test(h)) return { view:'teacher' };
   if(/^#\/?parent\b/.test(h))  return { view:'parent' };
   if(/^#\/?qanda\b/.test(h))   return { view:'qanda' };
+  if(/^#\/?leaderboard\b/.test(h)) return { view:'leaderboard' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1579,6 +1599,7 @@ function route(){
   if(r.view==='teacher') return renderTeacher();
   if(r.view==='parent')  return renderParent();
   if(r.view==='qanda')   return renderQAndA();
+  if(r.view==='leaderboard') return renderLeaderboard();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -2097,6 +2118,34 @@ function nextThursday6pm(){
   return t;
 }
 
+/* =============================== F24 — leaderboard (#/leaderboard) ===============================
+   D9: opt-in, default OFF. Reads the narrow `leaderboard` VIEW (migrations.sql) — only
+   display_name + points for opted-in students, never the raw profiles row. Points themselves are
+   locked down server-side (see recompute_my_points()) so this can't be gamed via devtools. */
+async function renderLeaderboard(){
+  document.title = 'Leaderboard — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Leaderboard</span>';
+  if(!authReady){ const r=pageChrome(); r.innerHTML='<p class="auth-note">Loading…</p>'; return; }
+  if(!sbClient || !authUser){
+    toast('Sign in to see the leaderboard.'); location.hash = '#/login'; return;
+  }
+  const root = pageChrome();
+  root.innerHTML = `
+    <div class="tch-head"><h2>🏆 Leaderboard</h2><p>Points come from lessons completed, quizzes passed and your streak. Opt-in only — nothing about you appears here unless you choose to join.</p></div>
+    <div id="lbBody"><p class="auth-note">Loading…</p></div>`;
+  const el=$('lbBody');
+  try{
+    const { data:rows, error } = await sbClient.from('leaderboard').select('*');
+    if(error) throw error;
+    const iAmIn = !!(authProfile && authProfile.leaderboard_opt_in);
+    const joinCta = `<p class="ad-note" style="margin-top:14px">${iAmIn ? 'You’re on the leaderboard — manage it in' : 'Not on the leaderboard yet — join in'} ⚙ <a href="#" id="lbOpenPrefs" style="color:inherit;font-weight:700">Display &amp; reading settings</a>.</p>`;
+    el.innerHTML = (rows&&rows.length)
+      ? `<ul class="tch-list">${rows.map((r,i)=>`<li class="${authUser&&r.user_id===authUser.id?'lb-me':''}" style="display:flex;gap:10px;justify-content:space-between"><span>#${i+1} ${esc(r.display_name||'Student')}${r.user_id===authUser.id?' (you)':''}</span><b>${r.points||0}</b></li>`).join('')}</ul>${joinCta}`
+      : `<p class="auth-note">No one’s on the leaderboard yet.</p>${joinCta}`;
+    const lp=$('lbOpenPrefs'); if(lp) lp.addEventListener('click', e=>{ e.preventDefault(); openPrefs(); });
+  }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the leaderboard.</p>'; }
+}
+
 /* =============================== Maths markup — the cross-repo delimiter contract ===============================
    The generation service (F32, prompt p5+) emits maths as LaTeX stored as PLAIN TEXT in the
    item fields, and hard-rejects any item that breaks the contract. This is the rendering half.
@@ -2611,10 +2660,12 @@ function renderAuthBox(){
     const tch = (authProfile && authProfile.role==='teacher') ? `<button class="auth-link" id="authTeach">📊 Teacher dashboard</button>` : '';
     const par = (authProfile && authProfile.role==='parent') ? `<button class="auth-link" id="authParent">📈 Parent dashboard</button>` : '';   /* F13 */
     const qa = `<button class="auth-link" id="authQanda">🎙 Weekly Q&amp;A</button>`;   /* F23 — visible to every signed-in account, not role-gated */
-    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}${qa}<button class="auth-link" id="authOut">Sign out</button>`;
+    const lb = `<button class="auth-link" id="authLeaderboard">🏆 Leaderboard</button>`;   /* F24 — visible to every signed-in account, not role-gated */
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}${qa}${lb}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const pa=$('authParent'); if(pa) pa.addEventListener('click', ()=>{ location.hash='#/parent'; });
     const qb=$('authQanda'); if(qb) qb.addEventListener('click', ()=>{ location.hash='#/qanda'; });
+    const lbb=$('authLeaderboard'); if(lbb) lbb.addEventListener('click', ()=>{ location.hash='#/leaderboard'; });
     const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
   } else {
     box.innerHTML = `<button class="auth-link solid" id="authIn">Sign in / Create account</button>`;
@@ -2959,6 +3010,7 @@ function completeStep(key){
   if(p[key]) return;
   p[key]=true; saveProgress(); setLastLocation(currentCourseId, cur.code, key); renderProgress(); renderSidebar();
   noteLearningActivity();   /* F9 — streak + badge check */
+  recomputeMyPoints();      /* F24 */
   if(key==='complete') maybeUnitSummary(cur.code);   /* F21 — end-of-unit summary */
 }
 
@@ -4621,7 +4673,26 @@ $('parentCodeCopy').addEventListener('click', async ()=>{
   if(!_parentCode) return;
   try{ await navigator.clipboard.writeText(_parentCode); toast('Code copied.'); }catch(e){ toast('Couldn’t copy — select and copy the code manually.'); }
 });
-function openPrefs(){ renderPrefs(); renderParentAccessRow(); $('prefsModal').classList.add('show'); }
+/* F24 — D9: opt-in, default OFF. Reads authProfile.leaderboard_opt_in (already loaded via
+   loadProfile()'s select('*')); writing it is a plain boolean upsert (unlike points, an opt-in
+   flag isn't something worth locking down — worst case a student toggles it on/off). */
+function renderLeaderboardRow(){
+  const row=$('leaderboardRow'); if(!row) return;
+  if(!sbClient || !authUser || !authProfile || authProfile.role!=='student'){ row.style.display='none'; return; }
+  row.style.display='';
+  $('leaderboardOptIn').checked = !!authProfile.leaderboard_opt_in;
+}
+$('leaderboardOptIn').addEventListener('change', async e=>{
+  const on = e.target.checked;
+  if(authProfile) authProfile.leaderboard_opt_in = on;
+  try{
+    const { error } = await sbClient.from('profiles').upsert({ user_id:authUser.id, leaderboard_opt_in:on }, { onConflict:'user_id' });
+    if(error) throw error;
+    if(on) recomputeMyPoints();   /* so a newly-opted-in student doesn't show 0 from stale data */
+    toast(on ? 'You’re on the leaderboard.' : 'Removed from the leaderboard.');
+  }catch(err){ e.target.checked=!on; if(authProfile) authProfile.leaderboard_opt_in=!on; toast('Couldn’t update — try again.'); }
+});
+function openPrefs(){ renderPrefs(); renderParentAccessRow(); renderLeaderboardRow(); $('prefsModal').classList.add('show'); }
 $('prefsBtn').addEventListener('click', openPrefs);
 $('prefsBody').addEventListener('click', e=>{
   const btn=e.target.closest('.seg button');

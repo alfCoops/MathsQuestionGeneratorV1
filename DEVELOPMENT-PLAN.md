@@ -248,7 +248,7 @@ Effort: S < ½ day · M 1–2 days · L 3–5 days · XL 1–2 weeks
 | F14 | Subscriptions: £19.99/mo, Week 1 free, **manual comp-access for weekly 1-to-1 students**, on/off toggle | Could | XL | F1, F10 (comp UI) | 5 | ☐ |
 | F13 | Parent dashboard (Sherpa-style, view-only) | Could | L | F10 | 5 | ✅ **BUILT 2026-09-01, NOT YET LIVE** — code + migration written; the migration cannot be applied until Ryan regains Supabase dashboard access (same blocker as T3). Student-initiated linking (invite code, redeemed at `#/parent`), high-level content only (completion, quiz pass/fail, streak, last active — never question-level/misconception detail, per D-scope decided with Ryan). Formalised streak server-side as a side effect (was device-local-only). |
 | F23 | Weekly Q&A (stream + upvote queue + archive) | Could | M–L | F1 | 5 | ✅ **BUILT 2026-09-01, NOT YET LIVE** — code + migration written (same Supabase-access blocker as F13/T3). D12 answered: Zoom (no public live-embed needed, so this is scheduling + a question queue, not video streaming), weekly, fixed Thursday 6pm UK slot. `#/qanda` route: upcoming session with Join-on-Zoom link, question submission, upvoting, teacher-marked "answered" badges, archive of past sessions. Teacher Editor gets a 5th tab to manage sessions/questions. No automated recurrence — Ryan creates each session manually (defaulted to next Thursday 6pm). |
-| F24 | Points + leaderboard (opt-in, display names) | Could | M | F1, F9 | 5 | ☐ |
+| F24 | Points + leaderboard (opt-in, display names) | Could | M | F1, F9 | 5 | ✅ **BUILT 2026-09-01, NOT YET LIVE** — code + migration written (same Supabase-access blocker as F13/F23/T3). D9 answered: opt-in, default OFF. Points (lessons×10 + quizzes×5 + streak) computed server-side via a SECURITY DEFINER RPC and a column-level `revoke update` on `profiles.points` — closes a real gameability gap where the existing "own profile" RLS policy would otherwise let a student set their own points directly via devtools. Narrow `leaderboard` view (display_name + points only, opted-in rows only) reuses the `practice_questions` curated-view pattern rather than a blanket RLS policy that would leak the whole profile row. **Known follow-up, not fixed here:** `streak_current` (added in F13) is still directly client-writable and feeds the points formula — a student could inflate streak to inflate points; properly closing it means re-deriving streak server-side from `progress.updated_at`, worth doing before real students use this. |
 | F35 | **Prior Knowledge Checker** — pre-lesson prerequisite diagnostic, drives live secure/needs-review state | Should | M–L | quiz engine (reused) | **2d** | ✅ **SHIPPED 2026-09-01** — Ryan-verified live on 1a; questions authored for 1a + 1b (1c/1d/Week 2+ have no content yet) |
 | F36 | **Student avatars** — preset emoji picker in Display & reading settings, shown in sidebar | Must (for F37/F38) | M | prefs (reused, no migration) | **2d** | ✅ **SHIPPED 2026-09-01** — Ryan-verified live |
 | F37 | **Lesson Overview Page redesign** — F35 card, unified tabbed Lesson Toolkit, unchanged progress tracker | Should | M–L | F35, F36 | **2d** | ✅ **SHIPPED 2026-09-01** — Ryan-verified live |
@@ -618,6 +618,15 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 - **F40 effort is misleading if read as pure engineering.** The resources
   *browser* is a normal build; the *videos* are Ryan's to produce. Don't let
   the L estimate imply the library ships full on day one.
+- **F24 points integrity — streak half still open.** `points` itself is locked
+  down (server-computed, column-level revoke on direct writes — see F24 spec).
+  But the formula reads `streak_current`, which F13 made directly client-
+  writable (a plain upsert from local storage) and nothing in F24 changed that.
+  A student can currently inflate their own streak and it flows straight into
+  their leaderboard points. Fix before this goes live with real students:
+  re-derive streak server-side from `progress.updated_at` (consecutive-day
+  count) instead of trusting the client's local streak object, then lock the
+  column down the same way `points` is locked down now.
 - (All v2 risks stand.)
 
 ## 7. Decisions
