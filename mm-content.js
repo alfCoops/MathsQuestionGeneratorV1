@@ -148,7 +148,7 @@ const LESSONS = {
   /* F35 — Prior Knowledge Checker: prerequisite skills only, not this lesson's own content.
      priorIndex maps each question to a line in `prior` above. */
   priorCheck:[
-    { q:'Which is smaller, −8 or −3?', opts:['−8','−3','They are equal','Can’t tell'], a:0, priorIndex:0 },
+    { q:'Which is greater, −5 or 3?', opts:['−5','3','They are equal','Can’t tell'], a:1, priorIndex:0 },
     { q:'What is 7 × 8?', opts:['54','56','64','48'], a:1, priorIndex:1 },
     { q:'What is 234 + 158?', opts:['382','392','402','412'], a:1, priorIndex:2 },
     { q:'What is the value of the 7 in 3,752?', opts:['7','70','700','7000'], a:2, priorIndex:3 },

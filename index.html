@@ -3398,6 +3398,7 @@ function buildAdminForm(){
   </div>
 
   <div class="ad-panel"><h4>📋 Prior Knowledge Checker <span class="ad-note">(F35 — a short pre-lesson check of PREREQUISITE skills, not this lesson's own content; tag each question to one Prior knowledge checklist line above so students see secure/needs-review per line)</span></h4>
+    <p class="ad-note" style="margin:0 0 10px">Aim for one question per checklist line, and make sure the question tests <b>exactly</b> what that line says — not just the same general topic. E.g. if the line says "order positive and negative numbers", the question should compare a positive and a negative number, not two negatives.</p>
     <div id="adPkc">${(L.priorCheck||[]).map((q,qi)=>pkcEditor(q,qi,L.prior)).join('')}</div>
     <button class="btn ghost ad-mini" data-act="addPkc">＋ Add prior-knowledge question</button>
   </div>`;
