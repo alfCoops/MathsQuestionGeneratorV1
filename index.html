@@ -2237,6 +2237,15 @@ function renderSidebar(){
 }
 
 /* =============================== lesson render =============================== */
+/* F29 — non-calculator icon: a calculator glyph with a diagonal line through it (exam-paper style). */
+const NO_CALC_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" style="vertical-align:-2px" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+  + '<rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>'
+  + '<rect x="7" y="5" width="10" height="4" rx="1" fill="currentColor"/>'
+  + '<circle cx="7.5" cy="13" r="1.2" fill="currentColor"/><circle cx="12" cy="13" r="1.2" fill="currentColor"/><circle cx="16.5" cy="13" r="1.2" fill="currentColor"/>'
+  + '<circle cx="7.5" cy="17" r="1.2" fill="currentColor"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/><circle cx="16.5" cy="17" r="1.2" fill="currentColor"/>'
+  + '<line x1="2" y1="22" x2="22" y2="2" stroke="#d32f2f" stroke-width="2.5"/>'
+  + '</svg>';
+
 /* F6 — estimated section times (content-configurable per lesson, back-compatible defaults). */
 const SECTION_TIME_DEFAULTS = { learn:'~15 minutes', quiz:'~10 minutes', worksheet:'~25 minutes', generate:'Unlimited practice' };
 function sectionTime(key){ const t=(cur&&cur.sectionTimes)||{}; const v=t[key]&&String(t[key]).trim(); return v||SECTION_TIME_DEFAULTS[key]; }
@@ -2258,7 +2267,7 @@ function loadLesson(id, section){
   /* F29 — calculator / non-calculator chip (Edexcel-authentic; absent = no chip) */
   const calcEl=$('chipCalc');
   if(cur.calculator==='allowed'){ calcEl.textContent='🧮 Calculator'; calcEl.style.display=''; }
-  else if(cur.calculator==='not-allowed'){ calcEl.textContent='🚫 Non-calculator'; calcEl.style.display=''; }
+  else if(cur.calculator==='not-allowed'){ calcEl.innerHTML=NO_CALC_ICON+' Non-calculator'; calcEl.style.display=''; }
   else calcEl.style.display='none';
   $('bookCtaSlot').innerHTML = bookingCtaHtml();   /* F31 */
   renderSidebar();
