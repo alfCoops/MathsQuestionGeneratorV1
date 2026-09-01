@@ -342,6 +342,16 @@ const LESSONS = {
       }},
     { title:'Video 5: Fractions, Decimals and Percentages', url:'', notes:null }
   ],
+  /* F35 — Prior Knowledge Checker: prerequisite skills only, not this lesson's own content.
+     priorIndex maps each question to a line in `prior` above. */
+  priorCheck:[
+    { q:'What is the value of the 5 in 4,502?', opts:['5','50','500','5000'], a:2, priorIndex:0 },
+    { q:'What is 36 × 100?', opts:['360','3600','36000','3.6'], a:1, priorIndex:1 },
+    { q:'What is one tenth as a fraction?', opts:['1/100','1/10','10/1','1/1000'], a:1, priorIndex:2 },
+    { q:'On a number line, which number is exactly halfway between 4 and 6?', opts:['4.5','5','5.5','6'], a:1, priorIndex:3 },
+    { q:'Round 68 to the nearest 10.', opts:['60','65','70','80'], a:2, priorIndex:4 },
+    { q:'Which is greater, 4,213 or 4,231?', opts:['4,213','4,231','They are equal','Can’t tell'], a:1, priorIndex:5 }
+  ],
   quizPass:80,
   quiz:[
     { d:'easy', q:'What is the value of the 5 in 2.53?', opts:['5 ones','5 tenths','5 hundredths','5 tens'], a:1,
