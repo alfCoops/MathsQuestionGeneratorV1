@@ -257,6 +257,20 @@
   .tk-tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--line)}
   .tk-tab{font:inherit;font-size:11.5px;font-weight:700;color:var(--muted);background:none;border:none;padding:0 0 9px;cursor:pointer;border-bottom:2px solid transparent}
   .tk-tab.on{color:var(--purple);border-color:var(--purple)}
+  /* F18 — digital maths toolkit */
+  .tool-row{border:1px solid var(--line);border-radius:9px;margin-bottom:8px;overflow:hidden}
+  .tool-head{width:100%;text-align:left;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);background:var(--surf2);border:none;padding:9px 11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  .tool-row .tool-body{display:none;padding:11px}
+  .tool-row.open .tool-body{display:block}
+  .tool-row.open .tool-head .chev{transform:rotate(180deg)}
+  .tool-head .chev{transition:transform .15s}
+  .hs-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;max-width:320px}
+  .hs-cell{font:inherit;font-size:10.5px;font-weight:600;padding:5px 0;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--text2);cursor:pointer}
+  .hs-cell.on{background:var(--purple);border-color:var(--purple);color:#fff}
+  .ctr-area{display:flex;flex-wrap:wrap;gap:10px}
+  .ctr-group{display:flex;flex-wrap:wrap;gap:3px;padding:5px;border:1px dashed var(--line);border-radius:7px}
+  .ctr{font-size:16px;color:var(--purple);cursor:pointer;line-height:1}
+  .ctr-group .ctr{cursor:default}
 
   /* progress */
   .prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
@@ -787,10 +801,12 @@
             <button class="tk-tab on" data-tk="tkPrior">📋 Prior Knowledge</button>
             <button class="tk-tab" data-tk="tkKeywords">🔑 Keywords</button>
             <button class="tk-tab" data-tk="tkMisc">⚠️ Watch Outs</button>
+            <button class="tk-tab" data-tk="tkTools" id="tkToolsTab" style="display:none">🧮 Tools</button>
           </div>
           <div class="tk-panel" id="tkPrior"><div id="rcPrior"></div></div>
           <div class="tk-panel" id="tkKeywords" style="display:none"><div class="kw" id="rcKeywords"></div></div>
           <div class="tk-panel" id="tkMisc" style="display:none"><ul class="dots" id="rcMisc"></ul></div>
+          <div class="tk-panel" id="tkTools" style="display:none"><div id="rcTools"></div></div>
         </section>
       </div>
     </div>
@@ -1016,6 +1032,18 @@ function defaultPriorCheck(courses){
   }));
   return courses;
 }
+/* F18 — same trap, same fix, for toolkit tags (see the specRefs note above). */
+const SEED_TOOLKIT = {};
+COURSES.forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+  if(L && Array.isArray(L.toolkit) && L.toolkit.length) SEED_TOOLKIT[id] = L.toolkit.slice();
+}));
+function defaultToolkit(courses){
+  (courses||[]).forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+    if(L && !(Array.isArray(L.toolkit) && L.toolkit.length) && SEED_TOOLKIT[id])
+      L.toolkit = SEED_TOOLKIT[id].slice();
+  }));
+  return courses;
+}
 function courseById(id){ return COURSES.find(c=>c.id===id); }
 function currentCourse(){ return courseById(currentCourseId) || COURSES[0]; }
 function courseLabel(c){ return [c.qualification, c.board, c.tier].filter(Boolean).join(' · '); }
@@ -1029,7 +1057,7 @@ let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLess
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
-    COURSES = defaultPriorCheck(defaultSpecRefs(buildCourses(d)));
+    COURSES = defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
@@ -2416,6 +2444,10 @@ const NO_CALC_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" style="ver
 
 /* F6 — estimated section times (content-configurable per lesson, back-compatible defaults). */
 const SECTION_TIME_DEFAULTS = { learn:'~15 minutes', quiz:'~10 minutes', worksheet:'~25 minutes', generate:'Unlimited practice' };
+/* F18 — digital maths toolkit. Fixed set (not authored content), tagged per lesson via
+   L.toolkit (array of these keys); shared between the Teacher Editor checkboxes and the
+   student-facing Tools tab so both read from one list. */
+const TOOLKIT_TOOLS = [ ['numberline','Number line'], ['hundredsquare','Hundred square'], ['counters','Counters'] ];
 function sectionTime(key){ const t=(cur&&cur.sectionTimes)||{}; const v=t[key]&&String(t[key]).trim(); return v||SECTION_TIME_DEFAULTS[key]; }
 function renderSectionTimes(){
   const set=(id,key)=>{ const el=$(id); if(el) el.textContent='🕒 '+sectionTime(key); };
@@ -2444,6 +2476,145 @@ function renderRightPanels(){
   }).join('');
   $('rcKeywords').innerHTML = (cur.keywords||[]).map(k=>`<span>${k}</span>`).join('');
   $('rcMisc').innerHTML = (cur.misconceptions||[]).map(m=>`<li>${m}</li>`).join('');
+  renderToolsTab();   /* F18 */
+  /* Every lesson load resets the Lesson Toolkit card to its first tab — simplest predictable
+     state, and avoids landing on a hidden Tools tab from a lesson that had them when the new
+     one doesn't. */
+  const tabs=$('tkTabs'); if(tabs){
+    tabs.querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('on', t.dataset.tk==='tkPrior'));
+    ['tkPrior','tkKeywords','tkMisc','tkTools'].forEach(id=> $(id).style.display = (id==='tkPrior') ? '' : 'none');
+  }
+}
+/* F18 — digital maths toolkit tab. Tools render lazily (only when a row is first expanded) into
+   their own container; all click handlers are scoped to that container, so replacing the
+   container's innerHTML on the next lesson load is all the cleanup they need — no teardown. */
+function renderToolsTab(){
+  const tools = cur.toolkit||[];
+  const tab = $('tkToolsTab'); if(tab) tab.style.display = tools.length ? '' : 'none';
+  const el=$('rcTools'); if(!el) return;
+  el.innerHTML = tools.map(key=>{
+    const t = TOOLKIT_TOOLS.find(x=>x[0]===key);
+    return `<div class="tool-row" data-tool="${key}">
+      <button class="tool-head" data-tool-toggle="${key}">${t?t[1]:key} <span class="chev">▼</span></button>
+      <div class="tool-body" id="tool-${key}"></div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-tool-toggle]').forEach(b=>b.addEventListener('click', ()=>{
+    const row=b.closest('.tool-row'); const opening=!row.classList.contains('open');
+    el.querySelectorAll('.tool-row.open').forEach(r=>{ if(r!==row) r.classList.remove('open'); });   /* one open at a time */
+    row.classList.toggle('open', opening);
+    if(opening){
+      const body=row.querySelector('.tool-body');
+      if(!body.dataset.built){
+        body.dataset.built='1';
+        const key=b.dataset.toolToggle;
+        if(key==='numberline')        renderNumberLineTool(body);
+        else if(key==='hundredsquare') renderHundredSquareTool(body);
+        else if(key==='counters')      renderCountersTool(body);
+      }
+    }
+  }));
+}
+/* F18 — interactive number line. Click a point to mark it; click a second point to draw a
+   "jump" between them (for addition/subtraction as movement). Extends the visual approach of
+   the existing STATIC numberLineSVG() (used in quiz feedback) into a clickable version. */
+function renderNumberLineTool(container){
+  let min=-10, max=10, marks=[];
+  function draw(){
+    const W=320,H=70,pad=18, span=max-min;
+    const x=v=>pad+(v-min)/span*(W-2*pad);
+    let ticks='';
+    for(let v=min; v<=max; v++){
+      const big=v%5===0||v===min||v===max;
+      ticks+=`<line x1="${x(v)}" y1="30" x2="${x(v)}" y2="${big?40:36}" stroke="#94a3b8" stroke-width="1.5"/>`;
+      if(big) ticks+=`<text x="${x(v)}" y="54" font-size="10" fill="#64748b" text-anchor="middle">${v}</text>`;
+    }
+    const markSvg = marks.map((v,i)=>`<circle cx="${x(v)}" cy="30" r="6" fill="${i===0?'#16a34a':'#2563eb'}"/>`).join('');
+    let jumpSvg='';
+    if(marks.length===2){
+      const [a,b]=marks;
+      jumpSvg = `<line x1="${x(a)}" y1="16" x2="${x(b)}" y2="16" stroke="#c62828" stroke-width="2"/>`
+        + `<text x="${(x(a)+x(b))/2}" y="11" font-size="11" fill="#c62828" text-anchor="middle" font-weight="700">${b-a>=0?'+':''}${b-a}</text>`;
+    }
+    let hit='';
+    for(let v=min; v<=max; v++) hit += `<rect x="${x(v)-9}" y="10" width="18" height="40" fill="transparent" data-v="${v}" class="nl-hit"/>`;
+    container.innerHTML = `
+      <div class="ad-row" style="margin-bottom:8px;gap:10px;flex-wrap:wrap">
+        <label class="ad-lb" style="margin:0">Min <input type="number" class="ad-in nl-min" value="${min}" style="width:64px"></label>
+        <label class="ad-lb" style="margin:0">Max <input type="number" class="ad-in nl-max" value="${max}" style="width:64px"></label>
+        <button class="btn ghost ad-mini nl-clear">Clear</button>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;cursor:pointer">
+        <line x1="${pad-8}" y1="30" x2="${W-pad+8}" y2="30" stroke="#94a3b8" stroke-width="1.5"/>
+        ${ticks}${jumpSvg}${markSvg}${hit}
+      </svg>
+      <p class="ad-note" style="margin-top:4px">${marks.length===0?'Click the line to mark a point.':marks.length===1?`Marked ${marks[0]}. Click again for a second point to show the jump between them.`:`Jump from ${marks[0]} to ${marks[1]}: ${marks[1]-marks[0]>=0?'+':''}${marks[1]-marks[0]}.`}</p>`;
+    container.querySelectorAll('.nl-hit').forEach(h=>h.addEventListener('click', ()=>{
+      const v=+h.dataset.v;
+      marks = marks.length>=2 ? [v] : [...marks, v];
+      draw();
+    }));
+    container.querySelector('.nl-clear').addEventListener('click', ()=>{ marks=[]; draw(); });
+    container.querySelector('.nl-min').addEventListener('change', e=>{ const v=+e.target.value; if(v<max){ min=v; marks=[]; draw(); } });
+    container.querySelector('.nl-max').addEventListener('change', e=>{ const v=+e.target.value; if(v>min){ max=v; marks=[]; draw(); } });
+  }
+  draw();
+}
+/* F18 — interactive hundred square. Click a cell to toggle a highlight (skip-counting/patterns);
+   "Highlight multiples of" auto-highlights on entry. */
+function renderHundredSquareTool(container){
+  let on=new Set();
+  function draw(){
+    let cells=''; for(let n=1;n<=100;n++) cells += `<button class="hs-cell${on.has(n)?' on':''}" data-n="${n}">${n}</button>`;
+    container.innerHTML = `
+      <div class="ad-row" style="margin-bottom:8px;gap:10px;flex-wrap:wrap">
+        <label class="ad-lb" style="margin:0">Highlight multiples of <input type="number" class="ad-in hs-mult" min="1" max="100" style="width:64px"></label>
+        <button class="btn ghost ad-mini hs-clear">Clear</button>
+      </div>
+      <div class="hs-grid">${cells}</div>`;
+    container.querySelectorAll('.hs-cell').forEach(c=>c.addEventListener('click', ()=>{
+      const n=+c.dataset.n; on.has(n)?on.delete(n):on.add(n); c.classList.toggle('on');
+    }));
+    container.querySelector('.hs-clear').addEventListener('click', ()=>{ on=new Set(); draw(); });
+    container.querySelector('.hs-mult').addEventListener('change', e=>{
+      const m=+e.target.value; if(!m) return;
+      on=new Set(); for(let n=m;n<=100;n+=m) on.add(n);
+      draw();
+    });
+  }
+  draw();
+}
+/* F18 — counters. A count renders that many counter icons; a group size visually clusters them
+   (multiplication/division as grouping) with a running "groups of / total" readout. Click a
+   loose (ungrouped) counter to remove it; grouped counters are display-only, to keep regrouping
+   unambiguous. */
+function renderCountersTool(container){
+  let count=6, group=0;
+  function draw(){
+    let body;
+    if(group>0){
+      const groups=Math.ceil(count/group)||0; let remaining=count, groupsHtml='';
+      for(let g=0; g<groups; g++){ const n=Math.min(group,remaining); remaining-=n;
+        groupsHtml += `<div class="ctr-group">${'<span class="ctr">●</span>'.repeat(n)}</div>`; }
+      body = groupsHtml || '<p class="ad-note">No counters.</p>';
+    } else {
+      body = count ? `<div class="ctr-group">${Array.from({length:count},(_,i)=>`<span class="ctr" data-i="${i}">●</span>`).join('')}</div>` : '<p class="ad-note">No counters.</p>';
+    }
+    const groups = group>0 ? Math.ceil(count/group) : 0;
+    const readout = group>0 ? `<p class="ad-note" style="margin-top:6px">${groups} group${groups===1?'':'s'} of ${group}${count%group?` (+${count%group} left over)`:''} = ${count}</p>` : '';
+    container.innerHTML = `
+      <div class="ad-row" style="margin-bottom:8px;gap:10px;flex-wrap:wrap">
+        <label class="ad-lb" style="margin:0">Counters <input type="number" class="ad-in ctr-count" min="0" max="60" value="${count}" style="width:64px"></label>
+        <label class="ad-lb" style="margin:0">Group size <input type="number" class="ad-in ctr-group" min="0" max="20" value="${group}" style="width:64px" placeholder="0 = none"></label>
+        <button class="btn ghost ad-mini ctr-add">＋ Add one</button>
+      </div>
+      <div class="ctr-area">${body}</div>${readout}`;
+    container.querySelectorAll('.ctr[data-i]').forEach(s=>s.addEventListener('click', ()=>{ count=Math.max(0,count-1); draw(); }));
+    container.querySelector('.ctr-add').addEventListener('click', ()=>{ count=Math.min(60,count+1); draw(); });
+    container.querySelector('.ctr-count').addEventListener('change', e=>{ count=Math.max(0,Math.min(60,+e.target.value||0)); draw(); });
+    container.querySelector('.ctr-group').addEventListener('change', e=>{ group=Math.max(0,+e.target.value||0); draw(); });
+  }
+  draw();
 }
 function loadLesson(id, section){
   if(typeof TTS!=='undefined') TTS.stop();   /* F17 — stop any read-aloud when changing lessons */
@@ -2624,11 +2795,11 @@ document.querySelectorAll('[data-toggle]').forEach(h=>{
 $('learnBtn').addEventListener('click', ()=>{ openAct('secLearn'); });
 $('hiwBtn').addEventListener('click', ()=> toggleAct('secGen'));
 
-/* F37 — Lesson Toolkit tabs (Prior Knowledge / Keywords / Watch Outs) */
+/* F37/F18 — Lesson Toolkit tabs (Prior Knowledge / Keywords / Watch Outs / Tools) */
 $('tkTabs').addEventListener('click', e=>{
   const btn=e.target.closest('.tk-tab'); if(!btn) return;
   $('tkTabs').querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('on', t===btn));
-  ['tkPrior','tkKeywords','tkMisc'].forEach(id=> $(id).style.display = (id===btn.dataset.tk) ? '' : 'none');
+  ['tkPrior','tkKeywords','tkMisc','tkTools'].forEach(id=> $(id).style.display = (id===btn.dataset.tk) ? '' : 'none');
 });
 
 /* =============================== videos =============================== */
@@ -3214,7 +3385,7 @@ $('prevBtn').addEventListener('click', ()=>{ if(cur.prev) location.hash=lessonHr
 const BLANK_LESSON = () => ({
   code:'', title:'', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:null,
-  success:[], prior:[], keywords:[], misconceptions:[], priorCheck:[],
+  success:[], prior:[], keywords:[], misconceptions:[], priorCheck:[], toolkit:[],
   videos:[{title:'Video 1',url:'',notes:null}], quizPass:80, quiz:[], wsTip:'', worksheetFile:'',
   worksheet:[
     {name:'Clarify',grade:'Grade 1',g3:false,qs:['<b>1.</b> ']},
@@ -3493,6 +3664,10 @@ function buildAdminForm(){
       <span><label class="ad-lb" style="margin:0 0 4px">Quiz</label><input id="ad-tquiz" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.quiz)||''}" placeholder="~10 minutes" style="width:130px"></span>
       <span><label class="ad-lb" style="margin:0 0 4px">Worksheet</label><input id="ad-tws" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.worksheet)||''}" placeholder="~25 minutes" style="width:130px"></span>
       <span><label class="ad-lb" style="margin:0 0 4px">Generator</label><input id="ad-tgen" class="ad-in" value="${(L.sectionTimes&&L.sectionTimes.generate)||''}" placeholder="Unlimited practice" style="width:150px"></span>
+    </div>
+    <div class="ad-row" style="margin-top:12px;gap:16px;flex-wrap:wrap">
+      <label class="ad-lb" style="margin:0;align-self:center">🧮 Digital toolkit <span class="ad-note">(F18 — tools shown in the student's Lesson Toolkit card)</span></label>
+      ${TOOLKIT_TOOLS.map(t=>`<label class="ad-lb" style="margin:0"><input type="checkbox" class="ad-toolkit" value="${t[0]}" ${(L.toolkit||[]).includes(t[0])?'checked':''}> ${t[1]}</label>`).join('')}
     </div>
     <div style="margin-top:12px">
       <label class="ad-lb" style="margin:0 0 4px">📐 Spec references <span class="ad-note">(Edexcel 1MA1 codes, comma-separated — e.g. N1, N2, N15. Grounds the AI generator and shows which spec points this lesson covers.)</span></label>
@@ -3884,6 +4059,9 @@ function collectAdminForm(){
   /* F29 — calculator flag + sequential-video reveal (absent/false = default behaviour) */
   if(g('ad-calc')){ const cv=g('ad-calc').value; if(cv) L.calculator=cv; else delete L.calculator; }
   if(g('ad-seqvid')){ if(g('ad-seqvid').checked) L.sequentialVideos=true; else delete L.sequentialVideos; }
+  /* F18 — digital toolkit tags (absent/empty = no Tools tab, matching every other optional field) */
+  const tk = [...f.querySelectorAll('.ad-toolkit:checked')].map(cb=>cb.value);
+  if(tk.length) L.toolkit=tk; else delete L.toolkit;
   if(g('ad-specrefs')){ const sr=g('ad-specrefs').value.split(',').map(s=>s.trim()).filter(Boolean); if(sr.length) L.specRefs=sr; else delete L.specRefs; }   /* spec_refs (2b) */
   L.week = g('ad-week').value;
   L.strand = g('ad-strand').value;

@@ -23,6 +23,7 @@ const LESSONS = {
 '1a': {
   code:'1a', title:'1a. Integers and Place Value', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:'1b',
+  toolkit:['numberline','hundredsquare','counters'],   /* F18 — ordering, place value, multiplication facts */
   specRefs:['N1','N2','N3','N14','N15'],   /* Edexcel 1MA1: N1/N2 ordering+four-ops, N3 BIDMAS, N14 estimation, N15 rounding */
   success:[
     'Use and order positive and negative numbers (integers) and decimals; use the symbols &lt;, &gt; and understand the ≠ symbol.',
@@ -223,6 +224,7 @@ const LESSONS = {
 '1b': {
   code:'1b', title:'1b. Decimals', week:'Week 1', strand:'Number Skills',
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:'1a', next:'1c',
+  toolkit:['numberline','hundredsquare'],   /* F18 — its own prior-knowledge line names the number line; place value */
   specRefs:['N1','N2','N10','N14','N15'],   /* PROPOSED (for review): N1 place value, N2 ×÷ decimals, N10 decimals↔fractions, N14 estimation, N15 rounding */
   success:[
     'Read and write the place value of any digit in a decimal.',
