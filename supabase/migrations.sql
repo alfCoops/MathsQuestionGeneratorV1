@@ -401,3 +401,36 @@ order by points desc;
 
 revoke all on public.leaderboard from public;
 grant select on public.leaderboard to authenticated;
+
+
+-- ============================================================================
+-- SECURITY FIX — Teacher Editor saves no longer use the service_role key.
+--
+-- Previously, saveRemoteContent() and storageUpload() (index.html) sent the
+-- service_role key directly from the teacher's browser as a request header —
+-- a full-access, RLS-bypassing key sitting in localStorage and visible in the
+-- Network tab. It was never committed to the repo (no .env exists here), but
+-- the app was built to accept and use it at runtime from client-side code,
+-- which is the actual risk: anyone with DevTools access to that browser could
+-- read it out of localStorage and use it directly against the database.
+--
+-- Fix: site_content writes and videos-bucket uploads now go through the
+-- teacher's own signed-in Supabase Auth session (the SAME sbClient already
+-- used everywhere else in this app), gated by the SAME is_teacher() function
+-- already backing the Teacher Dashboard reads and the Q&A/comp-access writes.
+-- No service_role key is ever used by, or present in, this app's client code
+-- from this point on. (The separate question-generation service is a
+-- different repo and legitimately uses the service key server-side — not
+-- affected by this.)
+-- ============================================================================
+drop policy if exists "teacher writes site_content" on public.site_content;
+create policy "teacher writes site_content" on public.site_content
+  for all using (public.is_teacher()) with check (public.is_teacher());
+
+-- Storage: the `videos` bucket (BACKEND-SETUP.md step 6) needs the same
+-- teacher-only write policy for uploads. Public read is unchanged (the
+-- bucket is already marked Public in Supabase Storage settings).
+drop policy if exists "teacher writes videos bucket" on storage.objects;
+create policy "teacher writes videos bucket" on storage.objects
+  for all using (bucket_id = 'videos' and public.is_teacher())
+  with check (bucket_id = 'videos' and public.is_teacher());

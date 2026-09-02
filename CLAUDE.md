@@ -22,9 +22,12 @@ edit all content and save it to a shared Supabase backend.
   The Wix site just links to it — the old Wix iframe embed is retired (postMessage bridge removed).
 - **Backend:** Supabase only (see `BACKEND-SETUP.md`).
   - `site_content` table row id=1: published content JSON. Public anon key = read-only (RLS).
-  - Teacher writes currently use the service_role key pasted into the editor and held in
-    the teacher's localStorage. NEVER hardcode or commit any service_role key.
-  - Storage bucket `videos` (public read) for uploaded videos/images.
+  - Teacher writes go through the teacher's own signed-in Supabase Auth session (the same
+    `sbClient` used everywhere else), authorised by RLS policies checking `profiles.role =
+    'teacher'` (`is_teacher()`, `supabase/migrations.sql`) — **never** a service_role key.
+    The app's client code holds no key more powerful than the public anon key, full stop.
+  - Storage bucket `videos` (public read) for uploaded videos/images; uploads use the same
+    teacher-session auth as content writes, gated by a matching `storage.objects` RLS policy.
 - **Routing:** hash-based (`#/1a`, `#/admin`). Add new routes the same way (`#/login`, `#/teacher`).
 - **Question generator:** currently a local per-lesson bank (`genBank`). A FastAPI RAG/AI
   service will replace it later — keep the swap point (`pickGeneratedQuestion`) isolated.
@@ -37,8 +40,10 @@ edit all content and save it to a shared Supabase backend.
 2. **Progressive enhancement over hard dependency.** If Supabase is unreachable or
    `BACKEND.url` is blank, the app must still run (localStorage fallback already exists —
    preserve it for progress and content).
-3. **No secrets in the repo.** Anon key in `index.html` is fine (read-only by RLS).
-   service_role key: only ever entered by the teacher at runtime.
+3. **No secrets in the repo, and no service_role key anywhere in this app.** Anon key in
+   `index.html` is fine (read-only by RLS). Teacher writes are authorised by RLS checking
+   the signed-in user's `profiles.role`, never by a key of any kind sitting in the browser —
+   don't reintroduce a service_role-key-in-the-client pattern even for a "quick fix".
 4. **Data minimisation (students are minors, UK GDPR / ICO Children's Code).** Accounts =
    email only. No names, no DOB, no analytics trackers. Provide account+data deletion.
 5. **Keep the visual language:** white background, green `#2e7d32`/`#146c43` accent,

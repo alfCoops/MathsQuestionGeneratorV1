@@ -1103,7 +1103,6 @@ const BACKEND = {
   rowId:   1,
   bucket:  'videos'         /* public Storage bucket for uploaded video files (see BACKEND-SETUP.md) */
 };
-const TEACHER_KEY_STORE = 'mm-teacher-key';
 /* F32 — spec-grounded generation service (separate FastAPI repo). URL ONLY — never a key.
    The app calls it with the signed-in teacher's Supabase access token (Bearer). Blank = the
    "Generate questions" control is hidden. */
@@ -1132,8 +1131,12 @@ function renderBuildStamp(){
 const GENERATOR = { url:'https://question-generator-d50c.onrender.com' };
 const generatorOn = () => !!(GENERATOR.url && GENERATOR.url.indexOf('http')===0);
 const backendOn   = () => !!(BACKEND.url && BACKEND.anonKey);
-const getTeacherKey = () => { try{ return localStorage.getItem(TEACHER_KEY_STORE) || ''; }catch(e){ return ''; } };
-const setTeacherKey = k => { try{ k ? localStorage.setItem(TEACHER_KEY_STORE, k) : localStorage.removeItem(TEACHER_KEY_STORE); }catch(e){} };
+/* SECURITY FIX — teacher writes used to authenticate with a service_role key pasted into the
+   editor and held in localStorage (bypasses RLS entirely, readable via DevTools). That's gone:
+   writes now go through the teacher's own signed-in session (sbClient, same as every other
+   feature in this app) and are authorised server-side by is_teacher() RLS policies
+   (migrations.sql). isTeacherSignedIn() is the one guard every write path checks. */
+const isTeacherSignedIn = () => !!(sbClient && authUser && authProfile && authProfile.role==='teacher');
 
 /* =============================== accounts (F1) ===============================
    Email + password via Supabase Auth (OTP deferred — see README). Degrades off
@@ -1253,19 +1256,17 @@ async function fetchRemoteContent(){
   }catch(e){ console.warn('[backend] read error:', e && e.message); }
   return null;
 }
+/* SECURITY FIX — was a raw fetch() with the service_role key in headers (bypasses RLS
+   entirely). Now goes through the teacher's own signed-in session; the "teacher writes
+   site_content" RLS policy (migrations.sql) is what actually authorises this, not the client. */
 async function saveRemoteContent(){
-  const key = getTeacherKey();
-  if(!backendOn()) return { ok:false, reason:'not-configured' };
-  if(!key)         return { ok:false, reason:'no-key' };
+  if(!backendOn())        return { ok:false, reason:'not-configured' };
+  if(!isTeacherSignedIn()) return { ok:false, reason:'not-signed-in' };
   try{
-    const r = await fetch(`${beBase()}/rest/v1/${BACKEND.table}?on_conflict=id`, {
-      method:'POST',
-      headers:{ apikey:key, Authorization:'Bearer '+key, 'Content-Type':'application/json',
-                Prefer:'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ id:BACKEND.rowId, data:contentPayload(), updated_at:new Date().toISOString() })
-    });
-    if(!r.ok){ const body = await r.text().catch(()=>''); console.warn('[backend] save failed HTTP', r.status, body); return { ok:false, status:r.status, detail:body }; }
-    return { ok:true, status:r.status };
+    const { error } = await sbClient.from(BACKEND.table)
+      .upsert({ id:BACKEND.rowId, data:contentPayload(), updated_at:new Date().toISOString() }, { onConflict:'id' });
+    if(error){ console.warn('[backend] save failed', error); return { ok:false, reason:'rls', detail:error.message||String(error) }; }
+    return { ok:true };
   }catch(e){ console.error('[backend] save network error:', e); return { ok:false, reason:'network', detail:(e&&e.message)||'' }; }
 }
 /* Diagnose the connection — returns a human-readable result for the Test button. */
@@ -1290,34 +1291,41 @@ async function testBackend(){
   }catch(e){
     return 'The host is reachable, but the API call was blocked (CORS or bad anon key). ['+((e&&e.message)||'')+']';
   }
-  if(!getTeacherKey()) return readMsg+' No editor key set yet, so writes are not tested.';
+  if(!isTeacherSignedIn()) return readMsg+' Sign in with your teacher account to test writes.';
   const w = await saveRemoteContent();
-  const writeMsg = w.ok ? 'Write OK (HTTP '+w.status+') — you are fully connected.'
+  const writeMsg = w.ok ? 'Write OK — you are fully connected as a teacher.'
                         : (w.reason==='network' ? 'Write blocked (network/CORS).'
-                           : 'Write failed HTTP '+(w.status||'?')+' — '+(w.detail||'editor key is likely wrong (use the service_role key).'));
+                           : 'Write failed — '+(w.detail||'permission denied (check your account has role=teacher in profiles)'));
   return readMsg+' '+writeMsg;
 }
 /* Upload a video file to Supabase Storage; returns { ok, url } or { ok:false, msg }.
-   onProgress(fraction 0..1) is called during the upload. */
-function storageUpload(file, pathHint, onProgress, kind){
+   onProgress(fraction 0..1) is called during the upload.
+   SECURITY FIX — was a raw XHR with the service_role key in headers. Now sends the teacher's
+   own live session token (same one sbClient already holds) as the Bearer, with the public
+   anonKey as the apikey header — the same auth shape as the REST API, so the "teacher writes
+   videos bucket" RLS policy (migrations.sql) is what authorises this, not key possession.
+   Kept as a raw XHR (rather than sbClient.storage.upload()) specifically so upload PROGRESS
+   still works — the Supabase JS storage client doesn't expose progress events. */
+async function storageUpload(file, pathHint, onProgress, kind){
+  kind = kind || 'video';
+  if(!backendOn())         return { ok:false, msg:'Set up the cloud backend first (BACKEND url + anonKey).' };
+  if(!isTeacherSignedIn()) return { ok:false, msg:'Sign in with your teacher account first.' };
+  if(!file)                return { ok:false, msg:'No file.' };
+  const okType = kind==='image'
+    ? (/^image\//.test(file.type||'') || /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name||''))
+    : kind==='file'
+    ? (/^(image\/|application\/pdf)/.test(file.type||'') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))
+    : (/^video\//.test(file.type||'') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name||''));
+  if(!okType) return { ok:false, msg: kind==='image' ? 'That is not an image file (use png, jpg, gif or webp).' : kind==='file' ? 'Use a PDF or an image file (pdf, png, jpg).' : 'That is not a video file (use mp4, webm, mov…).' };
+  let token; try{ const { data } = await sbClient.auth.getSession(); token = data && data.session && data.session.access_token; }catch(e){}
+  if(!token) return { ok:false, msg:'Your session has expired — sign out and in again.' };
+  const safe = (file.name||'video').replace(/[^\w.\-]+/g,'_');
+  const path = `${(pathHint||'video').replace(/[^\w.\-]+/g,'_')}-${Date.now()}-${safe}`;
   return new Promise(resolve=>{
-    kind = kind || 'video';
-    const key = getTeacherKey();
-    if(!backendOn())            return resolve({ ok:false, msg:'Set up the cloud backend first (BACKEND url + anonKey).' });
-    if(!key)                    return resolve({ ok:false, msg:'Enter your editor key in the ☁ Cloud backend box first.' });
-    if(!file)                   return resolve({ ok:false, msg:'No file.' });
-    const okType = kind==='image'
-      ? (/^image\//.test(file.type||'') || /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name||''))
-      : kind==='file'
-      ? (/^(image\/|application\/pdf)/.test(file.type||'') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))
-      : (/^video\//.test(file.type||'') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name||''));
-    if(!okType) return resolve({ ok:false, msg: kind==='image' ? 'That is not an image file (use png, jpg, gif or webp).' : kind==='file' ? 'Use a PDF or an image file (pdf, png, jpg).' : 'That is not a video file (use mp4, webm, mov…).' });
-    const safe = (file.name||'video').replace(/[^\w.\-]+/g,'_');
-    const path = `${(pathHint||'video').replace(/[^\w.\-]+/g,'_')}-${Date.now()}-${safe}`;
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${beBase()}/storage/v1/object/${BACKEND.bucket}/${path}`);
-    xhr.setRequestHeader('Authorization', 'Bearer '+key);
-    xhr.setRequestHeader('apikey', key);
+    xhr.setRequestHeader('Authorization', 'Bearer '+token);
+    xhr.setRequestHeader('apikey', BACKEND.anonKey);
     xhr.setRequestHeader('x-upsert', 'true');
     if(file.type) xhr.setRequestHeader('Content-Type', file.type);
     xhr.upload.onprogress = e => { if(e.lengthComputable && onProgress) onProgress(e.loaded/e.total); };
@@ -1328,11 +1336,11 @@ function storageUpload(file, pathHint, onProgress, kind){
         let hint = (xhr.responseText||'').slice(0,180);
         if(xhr.status===404) hint = 'the "'+BACKEND.bucket+'" storage bucket does not exist yet — create it (public) in Supabase → Storage.';
         if(xhr.status===400 && /Bucket not found/i.test(xhr.responseText||'')) hint = 'bucket "'+BACKEND.bucket+'" not found — create it (public) in Supabase → Storage.';
-        if(xhr.status===401||xhr.status===403) hint = 'your editor key is wrong (use the service_role key).';
+        if(xhr.status===401||xhr.status===403) hint = 'permission denied — confirm your account is signed in with role=teacher.';
         resolve({ ok:false, msg:'Upload failed (HTTP '+xhr.status+'): '+hint });
       }
     };
-    xhr.onerror = () => resolve({ ok:false, msg:'Upload failed (network/CORS). Check the bucket exists and your editor key.' });
+    xhr.onerror = () => resolve({ ok:false, msg:'Upload failed (network/CORS). Check the bucket exists and you’re signed in.' });
     xhr.send(file);
   });
 }
@@ -1611,7 +1619,8 @@ function route(){
     if(location.hash !== '#/'+cid+'/'+target){ location.hash = '#/'+cid+'/'+target; return; }
     lid = target;
   }
-  if(authReady && sbClient && !authUser && !isFreeLesson(lid) && !getTeacherKey()){   // F1 — sign-in required (teacher with editor key exempt)
+  if(authReady && sbClient && !authUser && !isFreeLesson(lid)){   // F1 — sign-in required. (The old "teacher with editor key exempt" carve-out
+    // is gone along with the key itself — Ryan just signs in with his teacher account like anyone else, same as #/teacher already requires.)
     toast('Create a free account to unlock this lesson.');
     location.hash = '#/login';
     return;
@@ -3774,32 +3783,31 @@ async function saveLive(){
   renderSidebar();
 
   if(backendOn()){
-    if(!getTeacherKey()){ toast('Enter your editor key (Cloud backend box) to publish to all students.'); return; }
+    if(!isTeacherSignedIn()){ toast('Sign in with your teacher account to publish to all students.'); return; }
     toast('Saving to the cloud…');
     const res = await saveRemoteContent();
     if(res.ok) toast('✓ Saved to the cloud — every student now sees these changes.');
-    else if(res.reason==='no-key') toast('Enter your editor key to publish to all students.');
+    else if(res.reason==='not-signed-in') toast('Sign in with your teacher account to publish to all students.');
     else if(res.reason==='network') toast('⚠ Cloud save failed: can\'t reach the server. Saved locally. Use “Test connection” to diagnose.');
-    else toast('⚠ Cloud save failed (HTTP '+(res.status||'?')+'). Saved locally — your editor key is likely wrong (use the service_role key).');
+    else toast('⚠ Cloud save failed: '+(res.detail||'permission denied')+'. Saved locally.');
   } else {
     toast(localOk ? '✓ Changes saved in this browser. (Set up a cloud backend to reach all students.)'
                   : '⚠ Could not save (storage blocked). Use Download content file instead.');
   }
 }
-/* Editor UI: cloud-backend status + private editor-key box. */
+/* Editor UI: cloud-backend status. SECURITY FIX — there is no editor key any more; writes
+   are authorised by the teacher's own signed-in session + the "teacher writes site_content"
+   RLS policy (migrations.sql), same as the Teacher Dashboard (#/teacher). */
 function backendBar(){
   if(!backendOn()){
     return `<div class="ad-steps" style="background:#fef9c3;border-color:#facc15"><b>☁ Cloud backend:</b> not set up yet — edits save in <b>this browser only</b>. To share every edit with all students automatically, follow <code>BACKEND-SETUP.md</code> (free, ~10 min), then Save publishes to the cloud.</div>`;
   }
-  const hasKey = !!getTeacherKey();
-  return `<div class="ad-steps" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;${hasKey?'background:var(--green-bg);border-color:var(--green-line)':''}">
+  const signedIn = isTeacherSignedIn();
+  return `<div class="ad-steps" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;${signedIn?'background:var(--green-bg);border-color:var(--green-line)':''}">
     <b>☁ Cloud backend:</b>
-    <span>${hasKey?'✅ Connected — <b>Save</b> publishes to all students.':'Connected. Enter your <b>editor key</b> to publish to all students.'}</span>
+    <span>${signedIn?'✅ Signed in as teacher — <b>Save</b> publishes to all students.':'Sign in with your teacher account (top of the sidebar) to publish to all students.'}</span>
     <span class="spacer" style="flex:1"></span>
-    <input id="beKey" class="ad-in" type="password" autocomplete="off" placeholder="${hasKey?'editor key saved ✓ — paste to replace':'paste your editor key'}" style="width:230px">
-    <button class="btn ghost ad-mini" id="beSaveKey">Save key</button>
     <button class="btn o-blue ad-mini" id="beTest">Test connection</button>
-    ${hasKey?'<button class="btn ghost ad-mini" id="beClearKey">Forget key</button>':''}
   </div>`;
 }
 /* Reset = discard this browser's saved edits and reload the packaged content file. */
@@ -3812,6 +3820,19 @@ function resetLive(){
 
 function renderAdmin(){
   document.title = 'Teacher Editor — MasterMaths';
+  /* SECURITY FIX — this route had NO auth check at all; anyone (signed in or not) could reach
+     the whole Teacher Editor UI, with only the save button gated by key possession. Now that
+     writes are authorised server-side (RLS), gate the route itself the same way #/teacher
+     already is. Only enforced when a cloud backend is actually configured — with no backend
+     there's no account system to check against, and local-only editing must keep working
+     (CLAUDE.md rule 2: progressive enhancement, not a hard dependency). */
+  if(backendOn()){
+    /* authInit() calls route() again once the session finishes restoring (authReady flips to
+       true) — same one-shot "Loading…" pattern renderTeacher()/renderParent() use, no polling
+       needed: this just needs to not bounce a real teacher while that first check is in flight. */
+    if(!authReady){ $('adminRoot').style.display='block'; $('adminRoot').innerHTML='<p class="auth-note">Loading…</p>'; return; }
+    if(!isTeacherSignedIn()){ toast('Sign in with your teacher account to open the editor.'); location.hash = '#/courses'; return; }
+  }
   document.querySelector('.title-row').style.display='none';
   $('comingSoon').style.display='none';
   $('lessonGrid').style.display='none';
@@ -3866,8 +3887,6 @@ function renderAdmin(){
 
   $('adCourse').addEventListener('change', e=>{ collectAdminForm(); setCourse(e.target.value); adminSel=Object.keys(LESSONS)[0]; renderAdmin(); });
   $('adLesson').addEventListener('change', e=>{ collectAdminForm(); adminSel=e.target.value; renderAdmin(); });
-  if($('beSaveKey')) $('beSaveKey').addEventListener('click', ()=>{ const v=$('beKey').value.trim(); if(v){ setTeacherKey(v); toast('Editor key saved in this browser.'); } renderAdmin(); });
-  if($('beClearKey')) $('beClearKey').addEventListener('click', ()=>{ setTeacherKey(''); toast('Editor key removed.'); renderAdmin(); });
   if($('beTest')) $('beTest').addEventListener('click', async e=>{ const b=e.target; const t=b.textContent; b.textContent='Testing…'; b.disabled=true; let msg; try{ msg=await testBackend(); }catch(err){ msg='Test error: '+(err&&err.message); } b.textContent=t; b.disabled=false; alert('Connection test:\n\n'+msg); });
   if($('adSeq')) $('adSeq').addEventListener('change', e=>{
     siteSettings.requireSequential = e.target.checked; saveDraft(); renderSidebar();
@@ -4085,7 +4104,7 @@ async function doGenImageUpload(gi, file){
   const L = LESSONS[adminSel];
   if(!L || !L.genBank[gi]) return;
   if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload images.'); return; }
-  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  if(!isTeacherSignedIn()){ toast('Sign in with your teacher account first.'); return; }
   toast('Uploading chart/image…');
   const res = await storageUpload(file, `${adminSel}-gen${gi+1}-img`, null, 'image');
   if(res.ok){
@@ -4099,7 +4118,7 @@ async function doWsFileUpload(file){
   const L = LESSONS[adminSel];
   if(!L) return;
   if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to attach a worksheet.'); return; }
-  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  if(!isTeacherSignedIn()){ toast('Sign in with your teacher account first.'); return; }
   toast('Uploading worksheet file…');
   const res = await storageUpload(file, `${adminSel}-worksheet`, null, 'file');
   if(res.ok){
@@ -4113,7 +4132,7 @@ async function doImageUpload(vi, file){
   const L = LESSONS[adminSel];
   if(!L || !L.videos[vi] || !L.videos[vi].notes) return;
   if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload images.'); return; }
-  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  if(!isTeacherSignedIn()){ toast('Sign in with your teacher account first.'); return; }
   /* F26 — give the image a label so questions can refer to it ("as shown in Figure 1"). */
   const nextFig = (L.videos[vi].notes.key||[]).filter(k=>/<figure/i.test(k)).length + 1;
   const label = (window.prompt('Label for this image — students will see it under the picture, and questions can refer to it.\n\nLeave blank for no label.', 'Figure '+nextFig) || '').trim();
@@ -4142,7 +4161,7 @@ async function doVideoUpload(vi, file){
   const L = LESSONS[adminSel];
   if(!L || !L.videos[vi]) return;
   if(!backendOn()){ toast('Set up the cloud backend first (see BACKEND-SETUP.md) to upload videos.'); return; }
-  if(!getTeacherKey()){ toast('Enter your editor key in the ☁ Cloud backend box first.'); return; }
+  if(!isTeacherSignedIn()){ toast('Sign in with your teacher account first.'); return; }
   const zone = document.querySelector(`.v-drop[data-vi="${vi}"]`);
   const bar  = document.querySelector(`.v-prog-bar[data-vi="${vi}"]`);
   const prog = document.querySelector(`.v-prog[data-vi="${vi}"]`);

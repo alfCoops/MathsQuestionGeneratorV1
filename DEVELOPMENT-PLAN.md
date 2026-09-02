@@ -585,6 +585,18 @@ Meaning" tasks himself; F26 is what makes that pleasant.
 
 ## 6. Risks & obligations (additions to v2)
 
+- **✅ FIXED 2026-09-02 — service_role key removed from the app entirely.** Teacher
+  Editor saves (`saveRemoteContent`) and file uploads (`storageUpload`) previously sent
+  the service_role key straight from the browser (localStorage + request headers) —
+  a full-access, RLS-bypassing key, readable via DevTools, and the whole Teacher Editor
+  route (`#/admin`) had no sign-in check at all. Both now go through the teacher's own
+  signed-in session, authorised by RLS (`is_teacher()`, same function backing F10/F23/
+  F24) — the app's client code no longer holds any key more powerful than the public
+  anon key. `#/admin` is now gated the same way `#/teacher` already was. **Not yet
+  live** — same Supabase-access blocker as everything else built this session; the
+  migration is ready, `BACKEND-SETUP.md`/CLAUDE.md are updated to match.
+
+
 - **Emailing minors (F30):** opt-in only, unsubscribe in every message, capped frequency.
   If in doubt about tone, the test is "would a parent reading it over their shoulder object?"
 - **Rich-text output (F26):** sanitise on save AND on render — the editor becomes an HTML
