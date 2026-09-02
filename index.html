@@ -478,29 +478,56 @@
   .mm-jcard .st span{font-size:10.5px;color:var(--muted);font-weight:700}
   .mm-jcard .st p{font-size:11px;color:var(--muted);margin:3px 0 0}
   .mm-lock{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:var(--stage-bg,var(--surf2));color:var(--stage-c,var(--muted));display:grid;place-items:center;font-size:12px}
+  /* Top progress stepper — a second, compact view of the same stage data as the "Your
+     Journey" cards (badge logic reused verbatim via mmProgressBarHtml), intentionally
+     echoed here per Ryan's mockup. */
+  .mm-progress{display:flex;align-items:flex-start;margin-bottom:18px}
+  .mm-pstep{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+  .mm-pstep .n{width:34px;height:34px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:13px;font-weight:800;display:grid;place-items:center}
+  .mm-pstep.done .n,.mm-pstep.on .n{background:var(--stage-c,var(--green));color:#fff}
+  .mm-pstep b{font-size:11px;color:var(--stage-c,var(--text2))}
+  .mm-pstep span{font-size:9.5px;color:var(--muted);font-weight:700}
+  .mm-parrow{flex:1;height:2px;background:var(--line);margin:17px 4px 0;border-radius:2px}
+  .mm-parrow.done{background:var(--green)}
   .mm-qtop{display:flex;justify-content:flex-end;margin-bottom:8px}
   .mm-qcount{font-size:11px;font-weight:700;color:var(--muted);background:var(--surf2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
   .mm-qcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
   .mm-qmeta{font-size:11.5px;font-weight:700;color:var(--purple);margin-bottom:6px}
   .mm-qtext{font-size:14.5px;font-weight:600;margin-bottom:14px}
   .mm-choose-lb{font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:8px}
-  .mm-choices{display:flex;gap:10px;margin-bottom:16px}
+  .mm-choices{display:flex;gap:10px;margin-bottom:14px}
   .mm-choice{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center;position:relative}
   .mm-choice .ic{font-size:19px;display:block;margin-bottom:4px}
   .mm-choice b{display:block;font-size:12px}
   .mm-choice p{font-size:10.5px;color:var(--muted);margin:2px 0 0}
   .mm-choice.active{border-color:var(--green);background:var(--green-bg)}
-  .mm-choice.disabled{opacity:.55}
+  .mm-choice.disabled{opacity:.6}
   .mm-choice .soon{position:absolute;top:8px;right:8px;font-size:8.5px;font-weight:800;letter-spacing:.03em;background:var(--surf2);color:var(--muted);padding:2px 6px;border-radius:999px}
-  .mm-writebox{display:flex;gap:8px}
-  .mm-answer{flex:1;width:100%;min-height:130px;font:inherit;font-size:13.5px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);resize:vertical}
+  /* Two-column panel row — Audio (static, clearly unavailable) | Write (functional). */
+  .mm-panels{display:flex;gap:12px;align-items:stretch}
+  .mm-audio{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:12px;padding:14px;background:var(--surf2);opacity:.65;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+  .mm-audio .hd{display:flex;align-items:center;gap:8px;align-self:flex-start}
+  .mm-audio .bot{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:14px;flex-shrink:0}
+  .mm-audio .hd b{font-size:12.5px;display:block}
+  .mm-audio .hd span{font-size:10px;color:var(--muted)}
+  .mm-wave{display:flex;align-items:center;gap:2px;height:24px}
+  .mm-wave i{display:block;width:3px;border-radius:2px;background:var(--green-line)}
+  .mm-audio .soon{font-size:10px;font-weight:800;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+  .mm-mic{width:46px;height:46px;border-radius:50%;background:var(--surf2);border:1.5px solid var(--line);color:var(--muted);font-size:19px;display:grid;place-items:center;cursor:not-allowed}
+  .mm-write{flex:1;min-width:0;display:flex;flex-direction:column}
+  .mm-answer{width:100%;min-height:120px;font:inherit;font-size:13.5px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);resize:vertical}
   .mm-answer:focus{outline:none;border-color:var(--purple)}
-  .mm-quick{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
-  .mm-quick button{font:inherit;font-size:12px;font-weight:700;width:34px;height:28px;border:1px solid var(--line);background:var(--surf2);color:var(--text2);border-radius:7px;cursor:pointer}
+  .mm-quick{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+  .mm-quick button{font:inherit;font-size:12px;font-weight:700;min-width:28px;height:28px;padding:0 6px;border:1px solid var(--line);background:var(--surf2);color:var(--text2);border-radius:7px;cursor:pointer}
   .mm-quick button:hover{border-color:var(--purple)}
   .mm-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:14px}
   .mm-tipcard{display:flex;align-items:flex-start;gap:9px;margin-top:4px;padding:12px 14px;border-radius:12px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:12px;color:var(--text2);line-height:1.4}
   .mm-tipcard b{color:var(--orange)}
+  .mm-bottombanner{display:flex;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border-radius:14px;background:var(--green-bg);border:1px solid var(--green-line)}
+  .mm-bottombanner .star{width:34px;height:34px;border-radius:50%;background:var(--card);border:1.5px solid var(--green-line);display:grid;place-items:center;font-size:15px;flex-shrink:0}
+  .mm-bottombanner .txt{flex:1;font-size:12.5px;color:var(--text2);line-height:1.4}
+  .mm-bottombanner .txt b{display:block;color:var(--green);font-size:13px}
+  .mm-bottombanner img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0}
   .mm-checking{font-size:12px;color:var(--muted)}
   .mm-hint{margin-top:12px;padding:11px 14px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:13px;color:var(--text2)}
   .mm-hint b{color:var(--orange);display:block;font-size:11px;margin-bottom:3px}
@@ -3690,23 +3717,52 @@ function drawMountainLines(){
   });
   svg.innerHTML = html;
 }
+/* Compact second view of the same "Your Journey" progress data, shown above the question
+   card per Ryan's mockup — reused verbatim (not new state) by the question, stage-feedback
+   and summit screens, which all render into #mmRight. */
+function mmProgressBarHtml(mm){
+  const complete = mm.pos>=12;
+  const avatarStage = complete ? 4 : mmCurrentStage(mm);
+  const names=['Clarify','Justify','Challenge','Generalise','Mastery'];
+  const doneArr = names.map((n,i)=> i<4 ? mmStageDone(mm,i) : complete);
+  let html = '<div class="mm-progress">';
+  names.forEach((n,i)=>{
+    const done = doneArr[i], on = i===avatarStage && !done;
+    const sub = i<4 ? esc((cur.worksheet[i]&&cur.worksheet[i].grade)||'') : '';
+    const badge = i===4 ? '🏆' : (done?'✓':(i+1));
+    if(i>0) html += `<span class="mm-parrow${doneArr[i-1]?' done':''}"></span>`;
+    html += `<div class="mm-pstep${on?' on':''}${done?' done':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]}">
+      <span class="n">${badge}</span><b>${n}</b>${sub?`<span>${sub}</span>`:''}
+    </div>`;
+  });
+  return html+'</div>';
+}
 function renderMountainQuestion(mm){
   const stage = mmCurrentStage(mm), qInStage = mm.pos%3, sec = cur.worksheet[stage];
   const q = sec && sec.qs[qInStage];
   const el = $('mmRight');
   const priorHint = mm.verified[mm.pos]===false ? mm.feedback[mm.pos] : '';
-  el.innerHTML = `<div class="mm-qtop"><span class="mm-qcount">🔖 ${mm.pos+1} of 12</span></div>
+  el.innerHTML = `${mmProgressBarHtml(mm)}
+  <div class="mm-qtop"><span class="mm-qcount">🔖 ${mm.pos+1} of 12</span></div>
   <div class="mm-qcard">
     <div class="mm-qmeta">${esc(sec?sec.name:'')} · Question ${qInStage+1} of 3</div>
     <div class="mm-qtext">${q||''}</div>
     <div class="mm-choose-lb">Choose how you'd like to explain your thinking.</div>
     <div class="mm-choices">
-      <div class="mm-choice active"><span class="ic">✏️</span><b>Write it down</b><p>Type your explanation in the box</p></div>
       <div class="mm-choice disabled"><span class="soon">Coming soon</span><span class="ic">🎙️</span><b>Talk it out</b><p>Speak with the tutor using audio</p></div>
+      <div class="mm-choice active"><span class="ic">✏️</span><b>Write it down</b><p>Type your explanation in the box</p></div>
     </div>
-    <div class="mm-writebox">
-      <textarea class="mm-answer" id="mmAnswer" placeholder="Type your explanation here…">${esc(mm.answers[mm.pos]||'')}</textarea>
-      <div class="mm-quick">${MOUNTAIN_SNIPPETS.map(s=>`<button type="button" data-mm-insert="${esc(s)}">${s}</button>`).join('')}</div>
+    <div class="mm-panels">
+      <div class="mm-audio">
+        <div class="hd"><span class="bot">🤖</span><span><b>Audio Chat with your Tutor</b><span>Talk through your thinking step by step.</span></span></div>
+        <div class="mm-wave">${[9,15,21,13,19,11,17].map(h=>`<i style="height:${h}px"></i>`).join('')}</div>
+        <span class="soon">Coming soon</span>
+        <button class="mm-mic" type="button" disabled title="Talk it out isn't available yet — this needs a live voice tutor, which isn't built">🎙️</button>
+      </div>
+      <div class="mm-write">
+        <textarea class="mm-answer" id="mmAnswer" placeholder="Type your explanation here…">${esc(mm.answers[mm.pos]||'')}</textarea>
+        <div class="mm-quick">${MOUNTAIN_SNIPPETS.map(s=>`<button type="button" data-mm-insert="${esc(s)}">${s}</button>`).join('')}</div>
+      </div>
     </div>
     <div id="mmHintWrap">${priorHint?`<div class="mm-hint" id="mmHint"><b>Not quite there yet</b>${esc(priorHint)}</div>`:''}</div>
     <div class="mm-actions">
@@ -3714,7 +3770,8 @@ function renderMountainQuestion(mm){
       <span id="mmSkipWrap"></span>
       <button class="btn solid" id="mmNext" disabled>Next Question →</button>
     </div>
-  </div>`;
+  </div>
+  <div class="mm-bottombanner"><span class="star">⭐</span><span class="txt"><b>You're building your mathematical thinking!</b>Keep climbing — you're on your way to Mastery.</span><img src="assets/avatar-boy.png" alt=""></div>`;
   renderMathIn(el);
   const ta=$('mmAnswer'), next=$('mmNext'), checking=$('mmChecking'), skipWrap=$('mmSkipWrap'), hintWrap=$('mmHintWrap');
   let attempts = mm.verified[mm.pos]===false ? 1 : 0;   /* a saved "not yet" from before counts as an attempt */
@@ -3760,7 +3817,8 @@ function renderMountainQuestion(mm){
   });
 }
 function renderMountainStageFeedback(mm, stageIdx){
-  $('mmRight').innerHTML = `<div class="mm-qcard mm-feedback">
+  $('mmRight').innerHTML = `${mmProgressBarHtml(mm)}
+  <div class="mm-qcard mm-feedback">
     <div class="em">✅</div>
     <h3>${MM_STAGE_NAMES[stageIdx]} complete</h3>
     <p>${esc(MM_STAGE_FEEDBACK[stageIdx])}</p>
@@ -3772,7 +3830,8 @@ function renderMountainStageFeedback(mm, stageIdx){
 function renderMountainSummit(mm){
   completeStep('worksheet');   /* reuses the existing 4-step progress model, same as before */
   const el=$('mmRight');
-  el.innerHTML = `<div class="mm-qcard mm-summit">
+  el.innerHTML = `${mmProgressBarHtml(mm)}
+  <div class="mm-qcard mm-summit">
     <div class="em">${avatarGlyph(prefs.avatarId)} 🏆</div>
     <h2>Congratulations! You've reached the summit.</h2>
     <p style="font-weight:800;font-size:16px;margin:6px 0">MASTERY 🏆</p>
