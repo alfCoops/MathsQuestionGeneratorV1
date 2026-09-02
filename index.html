@@ -3535,7 +3535,23 @@ function renderQuiz(){
    pass/fail: each question just marks one L.prior checklist line secure or needs-review
    (see priorLineState() / rcPrior render below), stored in prog().prior so it rides the
    same localStorage+cloud sync as the rest of progress — no new table. */
-const pkc = { i:0, answers:[] };
+const pkc = { i:0, answers:[], shuffled:[] };
+/* Fisher-Yates — used to reshuffle PKC option order per attempt (see shufflePkcOptions) so a
+   retry isn't just "remember the letter", not a general-purpose helper reused elsewhere. */
+function fyShuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+/* Builds a per-attempt shuffled COPY of each question's options — never mutates
+   cur.priorCheck itself, which is the shared teacher-authored content (mutating it in place
+   would corrupt the Teacher Editor's view and every other student's attempt). */
+function shufflePkcOptions(){
+  pkc.shuffled = pkcQuestions().map(q=>{
+    const order = fyShuffle(q.opts.map((o,i)=>i));
+    return { opts: order.map(i=>q.opts[i]), a: order.indexOf(q.a) };
+  });
+}
 /* F35 — only approved questions reach students. Back-compat: a question authored before this
    flag existed has no `approved` field at all, so it defaults to shown (approved!==false), not
    hidden — otherwise every already-working question would vanish the moment this shipped. */
@@ -3548,20 +3564,23 @@ function renderPkcCard(){
   const done = !!(prog().prior && prog().prior.done);
   $('pkcBtn').textContent = done ? '✓ Review Results' : 'Start Checker';
 }
-function startPkc(){ pkc.i=0; pkc.answers=[]; }
+/* Reshuffles option order every attempt (first attempt AND every retry) — per Ryan's request
+   that a retry isn't just re-showing the same options in the same order. */
+function startPkc(){ pkc.i=0; pkc.answers=[]; shufflePkcOptions(); }
 function renderPkc(){
   const qs=pkcQuestions(), Q=qs[pkc.i]; if(!Q) return;
+  const S = (pkc.shuffled&&pkc.shuffled[pkc.i]) || Q;   /* back-compat if ever rendered without a shuffle */
   $('pkcNum').textContent = `Question ${pkc.i+1} of ${qs.length}`;
   const answered = pkc.answers[pkc.i];
   const area = $('pkcArea');
   area.innerHTML = `<div class="q-text">${Q.q}</div>` +
-    (Q.opts||[]).map((o,i)=>{
+    (S.opts||[]).map((o,i)=>{
       let cls='q-opt';
-      if(answered!=null){ if(i===answered) cls += answered===Q.a?' picked-right':' picked-wrong'; else if(i===Q.a) cls+=' reveal'; }
+      if(answered!=null){ if(i===answered) cls += answered===S.a?' picked-right':' picked-wrong'; else if(i===S.a) cls+=' reveal'; }
       return `<button class="${cls}" data-opt="${i}" ${answered!=null?'disabled':''}><span class="letter">${'ABCD'[i]}</span>${o}</button>`;
     }).join('') +
     (answered!=null
-      ? `<div class="fb ${answered===Q.a?'right':'wrong'}"><b>${answered===Q.a?'✅ Correct!':'❌ Not quite — the answer is '+Q.opts[Q.a]}</b></div>`
+      ? `<div class="fb ${answered===S.a?'right':'wrong'}"><b>${answered===S.a?'✅ Correct!':'❌ Not quite — the answer is '+S.opts[S.a]}</b></div>`
       : '');
   area.querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>{ pkc.answers[pkc.i]=+b.dataset.opt; renderPkc(); }));
   $('pkcPrev').disabled = pkc.i===0;
@@ -3571,16 +3590,22 @@ function renderPkc(){
 function pkcResultsHtml(){
   const qs=pkcQuestions(), res=(prog().prior && prog().prior.correct)||[];
   return qs.map((q,i)=>`<div class="fb ${res[i]?'right':'wrong'}" style="margin-bottom:8px"><b>${res[i]?'✅':'❌'} ${q.q}</b></div>`).join('')
-    + `<div class="ad-note" style="margin-top:6px">See the full secure/needs-review breakdown in <b>Lesson Toolkit → Prior Knowledge</b> on the right.</div>`;
+    + `<div class="ad-note" style="margin-top:6px">See the full secure/needs-review breakdown in <b>Lesson Toolkit → Prior Knowledge</b> on the right.</div>`
+    + `<div style="margin-top:14px"><button class="btn o-purple" id="pkcRetry" type="button">🔁 Try Again</button></div>`;
 }
 function finishPkc(){
-  const qs=pkcQuestions(), correct=qs.map((q,i)=>pkc.answers[i]===q.a);
+  const qs=pkcQuestions(), correct=qs.map((q,i)=>{ const S=(pkc.shuffled&&pkc.shuffled[i])||q; return pkc.answers[i]===S.a; });
   const p=prog(); p.prior={ done:true, correct }; saveProgress();
   $('pkcArea').innerHTML = pkcResultsHtml();
   $('pkcNum').textContent=''; $('pkcNav').style.display='none';
   renderMathIn($('pkcArea'));   /* F33 */
   renderPkcCard(); renderRightPanels();
 }
+/* Delegated (not per-render) — #pkcArea's innerHTML is replaced wholesale by both renderPkc()
+   and pkcResultsHtml(), so a listener bound once on the stable parent survives either. */
+$('pkcArea').addEventListener('click', e=>{
+  if(e.target.closest('#pkcRetry')){ startPkc(); $('pkcNav').style.display=''; renderPkc(); }
+});
 $('pkcBtn').addEventListener('click', ()=>{
   openAct('secPkc');
   $('pkcNav').style.display='';
