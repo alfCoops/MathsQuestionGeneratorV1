@@ -453,30 +453,52 @@
   .mm-htxt{flex:1;min-width:180px}
   .mm-htxt b{display:block;font-size:17px;color:var(--purple)}
   .mm-htxt span{font-size:12.5px;color:var(--muted)}
-  .mm-body{display:flex;gap:26px;flex-wrap:wrap}
-  .mm-left{flex:0 0 260px}
-  .mm-right{flex:1;min-width:280px}
-  .mm-mountain{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;height:280px}
+  .mm-body{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .mm-col-mountain{flex:1 1 320px;min-width:280px}
+  .mm-col-question{flex:1.3 1 380px;min-width:300px}
+  .mm-col-tip{flex:0 0 200px;min-width:180px}
+  @media(max-width:768px){.mm-col-tip{display:none}}
+  .mm-mountain{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;height:260px}
   .mm-mountain svg{display:block;width:100%;height:100%}
-  .mm-stages{margin-top:14px;display:flex;flex-direction:column;gap:8px}
-  .mm-stage{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+  .mm-journey-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}
+  .mm-stages{display:flex;flex-direction:column;gap:8px}
+  .mm-stage{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
   .mm-stage.on{border-color:var(--stage-c,var(--purple));background:var(--stage-bg,var(--purple-bg))}
   .mm-stage.done{opacity:.75}
-  .mm-stage .n{width:22px;height:22px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:11px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+  .mm-stage.locked{opacity:.6}
+  .mm-stage .n{width:24px;height:24px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:11px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
   .mm-stage.on .n{background:var(--stage-c,var(--purple));color:#fff}
   .mm-stage.done .n{background:var(--green);color:#fff}
   .mm-stage .st{flex:1;min-width:0}
-  .mm-stage .st b{display:block;font-size:12.5px}
-  .mm-stage .st span{font-size:10.5px;color:var(--muted)}
+  .mm-stage .st b{display:block;font-size:12.5px;color:var(--stage-c,inherit)}
+  .mm-stage .st span{font-size:10.5px;color:var(--muted);font-weight:700}
+  .mm-stage .st p{font-size:11px;color:var(--muted);margin:2px 0 0}
+  .mm-qtop{display:flex;justify-content:flex-end;margin-bottom:8px}
+  .mm-qcount{font-size:11px;font-weight:700;color:var(--muted);background:var(--surf2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
   .mm-qcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
   .mm-qmeta{font-size:11.5px;font-weight:700;color:var(--purple);margin-bottom:6px}
   .mm-qtext{font-size:14.5px;font-weight:600;margin-bottom:14px}
-  .mm-answer{width:100%;min-height:110px;font:inherit;font-size:13.5px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);resize:vertical}
+  .mm-choose-lb{font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:8px}
+  .mm-choices{display:flex;gap:10px;margin-bottom:16px}
+  .mm-choice{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center;position:relative}
+  .mm-choice .ic{font-size:19px;display:block;margin-bottom:4px}
+  .mm-choice b{display:block;font-size:12px}
+  .mm-choice p{font-size:10.5px;color:var(--muted);margin:2px 0 0}
+  .mm-choice.active{border-color:var(--green);background:var(--green-bg)}
+  .mm-choice.disabled{opacity:.55}
+  .mm-choice .soon{position:absolute;top:8px;right:8px;font-size:8.5px;font-weight:800;letter-spacing:.03em;background:var(--surf2);color:var(--muted);padding:2px 6px;border-radius:999px}
+  .mm-writebox{display:flex;gap:8px}
+  .mm-answer{flex:1;width:100%;min-height:130px;font:inherit;font-size:13.5px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);resize:vertical}
   .mm-answer:focus{outline:none;border-color:var(--purple)}
-  .mm-quick{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
-  .mm-quick button{font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surf2);color:var(--text2);border-radius:7px;padding:4px 9px;cursor:pointer}
+  .mm-quick{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+  .mm-quick button{font:inherit;font-size:12px;font-weight:700;width:34px;height:28px;border:1px solid var(--line);background:var(--surf2);color:var(--text2);border-radius:7px;cursor:pointer}
   .mm-quick button:hover{border-color:var(--purple)}
   .mm-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:14px}
+  .mm-tipcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+  .mm-tipcard .av{width:46px;height:46px;border-radius:50%;background:var(--green-bg);border:1.5px solid var(--green-line);display:grid;place-items:center;font-size:22px;margin:0 auto 10px}
+  .mm-tipcard .enc{font-size:12px;color:var(--text2);line-height:1.4}
+  .mm-tipcard .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:11.5px;color:var(--text2);text-align:left}
+  .mm-tipcard .tip b{display:block;color:var(--orange);font-size:11px;margin-bottom:2px}
   .mm-checking{font-size:12px;color:var(--muted)}
   .mm-hint{margin-top:12px;padding:11px 14px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:13px;color:var(--text2)}
   .mm-hint b{color:var(--orange);display:block;font-size:11px;margin-bottom:3px}
@@ -916,11 +938,13 @@
       <button class="btn ghost ad-mini" id="mmPrintLink">🖨 Printable version</button>
     </div>
     <div class="mm-body">
-      <div class="mm-left">
+      <div class="mm-col-mountain">
         <div class="mm-mountain" id="mmMountain"></div>
+        <div class="mm-journey-label">Your Journey</div>
         <div class="mm-stages" id="mmStages"></div>
       </div>
-      <div class="mm-right" id="mmRight"></div>
+      <div class="mm-col-question" id="mmRight"></div>
+      <div class="mm-col-tip" id="mmTip"></div>
     </div>
   </div>
 </div>
@@ -3520,10 +3544,18 @@ const MM_STAGE_FEEDBACK = [
   'You can identify mathematical rules and explain why they work.'
 ];
 const MOUNTAIN_SNIPPETS = ['a/b','x²','√','≤','≥','≠','π','×','÷'];
-const MOUNTAIN_POINTS = [[34,214],[78,168],[120,120],[160,72],[190,30]];   /* Clarify..Mastery, SVG coords */
+const MOUNTAIN_POINTS = [[40,225],[130,182],[195,128],[275,98],[345,42]];   /* Clarify..Mastery, landscape SVG coords */
 /* Clarify/Generalise = green (brand default), Justify = orange, Challenge = purple —
    per Ryan's design-requirements brief (§14); Mastery = gold, matching the trophy. */
 const MOUNTAIN_STAGE_COLOURS = ['#16a34a','#ea580c','#7c3aed','#16a34a','#d9a521'];
+/* Verbatim from Ryan's own original spec §3 (the milestone descriptions, distinct from
+   MM_STAGE_FEEDBACK's completion messages above). */
+const MM_STAGE_DESC = [
+  'Understand what the mathematics is telling you.',
+  'Explain why it works.',
+  'Apply your thinking in a new way.',
+  'Discover the rule that works every time.'
+];
 
 /* textareas aren't contenteditable, so this can't reuse onRichBold's execCommand approach —
    plain caret-position string insertion instead. */
@@ -3591,48 +3623,99 @@ function renderMountainView(){
   renderMountainMap(mm);
   if(mm.pos>=12) renderMountainSummit(mm); else renderMountainQuestion(mm);
 }
+/* Small decorative pine cluster — fixed coordinates (not random) so the scene is stable
+   across re-renders; purely textural, kept low-detail per §14 ("soft... does not compete
+   with the mathematics"). */
+function mmTree(x,y,s){
+  return `<g transform="translate(${x} ${y}) scale(${s||1})">
+    <rect x="-1.5" y="9" width="3" height="6" fill="#8a6a45"/>
+    <polygon points="0,-13 8,6 -8,6" fill="#4a8f4f"/>
+    <polygon points="0,-6 6,9 -6,9" fill="#5da35f"/>
+  </g>`;
+}
+const MOUNTAIN_TREES = [[20,238,.9],[62,222,1.1],[104,244,.8],[152,233,.9],[228,218,.85],
+                         [268,238,1],[318,212,.85],[362,232,.9],[46,204,.6],[192,200,.6]];
 function renderMountainMap(mm){
   const complete = mm.pos>=12;
   const avatarStage = complete ? 4 : mmCurrentStage(mm);
   const [ax,ay] = MOUNTAIN_POINTS[avatarStage];
-  const path = 'M '+MOUNTAIN_POINTS.map(p=>p[0]+' '+p[1]).join(' L ');
+  const [p0,p1,p2,p3,p4] = MOUNTAIN_POINTS;
+  /* Winding trail (quadratic-bezier per leg, alternating the bulge direction) through the
+     same 5 checkpoints, instead of the old straight dashed line. */
+  const pathD = `M ${p0[0]} ${p0[1]} Q ${(p0[0]+p1[0])/2+15} ${p0[1]+10} ${p1[0]} ${p1[1]}`
+              + ` Q ${(p1[0]+p2[0])/2} ${(p1[1]+p2[1])/2-25} ${p2[0]} ${p2[1]}`
+              + ` Q ${(p2[0]+p3[0])/2+25} ${(p2[1]+p3[1])/2+15} ${p3[0]} ${p3[1]}`
+              + ` Q ${(p3[0]+p4[0])/2-15} ${(p3[1]+p4[1])/2-15} ${p4[0]} ${p4[1]}`;
   const dots = MOUNTAIN_POINTS.map((p,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
-    return `<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="${done?'#2e7d32':'#fff'}" stroke="${i===avatarStage?MOUNTAIN_STAGE_COLOURS[i]:'#94a3b8'}" stroke-width="${i===avatarStage?3:1.5}"/>`;
+    const isCur = i===avatarStage;
+    return (isCur?`<circle cx="${p[0]}" cy="${p[1]}" r="13" fill="${MOUNTAIN_STAGE_COLOURS[i]}" opacity=".18"/>`:'')
+      + `<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="${done?MOUNTAIN_STAGE_COLOURS[i]:'#fff'}" stroke="${MOUNTAIN_STAGE_COLOURS[i]}" stroke-width="2.5"/>`;
   }).join('');
-  /* Soft layered peak behind the path/dots — drawn first, low-opacity, so it reads as an
-     illustrated mountain (per §14: "soft... does not compete with the mathematics") rather
-     than the bare dashed line this replaces. */
-  $('mmMountain').innerHTML = `<svg viewBox="0 0 220 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <polygon points="0,240 40,150 90,190 140,60 190,110 220,20 220,240" fill="#eef4e6" opacity=".8"/>
-    <polygon points="0,240 60,170 110,205 175,90 220,140 220,240" fill="#faf5ff" opacity=".7"/>
-    <path d="${path}" stroke="#d8d2ee" stroke-width="2" stroke-dasharray="4 4" fill="none"/>
+  /* Flat-vector landscape (sky gradient, layered hills, a scattering of pine trees) behind
+     the trail — approximates the mockup's illustrated mountain; a photorealistic/painted
+     version isn't buildable here (no image-generation tool available in this session). */
+  $('mmMountain').innerHTML = `<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs><linearGradient id="mmSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eaf3fb"/><stop offset="1" stop-color="#ffffff"/>
+    </linearGradient></defs>
+    <rect width="400" height="260" fill="url(#mmSky)"/>
+    <polygon points="0,260 0,170 60,140 130,175 200,120 260,150 330,90 400,130 400,260" fill="#eef6ea"/>
+    <polygon points="0,260 0,200 70,175 150,205 230,160 300,190 400,150 400,260" fill="#d9ecd2"/>
+    <polygon points="0,260 0,225 90,210 180,235 260,205 340,225 400,205 400,260" fill="#bfe0b8"/>
+    ${MOUNTAIN_TREES.map(t=>mmTree(t[0],t[1],t[2])).join('')}
+    <line x1="${p4[0]}" y1="${p4[1]}" x2="${p4[0]}" y2="${p4[1]-22}" stroke="#8a6a45" stroke-width="2"/>
+    <polygon points="${p4[0]},${p4[1]-22} ${p4[0]},${p4[1]-12} ${p4[0]+13},${p4[1]-17}" fill="${MOUNTAIN_STAGE_COLOURS[4]}"/>
+    <path d="${pathD}" stroke="#d9c9a3" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="${pathD}" stroke="#fff" stroke-width="1.6" stroke-dasharray="1 6" fill="none" stroke-linecap="round"/>
     ${dots}
-    <text x="${ax}" y="${ay-12}" font-size="20" text-anchor="middle">${avatarGlyph(prefs.avatarId)}</text>
+    <circle cx="${ax}" cy="${ay-18}" r="13" fill="#fff" stroke="${MOUNTAIN_STAGE_COLOURS[avatarStage]}" stroke-width="2"/>
+    <text x="${ax}" y="${ay-13}" font-size="16" text-anchor="middle">${avatarGlyph(prefs.avatarId)}</text>
   </svg>`;
   const names=['Clarify','Justify','Challenge','Generalise','Mastery'];
   $('mmStages').innerHTML = names.map((n,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
     const on = i===avatarStage && !done;
+    const locked = i>avatarStage;
     const sub = i<4 ? esc((cur.worksheet[i]&&cur.worksheet[i].grade)||'') : 'Summit';
-    return `<div class="mm-stage${on?' on':''}${done?' done':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]};--stage-bg:${MOUNTAIN_STAGE_COLOURS[i]}1a">
-      <span class="n">${done?'✓':i+1}</span>
-      <span class="st"><b>${n}</b><span>${sub}</span></span>
+    const desc = i<4 ? MM_STAGE_DESC[i] : 'The summit of mathematical mastery.';
+    const badge = done?'✓':(locked?'🔒':(i+1));
+    return `<div class="mm-stage${on?' on':''}${done?' done':''}${locked?' locked':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]};--stage-bg:${MOUNTAIN_STAGE_COLOURS[i]}1a">
+      <span class="n">${badge}</span>
+      <span class="st"><b>${n}</b> <span>${sub}</span><p>${esc(desc)}</p></span>
     </div>`;
   }).join('');
   const tc=$('mmTimeChip'); if(tc) tc.textContent='🕒 '+sectionTime('worksheet');
+  renderMountainTip(mm, avatarStage, names[avatarStage]);
+}
+/* Small encouragement/tip card, right-hand column — static per Ryan's mockup, just the
+   current-stage name swapped in. */
+function renderMountainTip(mm, avatarStage, stageName){
+  const el=$('mmTip'); if(!el) return;
+  el.innerHTML = `<div class="mm-tipcard">
+    <div class="av">${avatarGlyph(prefs.avatarId)}</div>
+    <div class="enc">You're building your mathematical thinking! Keep climbing through <b>${esc(stageName)}</b> — you're on your way to Mastery.</div>
+    <div class="tip"><b>💡 Tip</b>Take your time and think deeply. This is how mathematicians think!</div>
+  </div>`;
 }
 function renderMountainQuestion(mm){
   const stage = mmCurrentStage(mm), qInStage = mm.pos%3, sec = cur.worksheet[stage];
   const q = sec && sec.qs[qInStage];
   const el = $('mmRight');
   const priorHint = mm.verified[mm.pos]===false ? mm.feedback[mm.pos] : '';
-  el.innerHTML = `<div class="mm-qcard">
-    <div class="mm-qmeta">${esc(sec?sec.name:'')} · Question ${qInStage+1} of 3 · ${mm.pos+1} of 12 overall</div>
+  el.innerHTML = `<div class="mm-qtop"><span class="mm-qcount">🔖 ${mm.pos+1} of 12</span></div>
+  <div class="mm-qcard">
+    <div class="mm-qmeta">${esc(sec?sec.name:'')} · Question ${qInStage+1} of 3</div>
     <div class="mm-qtext">${q||''}</div>
-    <label class="ad-lb" style="margin:0 0 4px">Explain your thinking</label>
-    <textarea class="mm-answer" id="mmAnswer" placeholder="Type your explanation here…">${esc(mm.answers[mm.pos]||'')}</textarea>
-    <div class="mm-quick">${MOUNTAIN_SNIPPETS.map(s=>`<button type="button" data-mm-insert="${esc(s)}">${s}</button>`).join('')}</div>
+    <div class="mm-choose-lb">Choose how you'd like to explain your thinking.</div>
+    <div class="mm-choices">
+      <div class="mm-choice active"><span class="ic">✏️</span><b>Write it down</b><p>Type your explanation in the box</p></div>
+      <div class="mm-choice disabled"><span class="soon">Coming soon</span><span class="ic">🎙️</span><b>Talk it out</b><p>Speak with the tutor using audio</p></div>
+    </div>
+    <div class="mm-writebox">
+      <textarea class="mm-answer" id="mmAnswer" placeholder="Type your explanation here…">${esc(mm.answers[mm.pos]||'')}</textarea>
+      <div class="mm-quick">${MOUNTAIN_SNIPPETS.map(s=>`<button type="button" data-mm-insert="${esc(s)}">${s}</button>`).join('')}</div>
+    </div>
     <div id="mmHintWrap">${priorHint?`<div class="mm-hint" id="mmHint"><b>Not quite there yet</b>${esc(priorHint)}</div>`:''}</div>
     <div class="mm-actions">
       <span class="mm-checking" id="mmChecking" style="display:none">Checking your explanation…</span>
