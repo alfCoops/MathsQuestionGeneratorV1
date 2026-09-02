@@ -320,6 +320,48 @@
   .open>.act-head .chev{transform:rotate(180deg)}
   .body{display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
   .open>.body{display:block}
+  /* "In progress" — a third state for wsBtn (today's setBtn only knows done/not-done) */
+  .btn.wip{border-color:var(--purple);color:var(--purple);background:var(--purple-bg)}
+  /* Mini progress stepper — a compact sibling of the mountain overlay's own stepper
+     (mmProgressBarHtml), embedded directly in the #secWs activity card. */
+  .ws-mini-tag{display:inline-block;font-size:11px;font-weight:800;color:var(--orange);background:var(--orange-bg);border:1px solid var(--orange-line);border-radius:999px;padding:4px 12px;margin-bottom:12px}
+  .ws-mini-steps{display:flex;align-items:flex-start}
+  .ws-mini-step{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
+  .ws-mini-step .n{width:26px;height:26px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:11px;font-weight:800;display:grid;place-items:center}
+  .ws-mini-step.done .n,.ws-mini-step.on .n{background:var(--stage-c,var(--purple));color:#fff}
+  .ws-mini-step b{font-size:10.5px;color:var(--stage-c,var(--text2))}
+  .ws-mini-step span{font-size:9px;color:var(--muted);font-weight:700}
+  .ws-mini-arrow{flex:1;height:2px;background:var(--line);margin:13px 3px 0;border-radius:2px}
+  .ws-mini-arrow.done{background:var(--green)}
+  /* Prior Knowledge tab — "X of Y secure" summary above the checklist */
+  .pk-secure-row{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .pk-secure-row b{color:var(--green)}
+  .pk-secure-bar{height:6px;border-radius:999px;background:var(--surf2);overflow:hidden;margin-bottom:12px}
+  .pk-secure-bar i{display:block;height:100%;background:var(--green);border-radius:999px}
+  .pk-review-link{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;border-top:1px solid var(--line);margin-top:10px;padding-top:10px;font:inherit;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;text-align:left}
+  .pk-review-link:hover{color:var(--green)}
+  /* Lesson Complete banner — replaces the plain footer-nav once p.complete is true */
+  .lc-banner{display:flex;align-items:center;gap:22px;margin-top:18px;padding:20px 26px;border-radius:16px;background:var(--green-bg);border:1px solid var(--green-line);position:relative;overflow:hidden}
+  .lc-confetti{position:absolute;inset:0;pointer-events:none}
+  .lc-confetti i{position:absolute;width:6px;height:6px;border-radius:1px;opacity:.7}
+  .lc-figure{position:relative;flex-shrink:0;display:flex;align-items:flex-end;gap:8px}
+  .lc-figure img{width:76px;height:76px;border-radius:50%;object-fit:cover;background:var(--card);border:2px solid var(--card)}
+  .lc-flag{width:3px;height:64px;background:#8a6a45;position:relative;border-radius:2px}
+  .lc-flag i{position:absolute;top:0;left:3px;width:30px;height:20px;background:var(--green);clip-path:polygon(0 0,100% 15%,100% 85%,0 100%);display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff}
+  .lc-main{flex:1;min-width:160px}
+  .lc-main h3{font-size:19px;margin-bottom:2px}
+  .lc-main p{font-size:12.5px;color:var(--text2)}
+  .lc-status{display:flex;flex-direction:column;gap:9px;flex:1;min-width:220px}
+  .lc-status .row{display:flex;align-items:center;gap:9px;font-size:12px}
+  .lc-status .row .ic{width:26px;height:26px;border-radius:8px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-size:13px;flex-shrink:0}
+  .lc-status .row b{display:block;font-size:12px}
+  .lc-status .row span{font-size:10.5px;color:var(--muted)}
+  .lc-status .row .tick{margin-left:auto;color:var(--green);font-weight:800}
+  .lc-next{flex:0 0 auto;text-align:right;min-width:190px}
+  .lc-next .lb{font-size:11px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.03em}
+  .lc-next h4{font-size:16px;margin:2px 0 10px}
+  .lc-next .btn{width:100%;margin-bottom:8px;justify-content:center}
+  @media(max-width:900px){.lc-banner{flex-wrap:wrap}.lc-next{text-align:left;width:100%}}
 
   /* video rows */
   .vid-row{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}
@@ -838,14 +880,14 @@
         </section>
 
         <section class="card" id="secWs">
-          <div class="act-head">
+          <div class="act-head" data-toggle="secWs">
             <div class="ico" style="background:var(--purple)">⛰</div>
-            <div class="txt"><b>3. From Method to Meaning</b><span>Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.</span>
-              <div id="wsStageStrip" class="mm-ministrip"></div>
-            </div>
+            <div class="txt"><b>3. From Method to Meaning</b><span>Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.</span></div>
             <span class="time-chip" id="timeWs"></span>
             <button class="btn o-purple" id="wsBtn">Start</button>
+            <span class="chev">▼</span>
           </div>
+          <div class="body" id="wsMiniBody"></div>
         </section>
 
         <section class="card" id="secGen">
@@ -893,11 +935,13 @@
           </div>
         </section>
 
-        <div class="footer-nav">
+        <div class="footer-nav" id="footerNav">
           <button class="btn ghost" id="prevBtn">← Previous Lesson</button>
           <button class="btn complete" id="completeBtn" disabled>Lesson Complete ☆</button>
           <button class="btn solid" id="nextBtn">Next Lesson →</button>
         </div>
+        <!-- F37 — shown instead of footerNav once prog().complete is true (renderLcBanner()) -->
+        <div class="lc-banner" id="lcBanner" style="display:none"></div>
       </div>
 
       <!-- RIGHT -->
@@ -915,7 +959,11 @@
             <button class="tk-tab" data-tk="tkMisc">⚠️ Watch Outs</button>
             <button class="tk-tab" data-tk="tkTools" id="tkToolsTab" style="display:none">🧮 Tools</button>
           </div>
-          <div class="tk-panel" id="tkPrior"><div id="rcPrior"></div></div>
+          <div class="tk-panel" id="tkPrior">
+            <div id="pkSummary"></div>
+            <div id="rcPrior"></div>
+            <button class="pk-review-link" id="pkReviewLink" type="button" style="display:none">Review results from your checker <span>›</span></button>
+          </div>
           <div class="tk-panel" id="tkKeywords" style="display:none"><div class="kw" id="rcKeywords"></div></div>
           <div class="tk-panel" id="tkMisc" style="display:none"><ul class="dots" id="rcMisc"></ul></div>
           <div class="tk-panel" id="tkTools" style="display:none"><div id="rcTools"></div></div>
@@ -2877,6 +2925,17 @@ function renderRightPanels(){
     if(state===false) return `<label class="pk needs"><span class="pk-ic">⚠</span>${p}</label>`;
     return `<label class="pk"><input type="checkbox">${p}</label>`;
   }).join('');
+  /* "X of Y secure" summary + review link — only meaningful once the checker has actually
+     scored anything against these lines (mirrors renderPkcCard()'s own has-content guard). */
+  const priorTotal = (cur.prior||[]).length;
+  const priorSecure = (cur.prior||[]).map((p,pi)=>priorLineState(pi)).filter(s=>s===true).length;
+  const hasPkc = pkcQuestions().length>0;
+  const sum=$('pkSummary'), link=$('pkReviewLink');
+  if(hasPkc && priorTotal){
+    sum.innerHTML = `<div class="pk-secure-row"><span>Check the things you need to know for this lesson.</span><b>${priorSecure} of ${priorTotal} secure</b></div>
+      <div class="pk-secure-bar"><i style="width:${Math.round(priorSecure/priorTotal*100)}%"></i></div>`;
+    link.style.display = (prog().prior && prog().prior.done) ? '' : 'none';
+  } else { sum.innerHTML=''; link.style.display='none'; }
   $('rcKeywords').innerHTML = (cur.keywords||[]).map(k=>`<span>${k}</span>`).join('');
   $('rcMisc').innerHTML = (cur.misconceptions||[]).map(m=>`<li>${m}</li>`).join('');
   renderToolsTab();   /* F18 */
@@ -3057,10 +3116,11 @@ function loadLesson(id, section){
   ['secLearn','secQuiz','secGen'].forEach(s=>$(s).classList.remove('open'));
   $('lessonGrid').classList.remove('focus');
   const p = prog();
-  setBtn('learnBtn', p.learn, '✓ Started', 'Start ⊕', 'solid');
+  setBtn('learnBtn', p.learn, '✓ Completed', 'Start ⊕', 'solid');
   setBtn('quizBtn', p.quiz, '✓ Passed', 'Start Quiz', 'o-orange');
-  setBtn('wsBtn', p.worksheet, '✓ Completed', (mmProg().pos>0?'Continue':'Start'), 'o-purple');
-  renderWsStageStrip();   /* F38-lite */
+  updateWsBtn();
+  renderWsMiniStepper();   /* F38-lite / F37 */
+  if(mmHasContent() && mmProg().pos>0 && !p.worksheet) openAct('secWs');   /* mirrors the mockup's in-progress card open by default */
   $('genCard').style.display='none';
   $('genActions').style.display='none'; $('genMs').classList.remove('show');
   stopGenTimer(); genCount=0; lastGen=-1;
@@ -3134,6 +3194,39 @@ function renderProgress(){
   const four=['learn','quiz','worksheet','generate'].every(s=>p[s]);
   $('completeBtn').disabled=!four||p.complete;
   $('completeBtn').textContent = p.complete ? 'Lesson Complete ★' : 'Lesson Complete ☆';
+  renderLcBanner();
+}
+/* F37 — replaces the plain footer-nav with a richer summary once the lesson is fully
+   complete. No new tracking: every field it shows already exists on prog()/cur. */
+function renderLcBanner(){
+  const p = prog();
+  const footer=$('footerNav'), banner=$('lcBanner');
+  if(!p.complete){ footer.style.display=''; banner.style.display='none'; return; }
+  footer.style.display='none'; banner.style.display='flex';
+  const mm = mmHasContent() ? mmProg() : null;
+  const wsLabel = p.worksheet ? 'Completed'
+    : (mm && mm.pos>0) ? `In progress (${MM_STAGE_NAMES[mmCurrentStage(mm)]} ${mm.pos%3}/3)`
+    : 'Not started';
+  const priorDone = !!(prog().prior && prog().prior.done);
+  const hasPkc = pkcQuestions().length>0;
+  const confetti = [10,25,42,58,75,88].map((l,i)=>`<i style="left:${l}%;top:${i%2?66:14}%;background:${MOUNTAIN_STAGE_COLOURS[i%5]};transform:rotate(${i*37}deg)"></i>`).join('');
+  const nextTitle = cur.next ? LESSONS[cur.next].title : '';
+  const nextShort = nextTitle.replace(/^\d\w*\.\s*/,'');
+  banner.innerHTML = `<div class="lc-confetti">${confetti}</div>
+    <div class="lc-figure"><div class="lc-flag"><i>M</i></div><img src="assets/avatar-boy.png" alt=""></div>
+    <div class="lc-main"><h3>Lesson Complete! ⭐</h3><p>Great work! You've made excellent progress.</p></div>
+    <div class="lc-status">
+      ${hasPkc?`<div class="row"><span class="ic">📋</span><span><b>Prior Knowledge</b><span>${priorDone?'Checked':'Not started'}</span></span>${priorDone?'<span class="tick">✓</span>':''}</div>`:''}
+      <div class="row"><span class="ic">▶</span><span><b>Lesson &amp; Notes</b><span>${p.learn?'Completed':'Not started'}</span></span>${p.learn?'<span class="tick">✓</span>':''}</div>
+      <div class="row"><span class="ic">⛰</span><span><b>From Method to Meaning</b><span>${esc(wsLabel)}</span></span>${p.worksheet?'<span class="tick">✓</span>':''}</div>
+      <div class="row"><span class="ic">🎲</span><span><b>Practice</b><span>${p.generate?'Completed':'Not started'}</span></span>${p.generate?'<span class="tick">✓</span>':''}</div>
+    </div>
+    <div class="lc-next">
+      ${cur.next?`<div class="lb">Next Lesson</div><h4>${esc(nextTitle)}</h4><button class="btn solid" id="lcContinue">Continue to ${esc(nextShort)} →</button>`:''}
+      <button class="btn ghost" id="lcReview">Review Lesson</button>
+    </div>`;
+  if(cur.next){ const c=$('lcContinue'); if(c) c.addEventListener('click', ()=>{ location.hash=lessonHref(cur.next); }); }
+  const r=$('lcReview'); if(r) r.addEventListener('click', ()=>{ openAct('secLearn'); window.scrollTo({top:0,behavior:'smooth'}); });
 }
 function completeStep(key){
   const p=prog();
@@ -3187,7 +3280,7 @@ function maybeUnitSummary(lid){
 function syncVideoFocus(){ $('lessonGrid').classList.toggle('focus', $('secLearn').classList.contains('open') || $('secGen').classList.contains('open')); }
 /* F16 — "one at a time" makes the activity cards behave as an accordion (opening one closes the
    others). With the pref off these behave exactly as before. */
-const ACT_SECTIONS = ['secPkc','secLearn','secQuiz','secGen'];
+const ACT_SECTIONS = ['secPkc','secLearn','secQuiz','secWs','secGen'];
 const CARD_SECTION = { secLearn:'learn', secQuiz:'quiz', secGen:'generate' };   /* F7 */
 function openAct(id){ if(prefs.oneAtATime) ACT_SECTIONS.forEach(s=>{ if(s!==id) $(s).classList.remove('open'); }); $(id).classList.add('open'); syncVideoFocus(); if(CARD_SECTION[id]) noteSection(CARD_SECTION[id]); }
 function toggleAct(id){ if($(id).classList.contains('open')){ $(id).classList.remove('open'); syncVideoFocus(); } else openAct(id); }
@@ -3266,7 +3359,7 @@ $('videoList').addEventListener('click', e=>{
     $('videoHolder').innerHTML = videoEmbedHtml(v.url);
     $('videoModal').classList.add('show');
     completeStep('learn');
-    setBtn('learnBtn', true, '✓ Started', 'Start ⊕', 'solid');
+    setBtn('learnBtn', true, '✓ Completed', 'Start ⊕', 'solid');
     /* F29 — watching the latest-revealed video reveals the next */
     if(cur.sequentialVideos){
       const p=prog(), rc=Math.max(1, p.videoReveal||1);
@@ -3494,6 +3587,11 @@ $('pkcBtn').addEventListener('click', ()=>{
   if(prog().prior && prog().prior.done){ $('pkcArea').innerHTML=pkcResultsHtml(); $('pkcNum').textContent=''; $('pkcNav').style.display='none'; renderMathIn($('pkcArea')); }
   else { startPkc(); renderPkc(); }
 });
+/* Same action as pkcBtn's own "review" click, just triggered from the Lesson Toolkit tab. */
+$('pkReviewLink').addEventListener('click', ()=>{
+  $('pkcBtn').click();
+  setTimeout(()=>{ try{ $('secPkc').scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){} }, 60);
+});
 $('pkcPrev').addEventListener('click', ()=>{ if(pkc.i>0){ pkc.i--; renderPkc(); } });
 $('pkcNext').addEventListener('click', ()=>{
   const qs=pkcQuestions();
@@ -3629,19 +3727,43 @@ function mmHasContent(){
     && cur.worksheet.every(s=>Array.isArray(s.qs) && s.qs.length===3);
 }
 
-/* Mini stage-progress strip on the #secWs activity card (F37 deferred this pending F38). */
-function renderWsStageStrip(){
-  const el=$('wsStageStrip'); if(!el) return;
-  if(!mmHasContent()){ el.textContent=''; return; }
+/* Compact progress view embedded in the #secWs activity card (F37) — a leaner sibling of
+   the mountain overlay's own stepper (mmProgressBarHtml), reusing the same stage data. */
+function renderWsMiniStepper(){
+  const el=$('wsMiniBody'); if(!el) return;
+  if(!mmHasContent()){ el.innerHTML=''; return; }
   const mm=mmProg();
-  el.innerHTML = MM_STAGE_NAMES.map((n,i)=>{
-    const done = mm.answers.slice(i*3,i*3+3).filter(a=>a!=null).length;
-    return `${n} <b>${done}/3</b>`;
-  }).join(' → ') + ` → Mastery <b>${mm.pos>=12?'✓':mm.answers.filter(a=>a!=null).length+'/12'}</b>`;
+  const complete = mm.pos>=12;
+  const avatarStage = complete ? 4 : mmCurrentStage(mm);
+  const names=['Clarify','Justify','Challenge','Generalise','Mastery'];
+  const doneArr = names.map((n,i)=> i<4 ? mmStageDone(mm,i) : complete);
+  const inProgress = mm.pos>0 && !complete;
+  let html = inProgress ? `<span class="ws-mini-tag">Stage: ${esc(names[avatarStage])}</span>` : '';
+  html += '<div class="ws-mini-steps">';
+  names.forEach((n,i)=>{
+    const done=doneArr[i], on=i===avatarStage && !done;
+    const sub = i<4 ? `${mm.answers.slice(i*3,i*3+3).filter(a=>a!=null).length}/3` : (complete?'✓':`${mm.answers.filter(a=>a!=null).length}/12`);
+    const badge = i===4 ? '🏆' : (done?'✓':(i+1));
+    if(i>0) html += `<span class="ws-mini-arrow${doneArr[i-1]?' done':''}"></span>`;
+    html += `<div class="ws-mini-step${on?' on':''}${done?' done':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]}">
+      <span class="n">${badge}</span><b>${n}</b><span>${sub}</span>
+    </div>`;
+  });
+  el.innerHTML = html+'</div>';
+}
+/* Third visual state for wsBtn — today's setBtn() only knows done/not-done. */
+function updateWsBtn(){
+  const p=prog();
+  if(p.worksheet){ setBtn('wsBtn', true, '✓ Completed', 'Start', 'o-purple'); return; }
+  if(mmHasContent() && mmProg().pos>0){
+    const b=$('wsBtn'); b.className='btn wip'; b.textContent='〜 In progress';
+  } else {
+    setBtn('wsBtn', false, '✓ Completed', 'Start', 'o-purple');
+  }
 }
 
 function openMountainView(){ $('mmOverlay').classList.add('show'); renderMountainView(); }
-function closeMountainView(){ $('mmOverlay').classList.remove('show'); renderWsStageStrip(); setBtn('wsBtn', !!prog().worksheet, '✓ Completed', (mmProg().pos>0?'Continue':'Start'), 'o-purple'); }
+function closeMountainView(){ $('mmOverlay').classList.remove('show'); renderWsMiniStepper(); updateWsBtn(); }
 $('mmBack').addEventListener('click', closeMountainView);
 $('mmPrintLink').addEventListener('click', ()=>{ closeMountainView(); $('wsModal').classList.add('show'); });
 /* Connector lines are measured (getBoundingClientRect), so a window resize while the
@@ -3784,7 +3906,7 @@ function renderMountainQuestion(mm){
     const finishedStage = mm.pos%3===2, stageIdx = mmCurrentStage(mm);
     mm.pos++;
     saveProgress();
-    renderWsStageStrip();
+    renderWsMiniStepper();
     if(finishedStage && mm.pos<12) renderMountainStageFeedback(mm, stageIdx);
     else renderMountainView();
   }
