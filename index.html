@@ -454,28 +454,30 @@
   .mm-htxt b{display:block;font-size:17px;color:var(--purple)}
   .mm-htxt span{font-size:12.5px;color:var(--muted)}
   .mm-body{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
-  .mm-col-mountain{flex:1 1 320px;min-width:280px}
-  .mm-col-question{flex:1.3 1 380px;min-width:300px}
-  .mm-col-tip{flex:0 0 200px;min-width:180px}
-  @media(max-width:768px){.mm-col-tip{display:none}}
-  .mm-mountain{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;height:260px;overflow:hidden}
-  .mm-mountain .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-  .mm-dot{position:absolute;width:14px;height:14px;border-radius:50%;border:2.5px solid;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .mm-col-question{flex:1 1 380px;min-width:300px}
+  /* The mountain image + "Your Journey" cards + tip are ONE composite scene now — the cards
+     sit as an overlay panel on the image itself, not a separate block below/beside it. */
+  .mm-scene{position:relative;flex:1.15 1 380px;min-width:300px;border-radius:16px;overflow:hidden;border:1px solid var(--line);min-height:820px}
+  .mm-scene .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .mm-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  .mm-dot{position:absolute;z-index:1;width:14px;height:14px;border-radius:50%;border:2.5px solid;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.35)}
   .mm-dot.cur{width:18px;height:18px}
-  .mm-avatar-badge{position:absolute;width:32px;height:32px;border-radius:50%;background:#fff;border:2.5px solid;display:grid;place-items:center;font-size:17px;transform:translate(-50%,-140%);box-shadow:0 2px 6px rgba(0,0,0,.3)}
-  .mm-journey-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}
-  .mm-stages{display:flex;flex-direction:column;gap:8px}
-  .mm-stage{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
-  .mm-stage.on{border-color:var(--stage-c,var(--purple));background:var(--stage-bg,var(--purple-bg))}
-  .mm-stage.done{opacity:.75}
-  .mm-stage.locked{opacity:.6}
-  .mm-stage .n{width:24px;height:24px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:11px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
-  .mm-stage.on .n{background:var(--stage-c,var(--purple));color:#fff}
-  .mm-stage.done .n{background:var(--green);color:#fff}
-  .mm-stage .st{flex:1;min-width:0}
-  .mm-stage .st b{display:block;font-size:12.5px;color:var(--stage-c,inherit)}
-  .mm-stage .st span{font-size:10.5px;color:var(--muted);font-weight:700}
-  .mm-stage .st p{font-size:11px;color:var(--muted);margin:2px 0 0}
+  .mm-avatar-badge{position:absolute;z-index:2;width:38px;height:38px;border-radius:50%;background:#fff;border:2.5px solid;overflow:hidden;transform:translate(-50%,-140%);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .mm-avatar-badge img{width:100%;height:100%;object-fit:cover}
+  .mm-journey{position:relative;z-index:2;width:47%;min-width:260px;padding:20px 14px 20px 20px;display:flex;flex-direction:column;gap:9px}
+  .mm-journey h3{font-size:15px;font-weight:800;color:var(--navy);margin:0 0 2px}
+  .mm-jcard{display:flex;align-items:flex-start;gap:8px;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.92);border:1px solid var(--line);box-shadow:0 1px 5px rgba(20,38,60,.1)}
+  .mm-jcard.on{background:var(--stage-bg,var(--green-bg));border-color:var(--stage-c,var(--green))}
+  .mm-jcard.done{opacity:.92}
+  .mm-jcard.locked{opacity:.78}
+  .mm-jcard .flag{font-size:11px;margin-top:3px;flex-shrink:0}
+  .mm-jcard .n{width:26px;height:26px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:11.5px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+  .mm-jcard.on .n,.mm-jcard.done .n{background:var(--stage-c,var(--green));color:#fff}
+  .mm-jcard .st{flex:1;min-width:0}
+  .mm-jcard .st b{display:block;font-size:13px;color:var(--stage-c,inherit)}
+  .mm-jcard .st span{font-size:10.5px;color:var(--muted);font-weight:700}
+  .mm-jcard .st p{font-size:11px;color:var(--muted);margin:3px 0 0}
+  .mm-lock{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:var(--stage-bg,var(--surf2));color:var(--stage-c,var(--muted));display:grid;place-items:center;font-size:12px}
   .mm-qtop{display:flex;justify-content:flex-end;margin-bottom:8px}
   .mm-qcount{font-size:11px;font-weight:700;color:var(--muted);background:var(--surf2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
   .mm-qcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
@@ -497,11 +499,8 @@
   .mm-quick button{font:inherit;font-size:12px;font-weight:700;width:34px;height:28px;border:1px solid var(--line);background:var(--surf2);color:var(--text2);border-radius:7px;cursor:pointer}
   .mm-quick button:hover{border-color:var(--purple)}
   .mm-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:14px}
-  .mm-tipcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
-  .mm-tipcard .av{width:46px;height:46px;border-radius:50%;background:var(--green-bg);border:1.5px solid var(--green-line);display:grid;place-items:center;font-size:22px;margin:0 auto 10px}
-  .mm-tipcard .enc{font-size:12px;color:var(--text2);line-height:1.4}
-  .mm-tipcard .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:11.5px;color:var(--text2);text-align:left}
-  .mm-tipcard .tip b{display:block;color:var(--orange);font-size:11px;margin-bottom:2px}
+  .mm-tipcard{display:flex;align-items:flex-start;gap:9px;margin-top:4px;padding:12px 14px;border-radius:12px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:12px;color:var(--text2);line-height:1.4}
+  .mm-tipcard b{color:var(--orange)}
   .mm-checking{font-size:12px;color:var(--muted)}
   .mm-hint{margin-top:12px;padding:11px 14px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:13px;color:var(--text2)}
   .mm-hint b{color:var(--orange);display:block;font-size:11px;margin-bottom:3px}
@@ -941,13 +940,8 @@
       <button class="btn ghost ad-mini" id="mmPrintLink">🖨 Printable version</button>
     </div>
     <div class="mm-body">
-      <div class="mm-col-mountain">
-        <div class="mm-mountain" id="mmMountain"></div>
-        <div class="mm-journey-label">Your Journey</div>
-        <div class="mm-stages" id="mmStages"></div>
-      </div>
+      <div class="mm-scene" id="mmMountain"></div>
       <div class="mm-col-question" id="mmRight"></div>
-      <div class="mm-col-tip" id="mmTip"></div>
     </div>
   </div>
 </div>
@@ -3623,53 +3617,78 @@ function openMountainView(){ $('mmOverlay').classList.add('show'); renderMountai
 function closeMountainView(){ $('mmOverlay').classList.remove('show'); renderWsStageStrip(); setBtn('wsBtn', !!prog().worksheet, '✓ Completed', (mmProg().pos>0?'Continue':'Start'), 'o-purple'); }
 $('mmBack').addEventListener('click', closeMountainView);
 $('mmPrintLink').addEventListener('click', ()=>{ closeMountainView(); $('wsModal').classList.add('show'); });
+/* Connector lines are measured (getBoundingClientRect), so a window resize while the
+   overlay's open leaves them stale until redrawn — one listener for the app's lifetime,
+   guarded to a no-op whenever the overlay isn't showing. */
+window.addEventListener('resize', ()=>{
+  if($('mmOverlay').classList.contains('show')) drawMountainLines();
+});
 
 function renderMountainView(){
   const mm = mmProg();
   renderMountainMap(mm);
   if(mm.pos>=12) renderMountainSummit(mm); else renderMountainQuestion(mm);
 }
+const MM_TIP_HTML = `<div class="mm-tipcard">💡&nbsp;<span><b>Tip:</b> Take your time and think deeply. This is how mathematicians think!</span></div>`;
+/* Real illustrated background (assets/mountain.jpg, Ryan's own ChatGPT-generated art) with
+   the "Your Journey" cards as an overlay panel directly on top of it, each connected to a
+   checkpoint dot on the image by a dashed leader line — one composite scene, per Ryan's
+   mockup, not a separate image block + list. Checkpoint/avatar positions are estimated
+   percentage points along the image's own painted trail (MOUNTAIN_POINTS) since there's no
+   way to read exact coordinates back out of a static illustration. */
 function renderMountainMap(mm){
   const complete = mm.pos>=12;
   const avatarStage = complete ? 4 : mmCurrentStage(mm);
-  /* Real illustrated background now (assets/mountain.jpg, Ryan's own ChatGPT-generated art) —
-     checkpoints/avatar are overlaid as absolutely-positioned HTML markers at estimated
-     percentage points along the image's own painted trail (MOUNTAIN_POINTS), since there's
-     no way to read exact pixel coordinates back out of a static illustration. */
+  const names=['Clarify','Justify','Challenge','Generalise','Mastery'];
   const dotsHtml = MOUNTAIN_POINTS.map((p,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
     const isCur = i===avatarStage;
     return `<span class="mm-dot${isCur?' cur':''}" style="left:${p[0]}%;top:${p[1]}%;background:${done?MOUNTAIN_STAGE_COLOURS[i]:'#fff'};border-color:${MOUNTAIN_STAGE_COLOURS[i]}"></span>`;
   }).join('');
   const [ax,ay] = MOUNTAIN_POINTS[avatarStage];
-  $('mmMountain').innerHTML = `<img class="bg" src="assets/mountain.jpg" alt="" aria-hidden="true">
-    ${dotsHtml}
-    <span class="mm-avatar-badge" style="left:${ax}%;top:${ay}%;border-color:${MOUNTAIN_STAGE_COLOURS[avatarStage]}">${avatarGlyph(prefs.avatarId)}</span>`;
-  const names=['Clarify','Justify','Challenge','Generalise','Mastery'];
-  $('mmStages').innerHTML = names.map((n,i)=>{
+  const cardsHtml = names.map((n,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
     const on = i===avatarStage && !done;
     const locked = i>avatarStage;
     const sub = i<4 ? esc((cur.worksheet[i]&&cur.worksheet[i].grade)||'') : 'Summit';
     const desc = i<4 ? MM_STAGE_DESC[i] : 'The summit of mathematical mastery.';
     const badge = done?'✓':(locked?'🔒':(i+1));
-    return `<div class="mm-stage${on?' on':''}${done?' done':''}${locked?' locked':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]};--stage-bg:${MOUNTAIN_STAGE_COLOURS[i]}1a">
-      <span class="n">${badge}</span>
+    return `<div class="mm-jcard${on?' on':''}${done?' done':''}${locked?' locked':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]};--stage-bg:${MOUNTAIN_STAGE_COLOURS[i]}1a">
+      <span class="n">${badge}</span><span class="flag">🚩</span>
       <span class="st"><b>${n}</b> <span>${sub}</span><p>${esc(desc)}</p></span>
+      ${locked?'<span class="mm-lock">🔒</span>':''}
     </div>`;
   }).join('');
+  $('mmMountain').innerHTML = `<img class="bg" src="assets/mountain.jpg" alt="" aria-hidden="true">
+    <svg class="mm-lines" id="mmLines"></svg>
+    <div class="mm-journey" id="mmJourney">
+      <h3>Your Journey</h3>
+      ${cardsHtml}
+      ${MM_TIP_HTML}
+    </div>
+    ${dotsHtml}
+    <span class="mm-avatar-badge" style="left:${ax}%;top:${ay}%;border-color:${MOUNTAIN_STAGE_COLOURS[avatarStage]}"><img src="assets/avatar-boy.png" alt=""></span>`;
   const tc=$('mmTimeChip'); if(tc) tc.textContent='🕒 '+sectionTime('worksheet');
-  renderMountainTip(mm, avatarStage, names[avatarStage]);
+  drawMountainLines();
 }
-/* Small encouragement/tip card, right-hand column — static per Ryan's mockup, just the
-   current-stage name swapped in. */
-function renderMountainTip(mm, avatarStage, stageName){
-  const el=$('mmTip'); if(!el) return;
-  el.innerHTML = `<div class="mm-tipcard">
-    <div class="av">${avatarGlyph(prefs.avatarId)}</div>
-    <div class="enc">You're building your mathematical thinking! Keep climbing through <b>${esc(stageName)}</b> — you're on your way to Mastery.</div>
-    <div class="tip"><b>💡 Tip</b>Take your time and think deeply. This is how mathematicians think!</div>
-  </div>`;
+/* Dashed connector, one per stage card → its checkpoint dot. Card vertical position is
+   MEASURED (getBoundingClientRect), not hardcoded — a hardcoded guess would drift the moment
+   a card's text wraps differently (e.g. a longer teacher-edited grade label). Reads straight
+   from the DOM, so it takes no arguments — also reused as-is by the resize listener below. */
+function drawMountainLines(){
+  const scene = $('mmMountain'), svg = $('mmLines');
+  if(!scene || !svg) return;
+  const sceneRect = scene.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${sceneRect.width} ${sceneRect.height}`);
+  const cards = scene.querySelectorAll('.mm-jcard');
+  let html='';
+  cards.forEach((card,i)=>{
+    const r = card.getBoundingClientRect();
+    const startX = r.right - sceneRect.left, startY = r.top - sceneRect.top + r.height/2;
+    const endX = MOUNTAIN_POINTS[i][0]/100*sceneRect.width, endY = MOUNTAIN_POINTS[i][1]/100*sceneRect.height;
+    html += `<path d="M ${startX} ${startY} Q ${(startX+endX)/2} ${startY} ${endX} ${endY}" stroke="${MOUNTAIN_STAGE_COLOURS[i]}" stroke-width="2" stroke-dasharray="4 4" fill="none" opacity=".8"/>`;
+  });
+  svg.innerHTML = html;
 }
 function renderMountainQuestion(mm){
   const stage = mmCurrentStage(mm), qInStage = mm.pos%3, sec = cur.worksheet[stage];
