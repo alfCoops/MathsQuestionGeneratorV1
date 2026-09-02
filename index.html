@@ -458,8 +458,11 @@
   .mm-col-question{flex:1.3 1 380px;min-width:300px}
   .mm-col-tip{flex:0 0 200px;min-width:180px}
   @media(max-width:768px){.mm-col-tip{display:none}}
-  .mm-mountain{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;height:260px}
-  .mm-mountain svg{display:block;width:100%;height:100%}
+  .mm-mountain{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;height:260px;overflow:hidden}
+  .mm-mountain .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .mm-dot{position:absolute;width:14px;height:14px;border-radius:50%;border:2.5px solid;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .mm-dot.cur{width:18px;height:18px}
+  .mm-avatar-badge{position:absolute;width:32px;height:32px;border-radius:50%;background:#fff;border:2.5px solid;display:grid;place-items:center;font-size:17px;transform:translate(-50%,-140%);box-shadow:0 2px 6px rgba(0,0,0,.3)}
   .mm-journey-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}
   .mm-stages{display:flex;flex-direction:column;gap:8px}
   .mm-stage{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
@@ -3544,7 +3547,10 @@ const MM_STAGE_FEEDBACK = [
   'You can identify mathematical rules and explain why they work.'
 ];
 const MOUNTAIN_SNIPPETS = ['a/b','x²','√','≤','≥','≠','π','×','÷'];
-const MOUNTAIN_POINTS = [[40,225],[130,182],[195,128],[275,98],[345,42]];   /* Clarify..Mastery, landscape SVG coords */
+/* Clarify..Mastery, as [left%, top%] on assets/mountain.jpg — estimated by eye against the
+   image's own painted trail (there's no way to read exact coordinates back out of a static
+   illustration). Nudge these if a checkpoint looks off the path once you see it live. */
+const MOUNTAIN_POINTS = [[48,88],[54,66],[59,46],[64,28],[67,11]];
 /* Clarify/Generalise = green (brand default), Justify = orange, Challenge = purple —
    per Ryan's design-requirements brief (§14); Mastery = gold, matching the trophy. */
 const MOUNTAIN_STAGE_COLOURS = ['#16a34a','#ea580c','#7c3aed','#16a34a','#d9a521'];
@@ -3623,55 +3629,22 @@ function renderMountainView(){
   renderMountainMap(mm);
   if(mm.pos>=12) renderMountainSummit(mm); else renderMountainQuestion(mm);
 }
-/* Small decorative pine cluster — fixed coordinates (not random) so the scene is stable
-   across re-renders; purely textural, kept low-detail per §14 ("soft... does not compete
-   with the mathematics"). */
-function mmTree(x,y,s){
-  return `<g transform="translate(${x} ${y}) scale(${s||1})">
-    <rect x="-1.5" y="9" width="3" height="6" fill="#8a6a45"/>
-    <polygon points="0,-13 8,6 -8,6" fill="#4a8f4f"/>
-    <polygon points="0,-6 6,9 -6,9" fill="#5da35f"/>
-  </g>`;
-}
-const MOUNTAIN_TREES = [[20,238,.9],[62,222,1.1],[104,244,.8],[152,233,.9],[228,218,.85],
-                         [268,238,1],[318,212,.85],[362,232,.9],[46,204,.6],[192,200,.6]];
 function renderMountainMap(mm){
   const complete = mm.pos>=12;
   const avatarStage = complete ? 4 : mmCurrentStage(mm);
-  const [ax,ay] = MOUNTAIN_POINTS[avatarStage];
-  const [p0,p1,p2,p3,p4] = MOUNTAIN_POINTS;
-  /* Winding trail (quadratic-bezier per leg, alternating the bulge direction) through the
-     same 5 checkpoints, instead of the old straight dashed line. */
-  const pathD = `M ${p0[0]} ${p0[1]} Q ${(p0[0]+p1[0])/2+15} ${p0[1]+10} ${p1[0]} ${p1[1]}`
-              + ` Q ${(p1[0]+p2[0])/2} ${(p1[1]+p2[1])/2-25} ${p2[0]} ${p2[1]}`
-              + ` Q ${(p2[0]+p3[0])/2+25} ${(p2[1]+p3[1])/2+15} ${p3[0]} ${p3[1]}`
-              + ` Q ${(p3[0]+p4[0])/2-15} ${(p3[1]+p4[1])/2-15} ${p4[0]} ${p4[1]}`;
-  const dots = MOUNTAIN_POINTS.map((p,i)=>{
+  /* Real illustrated background now (assets/mountain.jpg, Ryan's own ChatGPT-generated art) —
+     checkpoints/avatar are overlaid as absolutely-positioned HTML markers at estimated
+     percentage points along the image's own painted trail (MOUNTAIN_POINTS), since there's
+     no way to read exact pixel coordinates back out of a static illustration. */
+  const dotsHtml = MOUNTAIN_POINTS.map((p,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
     const isCur = i===avatarStage;
-    return (isCur?`<circle cx="${p[0]}" cy="${p[1]}" r="13" fill="${MOUNTAIN_STAGE_COLOURS[i]}" opacity=".18"/>`:'')
-      + `<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="${done?MOUNTAIN_STAGE_COLOURS[i]:'#fff'}" stroke="${MOUNTAIN_STAGE_COLOURS[i]}" stroke-width="2.5"/>`;
+    return `<span class="mm-dot${isCur?' cur':''}" style="left:${p[0]}%;top:${p[1]}%;background:${done?MOUNTAIN_STAGE_COLOURS[i]:'#fff'};border-color:${MOUNTAIN_STAGE_COLOURS[i]}"></span>`;
   }).join('');
-  /* Flat-vector landscape (sky gradient, layered hills, a scattering of pine trees) behind
-     the trail — approximates the mockup's illustrated mountain; a photorealistic/painted
-     version isn't buildable here (no image-generation tool available in this session). */
-  $('mmMountain').innerHTML = `<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><linearGradient id="mmSky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#eaf3fb"/><stop offset="1" stop-color="#ffffff"/>
-    </linearGradient></defs>
-    <rect width="400" height="260" fill="url(#mmSky)"/>
-    <polygon points="0,260 0,170 60,140 130,175 200,120 260,150 330,90 400,130 400,260" fill="#eef6ea"/>
-    <polygon points="0,260 0,200 70,175 150,205 230,160 300,190 400,150 400,260" fill="#d9ecd2"/>
-    <polygon points="0,260 0,225 90,210 180,235 260,205 340,225 400,205 400,260" fill="#bfe0b8"/>
-    ${MOUNTAIN_TREES.map(t=>mmTree(t[0],t[1],t[2])).join('')}
-    <line x1="${p4[0]}" y1="${p4[1]}" x2="${p4[0]}" y2="${p4[1]-22}" stroke="#8a6a45" stroke-width="2"/>
-    <polygon points="${p4[0]},${p4[1]-22} ${p4[0]},${p4[1]-12} ${p4[0]+13},${p4[1]-17}" fill="${MOUNTAIN_STAGE_COLOURS[4]}"/>
-    <path d="${pathD}" stroke="#d9c9a3" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <path d="${pathD}" stroke="#fff" stroke-width="1.6" stroke-dasharray="1 6" fill="none" stroke-linecap="round"/>
-    ${dots}
-    <circle cx="${ax}" cy="${ay-18}" r="13" fill="#fff" stroke="${MOUNTAIN_STAGE_COLOURS[avatarStage]}" stroke-width="2"/>
-    <text x="${ax}" y="${ay-13}" font-size="16" text-anchor="middle">${avatarGlyph(prefs.avatarId)}</text>
-  </svg>`;
+  const [ax,ay] = MOUNTAIN_POINTS[avatarStage];
+  $('mmMountain').innerHTML = `<img class="bg" src="assets/mountain.jpg" alt="" aria-hidden="true">
+    ${dotsHtml}
+    <span class="mm-avatar-badge" style="left:${ax}%;top:${ay}%;border-color:${MOUNTAIN_STAGE_COLOURS[avatarStage]}">${avatarGlyph(prefs.avatarId)}</span>`;
   const names=['Clarify','Justify','Challenge','Generalise','Mastery'];
   $('mmStages').innerHTML = names.map((n,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
