@@ -456,13 +456,14 @@
   .mm-body{display:flex;gap:26px;flex-wrap:wrap}
   .mm-left{flex:0 0 260px}
   .mm-right{flex:1;min-width:280px}
-  .mm-mountain{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px}
+  .mm-mountain{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;height:280px}
+  .mm-mountain svg{display:block;width:100%;height:100%}
   .mm-stages{margin-top:14px;display:flex;flex-direction:column;gap:8px}
   .mm-stage{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
-  .mm-stage.on{border-color:var(--purple);background:var(--purple-bg)}
+  .mm-stage.on{border-color:var(--stage-c,var(--purple));background:var(--stage-bg,var(--purple-bg))}
   .mm-stage.done{opacity:.75}
   .mm-stage .n{width:22px;height:22px;border-radius:50%;background:var(--surf2);color:var(--muted);font-size:11px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
-  .mm-stage.on .n{background:var(--purple);color:#fff}
+  .mm-stage.on .n{background:var(--stage-c,var(--purple));color:#fff}
   .mm-stage.done .n{background:var(--green);color:#fff}
   .mm-stage .st{flex:1;min-width:0}
   .mm-stage .st b{display:block;font-size:12.5px}
@@ -475,7 +476,10 @@
   .mm-quick{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
   .mm-quick button{font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surf2);color:var(--text2);border-radius:7px;padding:4px 9px;cursor:pointer}
   .mm-quick button:hover{border-color:var(--purple)}
-  .mm-actions{display:flex;justify-content:flex-end;margin-top:14px}
+  .mm-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:14px}
+  .mm-checking{font-size:12px;color:var(--muted)}
+  .mm-hint{margin-top:12px;padding:11px 14px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-line);font-size:13px;color:var(--text2)}
+  .mm-hint b{color:var(--orange);display:block;font-size:11px;margin-bottom:3px}
   .mm-feedback{text-align:center;padding:30px 20px}
   .mm-feedback .em{font-size:38px}
   .mm-feedback h3{color:var(--green);margin:10px 0 6px}
@@ -908,6 +912,7 @@
     <div class="mm-head">
       <button class="btn ghost ad-mini" id="mmBack">← Back to Lesson Overview</button>
       <div class="mm-htxt"><b>⛰ From Method to Meaning</b><span>Climb from using the method to explaining why it works.</span></div>
+      <span class="time-chip" id="mmTimeChip"></span>
       <button class="btn ghost ad-mini" id="mmPrintLink">🖨 Printable version</button>
     </div>
     <div class="mm-body">
@@ -3516,6 +3521,9 @@ const MM_STAGE_FEEDBACK = [
 ];
 const MOUNTAIN_SNIPPETS = ['a/b','x²','√','≤','≥','≠','π','×','÷'];
 const MOUNTAIN_POINTS = [[34,214],[78,168],[120,120],[160,72],[190,30]];   /* Clarify..Mastery, SVG coords */
+/* Clarify/Generalise = green (brand default), Justify = orange, Challenge = purple —
+   per Ryan's design-requirements brief (§14); Mastery = gold, matching the trophy. */
+const MOUNTAIN_STAGE_COLOURS = ['#16a34a','#ea580c','#7c3aed','#16a34a','#d9a521'];
 
 /* textareas aren't contenteditable, so this can't reuse onRichBold's execCommand approach —
    plain caret-position string insertion instead. */
@@ -3531,7 +3539,24 @@ function insertAtCaret(ta, text){
 function mmProg(){
   const p = prog();
   if(!p.mm || !Array.isArray(p.mm.answers)) p.mm = { answers:Array(12).fill(null), pos:0 };
+  /* verified/feedback added after initial ship — backfilled here too, not just in the
+     fresh-init branch above, so progress saved before this update still gets them. */
+  if(!Array.isArray(p.mm.verified)) p.mm.verified = Array(12).fill(null);
+  if(!Array.isArray(p.mm.feedback)) p.mm.feedback = Array(12).fill(null);
   return p.mm;
+}
+/* AI-graded answers — reuses the SAME generator service + genPOST already wired for question
+   generation (F32, index.html ~2650), just a new /v1/grade path, so it inherits token-refresh-
+   on-401 and network-error handling for free. That path doesn't exist yet in the separate
+   generator-service repo — see GRADE-ENDPOINT-SPEC.md for the contract to implement there.
+   Any non-ok/malformed response is treated as "grading unavailable" by the caller, which
+   falls back to the original non-empty-text-enables-Next behaviour (CLAUDE.md rule 2 —
+   never hard-block progress on a third-party outage). accepted_answer_bank is empty until
+   Ryan authors per-question answer banks in a later pass. */
+async function mmGrade(question, stageName, gradeLabel, studentAnswer){
+  const r = await genPOST('/v1/grade', { question, stage:stageName, grade:gradeLabel, accepted_answer_bank:[], student_answer:studentAnswer });
+  if(!r || !r.ok || !r.data || typeof r.data.correct!=='boolean') return null;
+  return { correct:r.data.correct, feedback:String(r.data.feedback||'') };
 }
 /* Derived, not stored — nothing to get out of sync with the answers array itself. */
 function mmStageDone(mm, s){ return mm.answers[s*3]!=null && mm.answers[s*3+1]!=null && mm.answers[s*3+2]!=null; }
@@ -3573,9 +3598,14 @@ function renderMountainMap(mm){
   const path = 'M '+MOUNTAIN_POINTS.map(p=>p[0]+' '+p[1]).join(' L ');
   const dots = MOUNTAIN_POINTS.map((p,i)=>{
     const done = i<4 ? mmStageDone(mm,i) : complete;
-    return `<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="${done?'#2e7d32':'#fff'}" stroke="${i===avatarStage?'#7c3aed':'#94a3b8'}" stroke-width="${i===avatarStage?3:1.5}"/>`;
+    return `<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="${done?'#2e7d32':'#fff'}" stroke="${i===avatarStage?MOUNTAIN_STAGE_COLOURS[i]:'#94a3b8'}" stroke-width="${i===avatarStage?3:1.5}"/>`;
   }).join('');
-  $('mmMountain').innerHTML = `<svg viewBox="0 0 220 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" aria-hidden="true">
+  /* Soft layered peak behind the path/dots — drawn first, low-opacity, so it reads as an
+     illustrated mountain (per §14: "soft... does not compete with the mathematics") rather
+     than the bare dashed line this replaces. */
+  $('mmMountain').innerHTML = `<svg viewBox="0 0 220 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <polygon points="0,240 40,150 90,190 140,60 190,110 220,20 220,240" fill="#eef4e6" opacity=".8"/>
+    <polygon points="0,240 60,170 110,205 175,90 220,140 220,240" fill="#faf5ff" opacity=".7"/>
     <path d="${path}" stroke="#d8d2ee" stroke-width="2" stroke-dasharray="4 4" fill="none"/>
     ${dots}
     <text x="${ax}" y="${ay-12}" font-size="20" text-anchor="middle">${avatarGlyph(prefs.avatarId)}</text>
@@ -3585,38 +3615,73 @@ function renderMountainMap(mm){
     const done = i<4 ? mmStageDone(mm,i) : complete;
     const on = i===avatarStage && !done;
     const sub = i<4 ? esc((cur.worksheet[i]&&cur.worksheet[i].grade)||'') : 'Summit';
-    return `<div class="mm-stage${on?' on':''}${done?' done':''}">
+    return `<div class="mm-stage${on?' on':''}${done?' done':''}" style="--stage-c:${MOUNTAIN_STAGE_COLOURS[i]};--stage-bg:${MOUNTAIN_STAGE_COLOURS[i]}1a">
       <span class="n">${done?'✓':i+1}</span>
       <span class="st"><b>${n}</b><span>${sub}</span></span>
     </div>`;
   }).join('');
+  const tc=$('mmTimeChip'); if(tc) tc.textContent='🕒 '+sectionTime('worksheet');
 }
 function renderMountainQuestion(mm){
   const stage = mmCurrentStage(mm), qInStage = mm.pos%3, sec = cur.worksheet[stage];
   const q = sec && sec.qs[qInStage];
   const el = $('mmRight');
+  const priorHint = mm.verified[mm.pos]===false ? mm.feedback[mm.pos] : '';
   el.innerHTML = `<div class="mm-qcard">
     <div class="mm-qmeta">${esc(sec?sec.name:'')} · Question ${qInStage+1} of 3 · ${mm.pos+1} of 12 overall</div>
     <div class="mm-qtext">${q||''}</div>
     <label class="ad-lb" style="margin:0 0 4px">Explain your thinking</label>
     <textarea class="mm-answer" id="mmAnswer" placeholder="Type your explanation here…">${esc(mm.answers[mm.pos]||'')}</textarea>
     <div class="mm-quick">${MOUNTAIN_SNIPPETS.map(s=>`<button type="button" data-mm-insert="${esc(s)}">${s}</button>`).join('')}</div>
-    <div class="mm-actions"><button class="btn solid" id="mmNext" disabled>Next Question →</button></div>
+    <div id="mmHintWrap">${priorHint?`<div class="mm-hint" id="mmHint"><b>Not quite there yet</b>${esc(priorHint)}</div>`:''}</div>
+    <div class="mm-actions">
+      <span class="mm-checking" id="mmChecking" style="display:none">Checking your explanation…</span>
+      <span id="mmSkipWrap"></span>
+      <button class="btn solid" id="mmNext" disabled>Next Question →</button>
+    </div>
   </div>`;
   renderMathIn(el);
-  const ta=$('mmAnswer'), next=$('mmNext');
+  const ta=$('mmAnswer'), next=$('mmNext'), checking=$('mmChecking'), skipWrap=$('mmSkipWrap'), hintWrap=$('mmHintWrap');
+  let attempts = mm.verified[mm.pos]===false ? 1 : 0;   /* a saved "not yet" from before counts as an attempt */
   const sync=()=>{ next.disabled = !ta.value.trim(); };
   sync();
-  ta.addEventListener('input', sync);
+  ta.addEventListener('input', ()=>{ sync(); hintWrap.innerHTML=''; });
   el.querySelectorAll('[data-mm-insert]').forEach(b=>b.addEventListener('click', ()=>{ insertAtCaret(ta, b.dataset.mmInsert); sync(); }));
-  next.addEventListener('click', ()=>{
-    mm.answers[mm.pos] = ta.value.trim();
+
+  function advance(){
     const finishedStage = mm.pos%3===2, stageIdx = mmCurrentStage(mm);
     mm.pos++;
     saveProgress();
     renderWsStageStrip();
     if(finishedStage && mm.pos<12) renderMountainStageFeedback(mm, stageIdx);
     else renderMountainView();
+  }
+  function showHint(feedback){
+    hintWrap.innerHTML = `<div class="mm-hint" id="mmHint"><b>Not quite there yet</b>${esc(feedback||'Try adding a bit more explanation.')}</div>`;
+    renderMathIn(hintWrap);
+    if(attempts>=2 && !skipWrap.innerHTML){
+      skipWrap.innerHTML = `<button class="btn ghost ad-mini" id="mmSkip" type="button">That's okay — mark as attempted and continue</button>`;
+      $('mmSkip').addEventListener('click', ()=>{
+        mm.answers[mm.pos] = ta.value.trim();
+        mm.verified[mm.pos] = false;
+        if(!mm.feedback[mm.pos]) mm.feedback[mm.pos] = 'Marked as attempted without full AI verification.';
+        advance();
+      });
+    }
+  }
+  next.addEventListener('click', async ()=>{
+    const answer = ta.value.trim();
+    if(!answer) return;
+    mm.answers[mm.pos] = answer;
+    next.disabled = true; checking.style.display='';
+    const grade = await mmGrade(q||'', MM_STAGE_NAMES[stage], (sec&&sec.grade)||'', answer);
+    checking.style.display='none';
+    if(grade===null){ mm.verified[mm.pos]=null; saveProgress(); advance(); return; }
+    mm.verified[mm.pos] = grade.correct;
+    mm.feedback[mm.pos] = grade.feedback;
+    saveProgress();
+    if(grade.correct) advance();
+    else{ attempts++; next.disabled=false; showHint(grade.feedback); }
   });
 }
 function renderMountainStageFeedback(mm, stageIdx){
@@ -3651,7 +3716,8 @@ function renderMountainSummit(mm){
     area.style.display='';
     let html='';
     cur.worksheet.forEach((sec,si)=> sec.qs.forEach((q,qi)=>{
-      html += `<div class="rq"><b>${esc(sec.name)} ${qi+1}.</b> ${q}<br><span>${esc(mm.answers[si*3+qi]||'')}</span></div>`;
+      const idx=si*3+qi, v=mm.verified[idx], mark = v===true?'✅ ':v===false?'⚠️ ':'';
+      html += `<div class="rq"><b>${mark}${esc(sec.name)} ${qi+1}.</b> ${q}<br><span>${esc(mm.answers[idx]||'')}</span></div>`;
     }));
     area.innerHTML = html;
     renderMathIn(area);
