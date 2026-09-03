@@ -478,3 +478,121 @@ alter table public.study_sessions enable row level security;
 drop policy if exists "own study_sessions" on public.study_sessions;
 create policy "own study_sessions" on public.study_sessions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- F30 — Streak reminder emails. Compliance is the design constraint here, not
+-- the cron (these are engagement emails to minors):
+--   • only opted-in students ever receive one    → streak_emails_opt_in gate below
+--   • unsubscribe works from the email itself     → public.unsubscribe_streak_email(),
+--                                                     granted to anon, no sign-in required
+--   • caps enforced (max 1/day, stop after 2 ignored) → streak_reminder_log +
+--                                                     streak_reminder_ignored, not just
+--                                                     "the cron only runs once"
+--
+-- REQUIRES (one-time, by hand, before this section will do anything):
+--   1. Database → Extensions → enable "pg_net" and "pg_cron" if not already on.
+--   2. Store your Resend API key in Vault — run this ONCE with your real key:
+--        select vault.create_secret('re_your_actual_key_here', 'resend_api_key');
+--      (Never paste the key anywhere else — not in this file, not in index.html.)
+-- ============================================================================
+alter table public.profiles add column if not exists streak_reminder_ignored int not null default 0;
+alter table public.profiles add column if not exists unsub_token text unique;
+
+create table if not exists public.streak_reminder_log (
+  id      bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  sent_at date not null default current_date,
+  unique(user_id, sent_at)
+);
+alter table public.streak_reminder_log enable row level security;
+-- Deliberately NO policies granted to anon/authenticated — deny-by-default. Only the
+-- SECURITY DEFINER function below (running as its owner) ever reads or writes this table.
+
+-- Lazily generates a student's unsubscribe token on first use (same "10-hex-char,
+-- accepted risk at this scale" reasoning already used for F13's invite codes).
+create or replace function public.get_or_create_unsub_token(uid uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare tok text;
+begin
+  select unsub_token into tok from public.profiles where user_id = uid;
+  if tok is null then
+    tok := substr(md5(random()::text || clock_timestamp()::text || uid::text), 1, 20);
+    update public.profiles set unsub_token = tok where user_id = uid;
+  end if;
+  return tok;
+end; $$;
+revoke all on function public.get_or_create_unsub_token(uuid) from public;
+
+-- Public on purpose: an unsubscribe link must work for whoever clicks it, wherever
+-- they're reading the email, signed in or not. Returns true if a matching token was
+-- found (so index.html can show an honest "already unsubscribed / invalid link"
+-- message rather than always claiming success).
+create or replace function public.unsubscribe_streak_email(token text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  update public.profiles set streak_emails_opt_in = false where unsub_token = token;
+  return found;
+end; $$;
+revoke all on function public.unsubscribe_streak_email(text) from public;
+grant execute on function public.unsubscribe_streak_email(text) to anon, authenticated;
+
+-- The daily job. No grant to anon/authenticated at all — only pg_cron (below) ever
+-- calls this. Bails out silently (sends nothing) if the Vault secret isn't set yet,
+-- same progressive-enhancement posture as BACKEND.url being blank in index.html.
+create or replace function public.send_streak_reminders()
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  r        record;
+  api_key  text;
+  yday     date := (current_date - interval '1 day')::date;
+begin
+  select decrypted_secret into api_key from vault.decrypted_secrets where name = 'resend_api_key' limit 1;
+  if api_key is null then return; end if;
+
+  -- 1. Anyone reminded yesterday whose streak didn't survive gets an ignored strike —
+  --    this is what makes "stop after 2 ignored" real rather than aspirational.
+  update public.profiles p
+  set streak_reminder_ignored = streak_reminder_ignored + 1
+  where exists (select 1 from public.streak_reminder_log l where l.user_id = p.user_id and l.sent_at = yday)
+    and coalesce(p.streak_last, '1970-01-01'::date) < yday;
+
+  -- 2. A freshly-started streak resets the counter — a re-engaged student isn't
+  --    penalised forever for one lapsed streak.
+  update public.profiles set streak_reminder_ignored = 0 where streak_current = 1;
+
+  -- 3. Today's at-risk cohort: opted in, has a streak worth saving, was active
+  --    yesterday but not yet today, under the ignored-cap, not already sent today.
+  for r in
+    select p.user_id, u.email, p.streak_current,
+           public.get_or_create_unsub_token(p.user_id) as tok
+    from public.profiles p
+    join auth.users u on u.id = p.user_id
+    where p.streak_emails_opt_in = true
+      and p.streak_current > 0
+      and p.streak_last = yday
+      and p.streak_reminder_ignored < 2
+      and not exists (select 1 from public.streak_reminder_log l where l.user_id = p.user_id and l.sent_at = current_date)
+  loop
+    perform net.http_post(
+      url := 'https://api.resend.com/emails',
+      headers := jsonb_build_object('Authorization', 'Bearer '||api_key, 'Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'from', 'MasterMaths Tutoring <onboarding@resend.dev>',   -- swap for a verified domain once Ryan sets one up in Resend
+        'to', r.email,
+        'subject', 'Keep your '||r.streak_current||'-day streak going!',
+        'html', '<p>You’re on a '||r.streak_current||'-day streak on MasterMaths — a few minutes today keeps it alive!</p>'
+             || '<p><a href="https://learn.mastermathstutoring.co.uk/#/courses">Continue learning →</a></p>'
+             || '<p style="font-size:11px;color:#888">Don’t want these? '
+             || '<a href="https://learn.mastermathstutoring.co.uk/#/unsubscribe?token='||r.tok||'">Unsubscribe</a></p>'
+      )
+    );
+    insert into public.streak_reminder_log(user_id, sent_at) values (r.user_id, current_date) on conflict do nothing;
+  end loop;
+end; $$;
+revoke all on function public.send_streak_reminders() from public;
+
+-- Runs daily at 17:00 UTC (5pm UK outside British Summer Time, 6pm during BST — a
+-- known, accepted imprecision for a soft nudge, not worth a DST lookup table).
+select cron.schedule('streak-reminders-daily', '0 17 * * *', $$select public.send_streak_reminders()$$)
+where not exists (select 1 from cron.job where jobname = 'streak-reminders-daily');

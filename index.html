@@ -1065,6 +1065,11 @@
       <span class="pref-lb">Leaderboard</span>
       <label class="ad-lb" style="font-weight:400"><input type="checkbox" id="leaderboardOptIn"> Show my nickname and points on the <a href="#/leaderboard" style="color:inherit;font-weight:700">leaderboard</a>, visible to other students</label>
     </div>
+    <!-- F30 — opt-in only, default OFF, same treatment as the leaderboard row above -->
+    <div class="pref-row" id="remindersRow" style="display:none">
+      <span class="pref-lb">Email reminders</span>
+      <label class="ad-lb" style="font-weight:400"><input type="checkbox" id="remindersOptIn"> Send me a short reminder email if I'm about to lose my streak. One-click unsubscribe any time, from the email itself.</label>
+    </div>
   </div>
 </div>
 
@@ -1828,6 +1833,7 @@ function parseHash(){
   if(/^#\/?leaderboard\b/.test(h)) return { view:'leaderboard' };
   if(/^#\/?planner\b/.test(h)) return { view:'planner' };
   if(/^#\/?resources\b/.test(h)) return { view:'resources' };
+  if(/^#\/?unsubscribe\b/.test(h)){ const qs=(h.split('?')[1]||''); return { view:'unsubscribe', token:new URLSearchParams(qs).get('token') }; }
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1846,6 +1852,7 @@ function route(){
   if(r.view==='leaderboard') return renderLeaderboard();
   if(r.view==='planner') return renderStudyPlanner();
   if(r.view==='resources') return renderResourcesPage();
+  if(r.view==='unsubscribe') return renderUnsubscribe(r.token);
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -2633,6 +2640,29 @@ function openResourceViewer(id){
 function resourcesForLesson(){
   if(!cur || !cur.strand) return [];
   return RESOURCES.filter(resourceVisible).filter(r=>(r.topics||[]).includes(cur.strand));
+}
+
+/* =============================== F30 — streak reminder unsubscribe (#/unsubscribe) ===============================
+   Works with ZERO sign-in required — the whole point of a one-click email unsubscribe link is
+   that it has to work for whoever clicks it, wherever they're reading the email, signed in or
+   not. Calls a public RPC (granted to anon, the one deliberate exception to this app's usual
+   "authenticated only" pattern — see supabase/migrations.sql) via the same anon-key sbClient
+   used everywhere else; no account lookup needed client-side at all. */
+async function renderUnsubscribe(token){
+  document.title = 'Unsubscribe — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Unsubscribe</span>';
+  const root = pageChrome();
+  root.innerHTML = `<div class="auth-card wide"><h2>✉️ Email reminders</h2><div id="unsubBody"><p class="auth-note">Working on it…</p></div></div>`;
+  const el = $('unsubBody');
+  if(!sbClient){ el.innerHTML = '<p class="auth-msg" style="display:block">Accounts are unavailable right now — try again later.</p>'; return; }
+  if(!token){ el.innerHTML = '<p class="auth-msg" style="display:block">That link looks incomplete — no unsubscribe code found.</p>'; return; }
+  try{
+    const { data, error } = await sbClient.rpc('unsubscribe_streak_email', { token });
+    if(error) throw error;
+    el.innerHTML = data
+      ? '<p>✅ You’ve been unsubscribed from streak reminder emails. You can turn them back on any time in ⚙ Display &amp; reading settings.</p>'
+      : '<p class="auth-msg" style="display:block">That link has already been used or has expired.</p>';
+  }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Something went wrong — try again in a moment.</p>'; }
 }
 
 /* =============================== Maths markup — the cross-repo delimiter contract ===============================
@@ -5673,7 +5703,24 @@ $('leaderboardOptIn').addEventListener('change', async e=>{
     toast(on ? 'You’re on the leaderboard.' : 'Removed from the leaderboard.');
   }catch(err){ e.target.checked=!on; if(authProfile) authProfile.leaderboard_opt_in=!on; toast('Couldn’t update — try again.'); }
 });
-function openPrefs(){ renderPrefs(); renderParentAccessRow(); renderLeaderboardRow(); $('prefsModal').classList.add('show'); }
+/* F30 — D9-style opt-in, default OFF. Same "plain boolean upsert, not worth locking down"
+   reasoning as the leaderboard row above. */
+function renderRemindersRow(){
+  const row=$('remindersRow'); if(!row) return;
+  if(!sbClient || !authUser || !authProfile || authProfile.role!=='student'){ row.style.display='none'; return; }
+  row.style.display='';
+  $('remindersOptIn').checked = !!authProfile.streak_emails_opt_in;
+}
+$('remindersOptIn').addEventListener('change', async e=>{
+  const on = e.target.checked;
+  if(authProfile) authProfile.streak_emails_opt_in = on;
+  try{
+    const { error } = await sbClient.from('profiles').upsert({ user_id:authUser.id, streak_emails_opt_in:on }, { onConflict:'user_id' });
+    if(error) throw error;
+    toast(on ? 'Reminder emails on.' : 'Reminder emails off.');
+  }catch(err){ e.target.checked=!on; if(authProfile) authProfile.streak_emails_opt_in=!on; toast('Couldn’t update — try again.'); }
+});
+function openPrefs(){ renderPrefs(); renderParentAccessRow(); renderLeaderboardRow(); renderRemindersRow(); $('prefsModal').classList.add('show'); }
 $('prefsBtn').addEventListener('click', openPrefs);
 $('prefsBody').addEventListener('click', e=>{
   const btn=e.target.closest('.seg button');
