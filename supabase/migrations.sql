@@ -450,3 +450,31 @@ drop policy if exists "teacher writes videos bucket" on storage.objects;
 create policy "teacher writes videos bucket" on storage.objects
   for all using (bucket_id = 'videos' and public.is_teacher())
   with check (bucket_id = 'videos' and public.is_teacher());
+
+
+-- ============================================================================
+-- F39 — Study Planner. Sessions the student schedules for themselves (Learn/
+-- Practice/Revise/Mock Exam), own-row RLS, same shape as every other per-
+-- student table above (progress, quiz_results, served_questions). No
+-- study_session_events table (per DEVELOPMENT-PLAN's own data-model note it
+-- was only ever an optimisation to avoid re-deriving from quiz_results on
+-- every page load) — at this scale, querying quiz_results directly on page
+-- load is simpler and completely sufficient; nothing in F39's AC depends on
+-- that table existing.
+-- ============================================================================
+create table if not exists public.study_sessions (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  course_id     text not null default 'gcse-edexcel-foundation',
+  lesson_id     text,                          -- nullable: a session can be topic-only, not lesson-specific
+  activity_type text not null check (activity_type in ('learn','practice','revise','mock_exam')),
+  scheduled_at  timestamptz not null,
+  duration_min  int not null default 30,
+  completed_at  timestamptz,
+  created_at    timestamptz default now()
+);
+create index if not exists study_sessions_user_idx on public.study_sessions (user_id, scheduled_at);
+alter table public.study_sessions enable row level security;
+drop policy if exists "own study_sessions" on public.study_sessions;
+create policy "own study_sessions" on public.study_sessions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

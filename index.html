@@ -124,6 +124,20 @@
   .qanda-del{background:none;border:none;color:var(--muted);cursor:pointer;flex-shrink:0}
   /* F24 — leaderboard: highlight the signed-in student's own row */
   .lb-me{background:var(--purple-bg);border-radius:8px;padding:6px 8px!important;font-weight:700;color:var(--purple)}
+  /* F39 — Study Planner */
+  .plan-stats{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+  .plan-stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .plan-stat b{display:block;font-size:19px;color:var(--navy)}
+  .plan-stat span{font-size:11px;color:var(--muted);font-weight:700}
+  .plan-day{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin:16px 0 8px}
+  .plan-item{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  .plan-item.done{opacity:.65}
+  .plan-item .ic{width:32px;height:32px;border-radius:9px;background:var(--surf2);display:grid;place-items:center;font-size:15px;flex-shrink:0}
+  .plan-item .txt{flex:1;min-width:0}
+  .plan-item .txt b{display:block;font-size:13px}
+  .plan-item .txt span{font-size:11px;color:var(--muted)}
+  .plan-rec{background:var(--orange-bg);border:1px solid var(--orange-line);border-radius:10px;padding:10px 13px;font-size:12.5px;margin-bottom:8px}
+  .plan-rec b{color:var(--orange)}
   .tch-list li{padding:7px 11px;background:var(--surf2);border:1px solid var(--line);border-radius:8px}
   .tch-list b{color:var(--red)}
   .tch-dim{color:var(--muted);font-size:11px}
@@ -798,6 +812,7 @@
       <span class="chip time" id="chipTime"></span>
       <span class="chip calc" id="chipCalc" style="display:none"></span>
       <span id="bookCtaSlot"></span>
+      <span id="addToPlannerSlot"></span>
     </div>
 
     <div id="comingSoon" style="display:none" class="card">
@@ -1051,6 +1066,29 @@
 <!-- F21 — end-of-unit summary (strengths/weaknesses + tutoring signpost) -->
 <div class="modal" id="unitModal" role="dialog" aria-modal="true" aria-label="Unit summary">
   <div class="modal-box" style="max-width:520px"><button class="modal-x" data-close="unitModal">✕</button><div id="unitBody"></div></div>
+</div>
+
+<!-- F39 — Study Planner: "+ Add Study Session" / "Add to Study Planner" both open this same
+     modal (the lesson-page entry point pre-fills spSessionLesson, see openStudySessionModal). -->
+<div class="modal" id="studySessionModal" role="dialog" aria-modal="true" aria-label="Add study session">
+  <div class="modal-box" style="max-width:440px">
+    <button class="modal-x" data-close="studySessionModal">✕</button>
+    <div class="pref-h">📅 Add Study Session</div>
+    <label class="pref-lb" style="margin-top:6px">Activity type</label>
+    <div class="seg" id="spActivitySeg">
+      <button type="button" data-activity="learn">▶ Learn</button>
+      <button type="button" data-activity="practice">🎲 Practice</button>
+      <button type="button" data-activity="revise">📖 Revise</button>
+      <button type="button" data-activity="mock_exam">📝 Mock Exam</button>
+    </div>
+    <label class="ad-lb" style="margin-top:10px">Lesson <span class="ad-note">(optional — leave as General for topic-only revision)</span></label>
+    <select class="ad-in" id="spSessionLesson"><option value="">General</option></select>
+    <label class="ad-lb">Date &amp; time</label>
+    <input type="datetime-local" class="ad-in" id="spSessionWhen">
+    <label class="ad-lb">Duration (minutes)</label>
+    <input type="number" class="ad-in" id="spSessionDuration" value="30" min="5" step="5">
+    <button class="btn solid" id="spSessionSave" style="margin-top:14px;width:100%">Add to planner</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1767,6 +1805,7 @@ function parseHash(){
   if(/^#\/?parent\b/.test(h))  return { view:'parent' };
   if(/^#\/?qanda\b/.test(h))   return { view:'qanda' };
   if(/^#\/?leaderboard\b/.test(h)) return { view:'leaderboard' };
+  if(/^#\/?planner\b/.test(h)) return { view:'planner' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1783,6 +1822,7 @@ function route(){
   if(r.view==='parent')  return renderParent();
   if(r.view==='qanda')   return renderQAndA();
   if(r.view==='leaderboard') return renderLeaderboard();
+  if(r.view==='planner') return renderStudyPlanner();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -2330,6 +2370,145 @@ async function renderLeaderboard(){
   }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the leaderboard.</p>'; }
 }
 
+/* =============================== F39 — Study Planner (#/planner) ===============================
+   Sessions persist server-side (study_sessions table, supabase/migrations.sql), same F2 sync
+   pattern as everything else. Recommendations read the F11 quiz_results data recordQuizResults()
+   (~3413) already writes on every quiz — this is genuinely the first student-facing reader of
+   that table, not faked data. No calendar-GRID UI: nothing like that exists anywhere in this
+   codebase to build on, and it's a substantial sub-project on its own for a one-tutor business's
+   session volume — a grouped agenda list instead (same underlying data, far less UI risk). */
+const PLAN_ACTIVITIES = { learn:['▶','Learn'], practice:['🎲','Practice'], revise:['📖','Revise'], mock_exam:['📝','Mock Exam'] };
+function studyPlannerLessonOptionsHtml(){
+  let html = '<option value="">General</option>';
+  WEEKS.forEach(w=>{ (w.lessons||[]).forEach(id=>{ if(LESSONS[id]) html += `<option value="${id}">${esc(LESSONS[id].code)} — ${esc(LESSONS[id].title)}</option>`; }); });
+  return html;
+}
+function openStudySessionModal(lessonId){
+  $('spSessionLesson').innerHTML = studyPlannerLessonOptionsHtml();
+  $('spSessionLesson').value = lessonId || '';
+  $('spSessionWhen').value = toLocalInputValue(new Date(Date.now()+24*3600*1000));   /* default: this time tomorrow */
+  $('spSessionDuration').value = 30;
+  $('spActivitySeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.activity==='practice'));
+  $('studySessionModal').classList.add('show');
+}
+$('spActivitySeg').addEventListener('click', e=>{
+  const b=e.target.closest('[data-activity]'); if(!b) return;
+  $('spActivitySeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+});
+$('spSessionSave').addEventListener('click', async ()=>{
+  if(!sbClient || !authUser) return;
+  const when = $('spSessionWhen').value; if(!when){ toast('Pick a date and time.'); return; }
+  const onBtn = $('spActivitySeg').querySelector('button.on');
+  const activity = onBtn ? onBtn.dataset.activity : 'practice';
+  try{
+    const { error } = await sbClient.from('study_sessions').insert({
+      user_id: authUser.id, course_id: currentCourseId, lesson_id: $('spSessionLesson').value || null,
+      activity_type: activity, scheduled_at: new Date(when).toISOString(),
+      duration_min: Math.max(5, parseInt($('spSessionDuration').value,10)||30)
+    });
+    if(error) throw error;
+    toast('Added to your study planner.');
+    $('studySessionModal').classList.remove('show');
+    if(parseHash().view==='planner') loadStudyPlanner();
+  }catch(e){ toast('Couldn’t add that session — try again.'); }
+});
+function planDayLabel(d){
+  const today=new Date(), tomorrow=new Date(today.getTime()+86400000);
+  if(d.toDateString()===today.toDateString()) return 'Today';
+  if(d.toDateString()===tomorrow.toDateString()) return 'Tomorrow';
+  const days = (d-today)/86400000;
+  return (days>0 && days<7) ? 'This week' : 'Later';
+}
+async function renderStudyPlanner(){
+  document.title = 'Study Planner — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Study Planner</span>';
+  if(!authReady){ const r=pageChrome(); r.innerHTML='<p class="auth-note">Loading…</p>'; return; }
+  if(!sbClient || !authUser){ toast('Sign in to use the study planner.'); location.hash='#/login'; return; }
+  const root = pageChrome();
+  root.innerHTML = `
+    <div class="tch-head"><h2>📅 Study Planner</h2><p>Plan your study sessions and see how your practice is paying off.</p></div>
+    <div class="plan-stats" id="spStats"></div>
+    <div id="spRecs"></div>
+    <div class="ad-row" style="justify-content:space-between;margin-top:6px">
+      <h3 style="font-size:14px;margin:0">Upcoming</h3>
+      <button class="btn solid ad-mini" id="spAddBtn">+ Add Study Session</button>
+    </div>
+    <div id="spAgenda"><p class="auth-note">Loading…</p></div>`;
+  $('spAddBtn').addEventListener('click', ()=>openStudySessionModal(''));
+  loadStudyPlanner();
+}
+async function loadStudyPlanner(){
+  try{
+    const [{ data:sessions, error:sErr }, { data:qr, error:qErr }] = await Promise.all([
+      sbClient.from('study_sessions').select('*').order('scheduled_at'),
+      sbClient.from('quiz_results').select('topic,correct')
+    ]);
+    if(sErr) throw sErr; if(qErr) throw qErr;
+    renderPlanStats(sessions||[]);
+    renderPlanRecs(qr||[]);
+    renderPlanAgenda(sessions||[]);
+  }catch(e){ $('spAgenda').innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load your study planner.</p>'; }
+}
+function renderPlanStats(sessions){
+  const now=new Date(), weekAhead=new Date(now.getTime()+7*86400000);
+  const thisWeek = sessions.filter(s=>{ const d=new Date(s.scheduled_at); return d>=now && d<weekAhead; });
+  const minutes = thisWeek.reduce((sum,s)=>sum+(s.duration_min||0),0);
+  const completed = sessions.filter(s=>s.completed_at).length;
+  const upcoming = sessions.filter(s=>!s.completed_at && new Date(s.scheduled_at)>=now).sort((a,b)=>new Date(a.scheduled_at)-new Date(b.scheduled_at))[0];
+  const nextTxt = upcoming ? new Date(upcoming.scheduled_at).toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'}) : '—';
+  $('spStats').innerHTML = `
+    <div class="plan-stat"><b>${minutes}</b><span>Minutes planned this week</span></div>
+    <div class="plan-stat"><b>${thisWeek.length}</b><span>Sessions this week</span></div>
+    <div class="plan-stat"><b>${completed}</b><span>Sessions completed</span></div>
+    <div class="plan-stat"><b>${esc(nextTxt)}</b><span>Next session</span></div>
+    <div class="plan-stat"><b>${streak.current||0}🔥</b><span>Day streak</span></div>`;
+}
+/* Supportive-language recommendations from REAL quiz_results data — never hardcoded (F39's
+   own AC). Needs ≥3 answered questions in a topic before judging it (avoids a single unlucky
+   guess reading as a weakness) and hides entirely when there's no topic-tagged data yet, same
+   empty-content-safe pattern as F18/F35. */
+function renderPlanRecs(qr){
+  const el=$('spRecs'); if(!el) return;
+  const byTopic = {};
+  qr.forEach(r=>{ if(!r.topic) return; (byTopic[r.topic]=byTopic[r.topic]||[]).push(!!r.correct); });
+  const weak = Object.keys(byTopic).map(t=>{
+    const arr=byTopic[t], acc=Math.round(100*arr.filter(Boolean).length/arr.length);
+    return { topic:t, acc, n:arr.length };
+  }).filter(x=>x.n>=3 && x.acc<70).sort((a,b)=>a.acc-b.acc).slice(0,2);
+  if(!weak.length){ el.innerHTML=''; return; }
+  el.innerHTML = weak.map(w=>`<div class="plan-rec"><b>💡 Worth a look:</b> Your accuracy in ${esc(w.topic)} is currently ${w.acc}% — a bit more practice here could help. <a href="#" class="plan-rec-link" style="color:inherit;font-weight:700">Schedule practice →</a></div>`).join('');
+  el.querySelectorAll('.plan-rec-link').forEach(a=>a.addEventListener('click', e=>{ e.preventDefault(); openStudySessionModal(''); }));
+}
+function renderPlanAgenda(sessions){
+  const el=$('spAgenda'); if(!el) return;
+  const upcoming = sessions.filter(s=>!s.completed_at).sort((a,b)=>new Date(a.scheduled_at)-new Date(b.scheduled_at));
+  if(!upcoming.length){ el.innerHTML='<p class="auth-note">Nothing scheduled yet — add a session above.</p>'; return; }
+  let lastGroup='', html='';
+  upcoming.forEach(s=>{
+    const d=new Date(s.scheduled_at), grp=planDayLabel(d);
+    if(grp!==lastGroup){ html+=`<div class="plan-day">${grp}</div>`; lastGroup=grp; }
+    const act = PLAN_ACTIVITIES[s.activity_type]||['📅','Study'];
+    const lessonTxt = s.lesson_id && LESSONS[s.lesson_id] ? LESSONS[s.lesson_id].title : 'General';
+    const timeTxt = d.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'});
+    html += `<div class="plan-item">
+      <span class="ic">${act[0]}</span>
+      <span class="txt"><b>${esc(act[1])} — ${esc(lessonTxt)}</b><span>${esc(timeTxt)} · ${s.duration_min||30} min</span></span>
+      <button class="btn ghost ad-mini" data-complete="${s.id}">Mark complete</button>
+    </div>`;
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('[data-complete]').forEach(b=>b.addEventListener('click', ()=>completeStudySession(+b.dataset.complete)));
+}
+async function completeStudySession(id){
+  try{
+    const { error } = await sbClient.from('study_sessions').update({ completed_at:new Date().toISOString() }).eq('id', id);
+    if(error) throw error;
+    noteLearningActivity();   /* F9 — same streak/badge hook every other completion uses */
+    toast('Nice work — marked complete.');
+    loadStudyPlanner();
+  }catch(e){ toast('Couldn’t mark that complete — try again.'); }
+}
+
 /* =============================== Maths markup — the cross-repo delimiter contract ===============================
    The generation service (F32, prompt p5+) emits maths as LaTeX stored as PLAIN TEXT in the
    item fields, and hard-rejects any item that breaks the contract. This is the rendering half.
@@ -2845,11 +3024,13 @@ function renderAuthBox(){
     const par = (authProfile && authProfile.role==='parent') ? `<button class="auth-link" id="authParent">📈 Parent dashboard</button>` : '';   /* F13 */
     const qa = `<button class="auth-link" id="authQanda">🎙 Weekly Q&amp;A</button>`;   /* F23 — visible to every signed-in account, not role-gated */
     const lb = `<button class="auth-link" id="authLeaderboard">🏆 Leaderboard</button>`;   /* F24 — visible to every signed-in account, not role-gated */
-    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}${qa}${lb}<button class="auth-link" id="authOut">Sign out</button>`;
+    const pl = `<button class="auth-link" id="authPlanner">📅 Study Planner</button>`;   /* F39 — visible to every signed-in account, not role-gated */
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}${qa}${lb}${pl}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const pa=$('authParent'); if(pa) pa.addEventListener('click', ()=>{ location.hash='#/parent'; });
     const qb=$('authQanda'); if(qb) qb.addEventListener('click', ()=>{ location.hash='#/qanda'; });
     const lbb=$('authLeaderboard'); if(lbb) lbb.addEventListener('click', ()=>{ location.hash='#/leaderboard'; });
+    const plb=$('authPlanner'); if(plb) plb.addEventListener('click', ()=>{ location.hash='#/planner'; });
     const o=$('authOut'); if(o) o.addEventListener('click', async ()=>{ await signOutAuth(); toast('Signed out.'); location.hash='#/courses'; });
   } else {
     box.innerHTML = `<button class="auth-link solid" id="authIn">Sign in / Create account</button>`;
@@ -3102,6 +3283,11 @@ function loadLesson(id, section){
   else if(cur.calculator==='not-allowed'){ calcEl.innerHTML=NO_CALC_ICON+' Non-calculator'; calcEl.style.display=''; }
   else calcEl.style.display='none';
   $('bookCtaSlot').innerHTML = bookingCtaHtml();   /* F31 */
+  /* F39 — pre-fills the same "+ Add Study Session" modal with this lesson; visible to any
+     signed-in account, same "not role-gated" choice as the Q&A/Leaderboard nav links. */
+  $('addToPlannerSlot').innerHTML = (sbClient && authUser)
+    ? `<button class="btn ghost ad-mini" id="addToPlannerBtn">📅 Add to Study Planner</button>` : '';
+  const aptb=$('addToPlannerBtn'); if(aptb) aptb.addEventListener('click', ()=>openStudySessionModal(cur.code));
   renderSidebar();
 
   if(cur.comingSoon){
