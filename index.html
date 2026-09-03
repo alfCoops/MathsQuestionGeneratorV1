@@ -1612,7 +1612,14 @@ async function syncProgressOnLogin(){
   for(const it of toPush){ if(!(await cloudUpsertLesson(it[0],it[1],it[2]))) enqueueOffline(it[0],it[1],it[2]); }
   if(cur){ renderProgress(); renderSidebar(); } else renderSidebar();
 }
-async function onSignedIn(){ await loadProfile(); if(authProfile && authProfile.last_location){ lastLoc = authProfile.last_location; try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){} } if(typeof loadPrefsFromProfile==='function') loadPrefsFromProfile(); await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
+/* Self-heals the class of bug where a profile row never got created — signUpEmail() only
+   calls ensureProfile() once, right at signup, and if the account wasn't confirmed yet at
+   that exact moment the upsert is silently blocked by RLS (no session = no auth.uid() for
+   the "own profile" policy to match). Every future real sign-in now guarantees the row
+   exists instead of leaving the account permanently profile-less. ensureProfile() is a
+   no-op upsert when the row already exists (no name passed here), so this is safe on every
+   sign-in, not just the first. */
+async function onSignedIn(){ await ensureProfile(); if(authProfile && authProfile.last_location){ lastLoc = authProfile.last_location; try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){} } if(typeof loadPrefsFromProfile==='function') loadPrefsFromProfile(); await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
 window.addEventListener('online', flushOfflineQueue);
 
 /* ---------- F5: "continue where you left off" (last_location) ---------- */
