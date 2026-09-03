@@ -1414,7 +1414,17 @@ async function authInit(){
   if(!sbClient){ authReady = true; renderAuthBox(); return; }
   try{ const { data } = await sbClient.auth.getSession(); authUser = (data&&data.session)?data.session.user:null; if(authUser) await onSignedIn(); }catch(e){}
   authReady = true;
-  sbClient.auth.onAuthStateChange((_e, session)=>{ authUser = session?session.user:null; if(!authUser) authProfile=null; renderAuthBox(); });
+  sbClient.auth.onAuthStateChange((_e, session)=>{
+    authUser = session?session.user:null; if(!authUser) authProfile=null; renderAuthBox();
+    /* T3 — the deliberate moment to move on from the neutral authCallback holding page
+       (see parseHash()'s guard): Supabase has now consumed the token from the hash and
+       handed us a real session, safe to navigate away from it. Recovery goes to the reset
+       form; anything else that yields a session (a plain confirmation link) just continues
+       to the dashboard — Supabase cleans the URL via history.replaceState, which does NOT
+       fire hashchange on its own, so this can't rely on the router noticing by itself. */
+    if(_e==='PASSWORD_RECOVERY'){ location.hash = '#/reset-password'; return; }
+    if(authUser && parseHash().view==='authCallback'){ location.hash = '#/courses'; }
+  });
   renderAuthBox();
   route();   /* re-evaluate the current route now that we know the sign-in state */
 }
@@ -1824,8 +1834,18 @@ let cur = null;
 function lessonHref(id){ return '#/'+currentCourseId+'/'+id; }
 function parseHash(){
   const h = location.hash || '';
+  /* T3 — Supabase appends the session as a hash fragment when it redirects back from a
+     confirmation/recovery email (#access_token=...&type=recovery&...). route() runs
+     SYNCHRONOUSLY on page load, before authInit()'s async session restore even starts —
+     without this guard, the legacy-lesson-id fallback below would match "access_token" as
+     a lesson id, find none, and immediately REWRITE location.hash to redirect to lesson 1,
+     destroying the token before Supabase's own detectSessionInUrl (on by default) reads it.
+     This holds the hash untouched and shows a neutral "signing you in" state instead —
+     authInit()'s onAuthStateChange explicitly navigates onward once Supabase is done. */
+  if(/access_token=/.test(h)) return { view:'authCallback' };
   if(/^#\/?admin\b/.test(h))   return { view:'admin' };
   if(/^#\/?login\b/.test(h))   return { view:'login' };
+  if(/^#\/?reset-password\b/.test(h)) return { view:'reset-password' };
   if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
   if(/^#\/?teacher\b/.test(h)) return { view:'teacher' };
   if(/^#\/?parent\b/.test(h))  return { view:'parent' };
@@ -1843,8 +1863,10 @@ function parseHash(){
 }
 function route(){
   const r = parseHash();
+  if(r.view==='authCallback') return renderAuthCallback();   /* T3 — see parseHash()'s guard */
   if(r.view==='admin')   return renderAdmin();
   if(r.view==='login')   return renderLogin();
+  if(r.view==='reset-password') return renderResetPassword();
   if(r.view==='privacy') return renderPrivacy();
   if(r.view==='teacher') return renderTeacher();
   if(r.view==='parent')  return renderParent();
@@ -1958,8 +1980,29 @@ function renderLogin(){
         <label class="auth-lb">Email</label><input class="auth-in" id="liEmail" type="email" autocomplete="email">
         <label class="auth-lb">Password</label><input class="auth-in" id="liPass" type="password" autocomplete="current-password">
         <button class="btn solid auth-submit" id="liGo">Sign in</button>
-        <p class="auth-note">Forgot your password? Email Ryan to reset it (email password reset is coming soon).</p>`;
+        <p class="auth-note"><a href="#" id="liForgot" style="color:inherit;font-weight:700">Forgot your password?</a></p>
+        <div id="liForgotBox" style="display:none;margin-top:6px">
+          <label class="auth-lb">Email</label><input class="auth-in" id="frEmail" type="email" autocomplete="email">
+          <button class="btn ghost auth-submit" id="frGo" type="button">Send reset link</button>
+        </div>`;
       $('liGo').addEventListener('click', async ()=>{ const r=await signInEmail($('liEmail').value.trim(), $('liPass').value); if(r.ok){ toast('Signed in 👋'); location.hash='#/courses'; } else authMsg(r.msg); });
+      $('liForgot').addEventListener('click', e=>{
+        e.preventDefault();
+        const box=$('liForgotBox'); const showing = box.style.display!=='none';
+        box.style.display = showing ? 'none' : '';
+        if(!showing) $('frEmail').value = $('liEmail').value;
+      });
+      $('frGo').addEventListener('click', async ()=>{
+        const email=$('frEmail').value.trim();
+        if(!email){ authMsg('Enter your email first.'); return; }
+        if(!sbClient){ authMsg('Accounts are unavailable right now.'); return; }
+        try{
+          const { error } = await sbClient.auth.resetPasswordForEmail(email, { redirectTo: location.origin+location.pathname+'#/reset-password' });
+          if(error) throw error;
+          authMsg('');
+          toast('Check your email for a reset link.');
+        }catch(e){ authMsg(friendlyAuthErr(e)); }
+      });
     } else {
       f.innerHTML = `
         <label class="auth-lb">Email</label><input class="auth-in" id="suEmail" type="email" autocomplete="email">
@@ -1974,6 +2017,58 @@ function renderLogin(){
   }
   root.querySelectorAll('.auth-tab').forEach(t=>t.addEventListener('click',()=>{ tab=t.dataset.tab; root.querySelectorAll('.auth-tab').forEach(x=>x.classList.toggle('active', x===t)); authMsg(''); draw(); }));
   draw();
+}
+/* T3 — neutral holding page while Supabase's own detectSessionInUrl processes the auth
+   tokens in the hash (confirmation, recovery, etc). Deliberately does nothing else — no
+   hash rewrite, no redirect — see parseHash()'s guard for why. authInit()'s
+   onAuthStateChange moves things on once Supabase is actually done (PASSWORD_RECOVERY →
+   #/reset-password; a normal confirmation just leaves the user signed in on #/courses via
+   the existing onSignedIn() flow, no extra code needed here). */
+function renderAuthCallback(){
+  document.title = 'Signing you in… — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">One moment…</span>';
+  const root = pageChrome();
+  root.innerHTML = `<div class="auth-card"><p class="auth-note" id="acMsg">Signing you in…</p></div>`;
+  /* Fallback for an invalid/already-used link: onAuthStateChange (authInit(), ~1417) is the
+     normal way off this page once Supabase resolves the token; if nothing's resolved it
+     within a few seconds, stop showing an infinite spinner. */
+  setTimeout(()=>{
+    if(parseHash().view==='authCallback' && !authUser){
+      const m=$('acMsg'); if(m) m.innerHTML = 'That link may have expired or already been used — <a href="#/login" style="color:inherit;font-weight:700">try signing in</a> or request a new one.';
+    }
+  }, 4000);
+}
+/* T3 — reached only via authInit()'s explicit PASSWORD_RECOVERY redirect (a real session
+   from the reset email, required for updateUser() to work) or a direct visit with no
+   session, handled below rather than presenting a form that can't work. */
+function renderResetPassword(){
+  document.title = 'Reset password — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Reset password</span>';
+  const root = pageChrome();
+  if(!sbClient){ root.innerHTML = `<div class="auth-card"><p class="auth-note">Accounts are unavailable right now.</p></div>`; return; }
+  if(!authUser){
+    root.innerHTML = `<div class="auth-card"><h2>Reset link expired</h2><p class="auth-note">This reset link isn't valid any more — request a new one from the <a href="#/login">sign-in page</a>.</p></div>`;
+    return;
+  }
+  root.innerHTML = `<div class="auth-card">
+    <h2>Set a new password</h2>
+    <label class="auth-lb">New password <span class="auth-hint">(at least 6 characters)</span></label><input class="auth-in" id="rpPass" type="password" autocomplete="new-password">
+    <label class="auth-lb">Confirm new password</label><input class="auth-in" id="rpPass2" type="password" autocomplete="new-password">
+    <button class="btn solid auth-submit" id="rpGo">Set password</button>
+    <div class="auth-msg" id="rpMsg" style="display:none"></div>
+  </div>`;
+  const msg = m => { const e=$('rpMsg'); e.textContent=m||''; e.style.display=m?'block':'none'; };
+  $('rpGo').addEventListener('click', async ()=>{
+    const p1=$('rpPass').value, p2=$('rpPass2').value;
+    if(p1.length<6) return msg('Password must be at least 6 characters.');
+    if(p1!==p2) return msg('Passwords don’t match.');
+    try{
+      const { error } = await sbClient.auth.updateUser({ password:p1 });
+      if(error) throw error;
+      toast('Password updated 👋');
+      location.hash='#/courses';
+    }catch(e){ msg(friendlyAuthErr(e)); }
+  });
 }
 function renderPrivacy(){
   document.title = 'Privacy — MasterMaths Tutoring';
