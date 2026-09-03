@@ -130,7 +130,7 @@
   .plan-stat b{display:block;font-size:19px;color:var(--navy)}
   .plan-stat span{font-size:11px;color:var(--muted);font-weight:700}
   .plan-day{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin:16px 0 8px}
-  .plan-item{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  .plan-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
   .plan-item.done{opacity:.65}
   .plan-item .ic{width:32px;height:32px;border-radius:9px;background:var(--surf2);display:grid;place-items:center;font-size:15px;flex-shrink:0}
   .plan-item .txt{flex:1;min-width:0}
@@ -2419,6 +2419,33 @@ function planDayLabel(d){
   const days = (d-today)/86400000;
   return (days>0 && days<7) ? 'This week' : 'Later';
 }
+/* One-way "Add to Calendar" — a link/download the student triggers themselves, nothing
+   shared with Google or anyone else unless they click it. Deliberately NOT full OAuth
+   Google Calendar sync: that needs Google app verification, raises real consent questions
+   for a platform built for minors, and is an ongoing token-maintenance dependency — flagged
+   to Ryan as its own decision (same footing as the voice-tutor D18/D19 gate), not built here. */
+function icsDateUTC(d){
+  const p=n=>String(n).padStart(2,'0');
+  return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'T'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'Z';
+}
+function googleCalUrl(title, details, start, durationMin){
+  const end = new Date(start.getTime()+durationMin*60000);
+  const params = new URLSearchParams({ action:'TEMPLATE', text:title, details:details||'',
+    dates: icsDateUTC(start)+'/'+icsDateUTC(end) });
+  return 'https://calendar.google.com/calendar/render?'+params.toString();
+}
+function icsDataUri(title, details, start, durationMin){
+  const end = new Date(start.getTime()+durationMin*60000);
+  const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//MasterMaths Tutoring//Study Planner//EN','BEGIN:VEVENT',
+    'UID:'+start.getTime()+'-mm@mastermathstutoring.co.uk',
+    'DTSTAMP:'+icsDateUTC(new Date()),
+    'DTSTART:'+icsDateUTC(start),
+    'DTEND:'+icsDateUTC(end),
+    'SUMMARY:'+title,
+    'DESCRIPTION:'+(details||''),
+    'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  return 'data:text/calendar;charset=utf-8,'+encodeURIComponent(ics);
+}
 async function renderStudyPlanner(){
   document.title = 'Study Planner — MasterMaths Tutoring';
   $('crumb').innerHTML = '<span class="here">Study Planner</span>';
@@ -2490,9 +2517,13 @@ function renderPlanAgenda(sessions){
     const act = PLAN_ACTIVITIES[s.activity_type]||['📅','Study'];
     const lessonTxt = s.lesson_id && LESSONS[s.lesson_id] ? LESSONS[s.lesson_id].title : 'General';
     const timeTxt = d.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'});
+    const evTitle = `${act[1]}: ${lessonTxt} — MasterMaths`;
+    const evDetails = `${act[1]} session${s.lesson_id?' for '+lessonTxt:''}, scheduled via your MasterMaths Study Planner.`;
     html += `<div class="plan-item">
       <span class="ic">${act[0]}</span>
       <span class="txt"><b>${esc(act[1])} — ${esc(lessonTxt)}</b><span>${esc(timeTxt)} · ${s.duration_min||30} min</span></span>
+      <a class="btn ghost ad-mini" href="${googleCalUrl(evTitle, evDetails, d, s.duration_min||30)}" target="_blank" rel="noopener">📅 Google</a>
+      <a class="btn ghost ad-mini" href="${icsDataUri(evTitle, evDetails, d, s.duration_min||30)}" download="study-session.ics">📥 .ics</a>
       <button class="btn ghost ad-mini" data-complete="${s.id}">Mark complete</button>
     </div>`;
   });
