@@ -404,6 +404,22 @@ grant select on public.leaderboard to authenticated;
 
 
 -- ============================================================================
+-- site_content — published lesson content (BACKEND-SETUP.md Step 2). Created
+-- here too, not just in that doc, so THIS file is fully self-contained for a
+-- brand-new project ("skip Step 2, run the whole of migrations.sql instead").
+-- Public anon read (row-level security still makes writes teacher-only, via
+-- the policy below).
+-- ============================================================================
+create table if not exists public.site_content (
+  id         int primary key,
+  data       jsonb not null,
+  updated_at timestamptz default now()
+);
+alter table public.site_content enable row level security;
+drop policy if exists "public read" on public.site_content;
+create policy "public read" on public.site_content for select using (true);
+
+-- ============================================================================
 -- SECURITY FIX — Teacher Editor saves no longer use the service_role key.
 --
 -- Previously, saveRemoteContent() and storageUpload() (index.html) sent the
