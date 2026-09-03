@@ -798,6 +798,9 @@
     </div>
     <div id="sidebarNav"></div>
     <div class="ext"><b>★ Higher Extension</b><span>Unlocks after Week 1</span></div>
+    <!-- F40 — reference material, no student data involved, so open to signed-out visitors too
+         (unlike the auth-box links below, which only ever show once signed in). -->
+    <div class="auth-box"><button class="auth-link" onclick="location.hash='#/resources'">📚 Resources</button></div>
     <div id="authBox" class="auth-box"></div>
     <button class="pref-btn" id="prefsBtn" aria-haspopup="dialog">⚙ Display &amp; reading settings</button>
     <button class="teacher-link" onclick="location.hash='#/admin'">✎ Teacher: edit content</button>
@@ -973,6 +976,7 @@
             <button class="tk-tab" data-tk="tkKeywords">🔑 Keywords</button>
             <button class="tk-tab" data-tk="tkMisc">⚠️ Watch Outs</button>
             <button class="tk-tab" data-tk="tkTools" id="tkToolsTab" style="display:none">🧮 Tools</button>
+            <button class="tk-tab" data-tk="tkResources">📚 Resources</button>
           </div>
           <div class="tk-panel" id="tkPrior">
             <div id="pkSummary"></div>
@@ -982,6 +986,7 @@
           <div class="tk-panel" id="tkKeywords" style="display:none"><div class="kw" id="rcKeywords"></div></div>
           <div class="tk-panel" id="tkMisc" style="display:none"><ul class="dots" id="rcMisc"></ul></div>
           <div class="tk-panel" id="tkTools" style="display:none"><div id="rcTools"></div></div>
+          <div class="tk-panel" id="tkResources" style="display:none"><div id="rcResources"></div></div>
         </section>
       </div>
     </div>
@@ -1088,6 +1093,15 @@
     <label class="ad-lb">Duration (minutes)</label>
     <input type="number" class="ad-in" id="spSessionDuration" value="30" min="5" step="5">
     <button class="btn solid" id="spSessionSave" style="margin-top:14px;width:100%">Add to planner</button>
+  </div>
+</div>
+
+<!-- F40 — Topic Resources viewer. One shared modal; openResourceViewer() fills #resModalBody
+     per the clicked item's type (formula sheet / calculator video / exam-skills guide). -->
+<div class="modal" id="resourceModal" role="dialog" aria-modal="true" aria-label="Resource">
+  <div class="modal-box" style="max-width:640px">
+    <button class="modal-x" data-close="resourceModal">✕</button>
+    <div id="resModalBody"></div>
   </div>
 </div>
 
@@ -1273,13 +1287,17 @@ function setCourse(id){ if(courseById(id)) currentCourseId=id; const c=currentCo
 /* Site-wide settings travel with the content (so the tutor can toggle them and
    publish). Back-compatible: content without a SETTINGS block uses these defaults. */
 let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLessons:[], bookingUrl:'https://www.mastermathstutoring.co.uk' }, (window.MM_CONTENT&&window.MM_CONTENT.SETTINGS)||{});
+/* F40 — Topic Resources. Global (not per-lesson) authored content, unlike everything else in
+   this payload, but travels the exact same save/load/publish path — no new Supabase table. */
+let RESOURCES = Array.isArray(window.MM_CONTENT&&window.MM_CONTENT.RESOURCES) ? window.MM_CONTENT.RESOURCES : [];
 
 /* Central content shape used by every save/load path. */
-function contentPayload(){ return { COURSES, SETTINGS:siteSettings }; }
+function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
     COURSES = defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
+    if(Array.isArray(d.RESOURCES)) RESOURCES = d.RESOURCES;   /* absent = keep whatever's already loaded (back-compat) */
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
     window.MM_CONTENT = contentPayload();
@@ -1552,10 +1570,13 @@ async function storageUpload(file, pathHint, onProgress, kind){
 }
 /* Choose <video> for direct files (incl. Supabase public URLs), <iframe> for YouTube/Vimeo embeds. */
 function isFileVideo(url){ return /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(url||'') || /\/storage\/v1\/object\/public\//.test(url||''); }
-function videoEmbedHtml(url){
+/* captionsUrl (F40) only works for directly-hosted files — a <track> can't be injected into a
+   cross-origin YouTube/Vimeo iframe, so captions there depend on the provider's own CC toggle,
+   outside this app's control. Optional and unused by the existing lesson-video call site. */
+function videoEmbedHtml(url, captionsUrl){
   if(!url) return `<div class="video-missing">🎬 Video coming soon.<br><br>Add it in the Teacher Editor: drop a video file, or paste a YouTube/Vimeo embed link.</div>`;
   return isFileVideo(url)
-    ? `<video class="video-frame" src="${url}" controls playsinline preload="metadata"></video>`
+    ? `<video class="video-frame" src="${url}" controls playsinline preload="metadata">${captionsUrl?`<track kind="captions" src="${captionsUrl}" srclang="en" label="English" default>`:''}</video>`
     : `<iframe class="video-frame" src="${url}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
 }
 /* On boot, pull the shared content from the cloud and refresh the view. */
@@ -1806,6 +1827,7 @@ function parseHash(){
   if(/^#\/?qanda\b/.test(h))   return { view:'qanda' };
   if(/^#\/?leaderboard\b/.test(h)) return { view:'leaderboard' };
   if(/^#\/?planner\b/.test(h)) return { view:'planner' };
+  if(/^#\/?resources\b/.test(h)) return { view:'resources' };
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
@@ -1823,6 +1845,7 @@ function route(){
   if(r.view==='qanda')   return renderQAndA();
   if(r.view==='leaderboard') return renderLeaderboard();
   if(r.view==='planner') return renderStudyPlanner();
+  if(r.view==='resources') return renderResourcesPage();
   if(r.view==='courses') return renderCourses();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
@@ -2540,6 +2563,78 @@ async function completeStudySession(id){
   }catch(e){ toast('Couldn’t mark that complete — try again.'); }
 }
 
+/* =============================== F40 — Topic Resources (#/resources) ===============================
+   Reads the global RESOURCES array (contentPayload(), not a lesson field — see the "own
+   global authored array" note where RESOURCES is declared, ~line 1276) — same publish/save
+   path as lesson content, no new Supabase table, works signed-out too (reference material,
+   no student data). A calc resource with a videoUrl but no captionsUrl is filtered OUT here
+   AND from the lesson-page panel (resourcesForLesson() below) — keeps "videos have captions"
+   true for anything actually shown to a student without blocking Ryan mid-authoring. */
+let _resFilter = { q:'', type:'', topic:'' };
+function resourceVisible(r){ return !(r.type==='calc' && r.videoUrl && !r.captionsUrl); }
+function resourceMatchesFilter(r){
+  if(_resFilter.type && r.type!==_resFilter.type) return false;
+  if(_resFilter.topic && !(r.topics||[]).includes(_resFilter.topic)) return false;
+  if(_resFilter.q && !(r.title||'').toLowerCase().includes(_resFilter.q.toLowerCase())) return false;
+  return true;
+}
+function renderResourcesPage(){
+  document.title = 'Resources — MasterMaths Tutoring';
+  $('crumb').innerHTML = '<span class="here">Resources</span>';
+  _resFilter = { q:'', type:'', topic:'' };
+  const root = pageChrome();
+  const allTopics = [...new Set(RESOURCES.filter(resourceVisible).flatMap(r=>r.topics||[]))].sort();
+  root.innerHTML = `
+    <div class="tch-head"><h2>📚 Resources</h2><p>Formula sheets, calculator tutorials and exam-skills guides.</p></div>
+    <div class="ad-row" style="gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <input class="ad-in" id="resSearch" placeholder="Search resources…" style="max-width:240px">
+      <select class="ad-in" id="resTypeFilter" style="width:auto"><option value="">All types</option>${RESOURCE_TYPES.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select>
+      <select class="ad-in" id="resTopicFilter" style="width:auto"><option value="">All topics</option>${allTopics.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select>
+    </div>
+    <div id="resList"></div>`;
+  $('resSearch').addEventListener('input', e=>{ _resFilter.q=e.target.value; renderResourcesList(); });
+  $('resTypeFilter').addEventListener('change', e=>{ _resFilter.type=e.target.value; renderResourcesList(); });
+  $('resTopicFilter').addEventListener('change', e=>{ _resFilter.topic=e.target.value; renderResourcesList(); });
+  renderResourcesList();
+}
+function resourceCardHtml(r){
+  const tags = [r.qualification, r.board, r.tier].filter(Boolean).join(' · ') || 'All courses';
+  return `<li style="cursor:pointer" data-open-res="${esc(r.id)}"><b>${esc(r.title||'Untitled')}</b><br><span style="color:var(--muted);font-size:11.5px">${esc(tags)}${(r.topics&&r.topics.length)?' · '+esc(r.topics.join(', ')):''}</span></li>`;
+}
+function renderResourcesList(){
+  const el=$('resList'); if(!el) return;
+  const visible = RESOURCES.filter(resourceVisible).filter(resourceMatchesFilter);
+  if(!visible.length){ el.innerHTML = `<p class="auth-note">${RESOURCES.length?'No resources match — try a different search or filter.':'No resources have been added yet — check back soon!'}</p>`; return; }
+  el.innerHTML = RESOURCE_TYPES.map(([type,label])=>{
+    const items = visible.filter(r=>r.type===type);
+    if(!items.length) return '';
+    return `<h3 style="font-size:14px;margin:16px 0 8px">${label}</h3><ul class="tch-list">${items.map(resourceCardHtml).join('')}</ul>`;
+  }).join('');
+  el.querySelectorAll('[data-open-res]').forEach(b=>b.addEventListener('click', ()=>openResourceViewer(b.dataset.openRes)));
+}
+function openResourceViewer(id){
+  const r = RESOURCES.find(x=>x.id===id); if(!r) return;
+  let inner = `<h3 style="margin-bottom:10px">${esc(r.title||'')}</h3>`;
+  if(r.type==='formula'){
+    inner += r.fileUrl
+      ? `<iframe src="${esc(r.fileUrl)}" style="width:100%;height:60vh;border:1px solid var(--line);border-radius:10px"></iframe>
+         <p style="margin-top:10px"><a href="${esc(r.fileUrl)}" target="_blank" rel="noopener" class="btn ghost ad-mini">⬇ Open / download</a></p>`
+      : '<p class="auth-note">No file added yet.</p>';
+  } else if(r.type==='calc'){
+    inner += r.videoUrl ? videoEmbedHtml(r.videoUrl, r.captionsUrl) : '<p class="auth-note">No video added yet.</p>';
+  } else if(r.type==='skills'){
+    inner += r.body ? `<div style="white-space:pre-wrap;font-size:13.5px;line-height:1.5">${esc(r.body)}</div>` : '<p class="auth-note">No content added yet.</p>';
+  }
+  $('resModalBody').innerHTML = inner;
+  $('resourceModal').classList.add('show');
+}
+/* Lesson-page contextual panel (Lesson Toolkit's new "Resources" tab) — matches on the
+   lesson's own Strand field (already authored per-lesson) against a resource's topic tags. */
+function resourcesForLesson(){
+  if(!cur || !cur.strand) return [];
+  return RESOURCES.filter(resourceVisible).filter(r=>(r.topics||[]).includes(cur.strand));
+}
+
 /* =============================== Maths markup — the cross-repo delimiter contract ===============================
    The generation service (F32, prompt p5+) emits maths as LaTeX stored as PLAIN TEXT in the
    item fields, and hard-rejects any item that breaks the contract. This is the rendering half.
@@ -3158,13 +3253,24 @@ function renderRightPanels(){
   $('rcKeywords').innerHTML = (cur.keywords||[]).map(k=>`<span>${k}</span>`).join('');
   $('rcMisc').innerHTML = (cur.misconceptions||[]).map(m=>`<li>${m}</li>`).join('');
   renderToolsTab();   /* F18 */
+  renderResourcesTab();   /* F40 */
   /* Every lesson load resets the Lesson Toolkit card to its first tab — simplest predictable
      state, and avoids landing on a hidden Tools tab from a lesson that had them when the new
      one doesn't. */
   const tabs=$('tkTabs'); if(tabs){
     tabs.querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('on', t.dataset.tk==='tkPrior'));
-    ['tkPrior','tkKeywords','tkMisc','tkTools'].forEach(id=> $(id).style.display = (id==='tkPrior') ? '' : 'none');
+    ['tkPrior','tkKeywords','tkMisc','tkTools','tkResources'].forEach(id=> $(id).style.display = (id==='tkPrior') ? '' : 'none');
   }
+}
+/* F40 — lesson-page contextual panel; empty state rather than hiding the tab, same
+   empty-content-safe pattern as F18/F35/F39. */
+function renderResourcesTab(){
+  const el=$('rcResources'); if(!el) return;
+  const items = resourcesForLesson();
+  el.innerHTML = items.length
+    ? `<ul class="tch-list">${items.map(resourceCardHtml).join('')}</ul>`
+    : '<p class="auth-note">No resources tagged to this topic yet.</p>';
+  el.querySelectorAll('[data-open-res]').forEach(b=>b.addEventListener('click', ()=>openResourceViewer(b.dataset.openRes)));
 }
 /* F18 — digital maths toolkit tab. Tools render lazily (only when a row is first expanded) into
    their own container; all click handlers are scoped to that container, so replacing the
@@ -3521,7 +3627,7 @@ $('hiwBtn').addEventListener('click', ()=> toggleAct('secGen'));
 $('tkTabs').addEventListener('click', e=>{
   const btn=e.target.closest('.tk-tab'); if(!btn) return;
   $('tkTabs').querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('on', t===btn));
-  ['tkPrior','tkKeywords','tkMisc','tkTools'].forEach(id=> $(id).style.display = (id===btn.dataset.tk) ? '' : 'none');
+  ['tkPrior','tkKeywords','tkMisc','tkTools','tkResources'].forEach(id=> $(id).style.display = (id===btn.dataset.tk) ? '' : 'none');
 });
 
 /* =============================== videos =============================== */
@@ -4715,7 +4821,7 @@ function buildAdminForm(){
   const f = $('adForm');
 
   if(L.comingSoon){
-    f.innerHTML = weeksPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
+    f.innerHTML = weeksPanel() + resourcesPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
       ${inp('Lesson title','ad-title',L.title)}
       <div class="ad-steps" style="margin-top:10px;background:#fef9c3;border-color:#facc15">This lesson is a <b>“coming soon” placeholder</b>. Untick the box below to turn it into a full lesson — video, quiz, worksheet and generator editors will appear.</div>
       <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0;font-size:13px"><input type="checkbox" id="ad-soon" checked> Keep as a “coming soon” placeholder &nbsp;—&nbsp; <b>untick to start adding content</b></label></div>
@@ -4727,7 +4833,7 @@ function buildAdminForm(){
   const lessonIds = Object.keys(LESSONS);
   const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
 
-  f.innerHTML = weeksPanel() + `
+  f.innerHTML = weeksPanel() + resourcesPanel() + `
   <div class="ad-panel"><h4>📋 Basics</h4>
     ${inp('Lesson title','ad-title',L.title)}
     <div class="ad-grid2">
@@ -5140,6 +5246,19 @@ function collectAdminForm(){
   f.querySelectorAll('.wk-label').forEach(inp=>{ const wi=+inp.dataset.wk; if(WEEKS[wi]) WEEKS[wi].label = inp.value; });
   f.querySelectorAll('.wk-quote').forEach(inp=>{ const wi=+inp.dataset.wk; if(WEEKS[wi]){ const q=inp.value.trim(); if(q) WEEKS[wi].quote=q; else delete WEEKS[wi].quote; } });   /* F29 */
 
+  /* F40 — Resources panel (also present on every editor screen, same as weeks above) */
+  f.querySelectorAll('.rs-title').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].title = inp.value; });
+  f.querySelectorAll('.rs-type').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].type = inp.value; });
+  f.querySelectorAll('.rs-qual').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].qualification = inp.value; });
+  f.querySelectorAll('.rs-board').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].board = inp.value; });
+  f.querySelectorAll('.rs-tier').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].tier = inp.value; });
+  f.querySelectorAll('.rs-calc').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].calcModel = inp.value; });
+  f.querySelectorAll('.rs-topics').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].topics = inp.value.split(',').map(s=>s.trim()).filter(Boolean); });
+  f.querySelectorAll('.rs-file').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].fileUrl = inp.value.trim(); });
+  f.querySelectorAll('.rs-video').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].videoUrl = inp.value.trim(); });
+  f.querySelectorAll('.rs-captions').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].captionsUrl = inp.value.trim(); });
+  f.querySelectorAll('.rs-body').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].body = inp.value; });
+
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
     if(g('ad-soon') && !g('ad-soon').checked){ delete L.comingSoon; Object.assign(L, {...BLANK_LESSON(), ...L}); }
@@ -5261,6 +5380,8 @@ function onFormChange(e){
   collectAdminForm();
   /* toggling "coming soon" switches between the placeholder form and the full content editor */
   if(e && e.target && e.target.id==='ad-soon'){ buildAdminForm(); renderSidebar(); }
+  /* F40 — switching a resource's type shows/hides its type-specific fields */
+  if(e && e.target && e.target.classList.contains('rs-type')){ buildAdminForm(); }
 }
 
 function onFormClick(e){
@@ -5269,7 +5390,7 @@ function onFormClick(e){
   collectAdminForm();
   const L = LESSONS[adminSel];
   const act = b.dataset.act;
-  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2;
+  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2, ri=+b.dataset.rs;
 
   if(act==='addVideo') L.videos.push({title:'Video '+(L.videos.length+1), url:'', notes:null});
   if(act==='delVideo') L.videos.splice(vi,1);
@@ -5303,6 +5424,10 @@ function onFormClick(e){
     WEEKS.splice(wk,1);
   }
 
+  /* resource actions (F40) */
+  if(act==='addResource') RESOURCES.push({ id:'r'+Date.now(), type:'formula', title:'', qualification:'', board:'', tier:'', topics:[] });
+  if(act==='delResource') RESOURCES.splice(ri,1);
+
   saveDraft();
   buildAdminForm();
   renderSidebar();
@@ -5326,6 +5451,44 @@ function weeksPanel(){
     <button class="btn ghost ad-mini" data-act="addWeek">＋ Add week</button>
   </div>`;
 }
+
+/* ---------- F40 — Topic Resources panel (global, not per-lesson — same "present on every
+   editor screen" treatment as weeksPanel() above, which is the one existing precedent for
+   course-level content rendered inside the per-lesson #adForm). ---------- */
+const RESOURCE_TYPES = [['formula','📄 Formula sheet'],['calc','🎥 Calculator tutorial'],['skills','✍️ Exam skills guide']];
+function resourceOptionsFrom(getter, cur){
+  const vals = [...new Set(COURSES.map(getter))].filter(Boolean);
+  return `<option value="">All</option>${vals.map(v=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}</option>`).join('')}`;
+}
+function resourcesPanel(){
+  return `<div class="ad-panel"><h4>📚 Resources <span class="ad-note">(formula sheets, calculator tutorials, exam-skills guides — shown in the student Resources library and on lessons with a matching Strand)</span></h4>
+    <div id="adResources">${RESOURCES.map((r,ri)=>resourceRowHtml(r,ri)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addResource">＋ Add resource</button>
+  </div>`;
+}
+function resourceRowHtml(r, ri){
+  const missingCaptions = r.type==='calc' && r.videoUrl && !r.captionsUrl;
+  return `<div class="ad-q" data-rs="${ri}">
+    <div class="ad-row">
+      <input class="ad-in rs-title" data-rs="${ri}" value="${esc(r.title||'')}" placeholder="Title">
+      <select class="ad-in rs-type" data-rs="${ri}" style="width:auto">${RESOURCE_TYPES.map(t=>`<option value="${t[0]}" ${t[0]===r.type?'selected':''}>${t[1]}</option>`).join('')}</select>
+      <button class="btn ghost ad-mini" data-act="delResource" data-rs="${ri}" style="color:var(--red);border-color:var(--red-line)">🗑</button>
+    </div>
+    <div class="ad-row" style="margin-top:6px;gap:8px;flex-wrap:wrap">
+      <span><label class="ad-lb" style="margin:0 0 3px">Qualification</label><select class="ad-in rs-qual" data-rs="${ri}" style="width:auto">${resourceOptionsFrom(c=>c.qualification, r.qualification)}</select></span>
+      <span><label class="ad-lb" style="margin:0 0 3px">Board</label><select class="ad-in rs-board" data-rs="${ri}" style="width:auto">${resourceOptionsFrom(c=>c.board, r.board)}</select></span>
+      <span><label class="ad-lb" style="margin:0 0 3px">Tier</label><select class="ad-in rs-tier" data-rs="${ri}" style="width:auto">${resourceOptionsFrom(c=>c.tier, r.tier)}</select></span>
+      ${r.type==='calc'?`<span><label class="ad-lb" style="margin:0 0 3px">Calculator model</label><input class="ad-in rs-calc" data-rs="${ri}" value="${esc(r.calcModel||'')}" placeholder="e.g. Casio ClassWiz — blank = All" style="width:220px"></span>`:''}
+    </div>
+    <label class="ad-lb" style="margin-top:6px">Topic tags <span class="ad-note">(comma-separated — matched against a lesson's Strand field for its Resources tab, and used as filter chips in the library)</span></label>
+    <input class="ad-in rs-topics" data-rs="${ri}" value="${esc((r.topics||[]).join(', '))}" placeholder="e.g. Number Skills, Algebra Basics">
+    ${r.type==='formula'?`<label class="ad-lb" style="margin-top:6px">File URL (PDF or image)</label><input class="ad-in rs-file" data-rs="${ri}" value="${esc(r.fileUrl||'')}" placeholder="https://…">`:''}
+    ${r.type==='calc'?`<label class="ad-lb" style="margin-top:6px">Video URL</label><input class="ad-in rs-video" data-rs="${ri}" value="${esc(r.videoUrl||'')}" placeholder="Direct file URL (enables captions) or a YouTube/Vimeo embed link">
+      <label class="ad-lb" style="margin-top:6px">Captions file (.vtt) <span class="ad-note">${missingCaptions?'— ⚠ no captions yet: hidden from students until this is filled in':'(only works with a direct-hosted video file, not YouTube/Vimeo — its own CC toggle applies there instead)'}</span></label><input class="ad-in rs-captions" data-rs="${ri}" value="${esc(r.captionsUrl||'')}" placeholder="https://…/captions.vtt">`:''}
+    ${r.type==='skills'?`<label class="ad-lb" style="margin-top:6px">Guide content</label><textarea class="ad-in rs-body" data-rs="${ri}" rows="4" placeholder="Plain text, one idea per line">${esc(r.body||'')}</textarea>`:''}
+  </div>`;
+}
+
 function addLessonToWeek(wi){
   collectAdminForm();
   const wk = WEEKS[wi]; if(!wk) return;
