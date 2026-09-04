@@ -755,6 +755,13 @@ loads async, so the worksheet's print button now awaits `renderMathIn` before
 ☑ same markup renders identically in editor preview, student view, print ☑ existing
 content unaffected — pending Ryan's live verification.
 
+**2026-09-04 follow-up:** closed the calculus/vectors/matrices gap explicitly deferred
+above, plus logarithms (named in the original request, missed the first pass) —
+`MATH_SNIPPETS` gains derivative, integral, prime notation, limit, log/ln/log-base-n,
+coordinate points, column vectors and a 2×2 matrix template. Same insert-and-edit-the-
+placeholder pattern as every existing button; no new rendering path (KaTeX already
+supports the `pmatrix` environment natively).
+
 ### F34 · Question import (Ryan-owned content) — Could, Phase 4–5, L–XL
 Upload PDF/Word/image/scan of **Ryan's own** material → extraction into editable
 components (text, maths, tables, figures, parts, marks) → review screen (original vs

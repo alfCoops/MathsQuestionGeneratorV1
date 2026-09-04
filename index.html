@@ -4725,9 +4725,10 @@ const RICH_COLOURS = [['#0f172a','Black'],['#2e7d32','Green'],['#c62828','Red'],
 const RICH_SIZES   = [['2','Small'],['3','Normal'],['5','Large'],['6','Huge']];
 /* F33 — maths symbol palette. Each button inserts a self-contained \(...\) snippet (the
    established inline-maths delimiter — see KATEX_DELIMITERS/renderMathIn) with placeholder
-   content the teacher edits in place, e.g. "a"/"b" in a fraction. Scoped to what a Foundation
-   GCSE course actually needs day to day, not an exhaustive CAS palette — calculus/matrices can
-   follow the same pattern later if a higher-tier/A-Level course needs them. */
+   content the teacher edits in place, e.g. "a"/"b" in a fraction. Originally scoped to
+   Foundation GCSE day-to-day needs only, with calculus/matrices explicitly deferred "for a
+   follow-up if a higher-tier/A-Level course needs them" — this is that follow-up, plus
+   logarithms (named in the same original request but missed the first pass). */
 const MATH_SNIPPETS = [
   ['a/b', '\\(\\frac{a}{b}\\)', 'Fraction'],
   ['x²', '\\(x^{2}\\)', 'Squared'],
@@ -4745,6 +4746,16 @@ const MATH_SNIPPETS = [
   ['tan', '\\(\\tan(x)\\)', 'Tangent'],
   ['θ', '\\(\\theta\\)', 'Theta'],
   ['v⃗', '\\(\\vec{v}\\)', 'Vector'],
+  ['log', '\\(\\log(x)\\)', 'Logarithm'],
+  ['ln', '\\(\\ln(x)\\)', 'Natural logarithm'],
+  ['logₙ', '\\(\\log_{n}(x)\\)', 'Logarithm to base n'],
+  ['d/dx', '\\(\\frac{d}{dx}\\)', 'Derivative'],
+  ['∫', '\\(\\int x\\,dx\\)', 'Integral'],
+  ["f'(x)", "\\(f'(x)\\)", 'Function — prime notation'],
+  ['lim', '\\(\\lim_{x \\to a}\\)', 'Limit'],
+  ['(x,y)', '\\((x, y)\\)', 'Coordinate point'],
+  ['col vec', '\\(\\begin{pmatrix} x \\\\ y \\end{pmatrix}\\)', 'Column vector'],
+  ['matrix', '\\(\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}\\)', '2×2 matrix'],
 ];
 /* ONE shared toolbar for every rich field, rendered once and acting on whichever field has
    the caret. A toolbar per field looked tempting but doesn't scale: the quiz alone is 10
