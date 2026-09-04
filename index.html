@@ -329,11 +329,23 @@
   .step.done .node.star{background:var(--gold);border-color:var(--gold)}
 
   /* activity rows */
-  .act-head{display:flex;align-items:center;gap:13px;cursor:pointer}
-  .act-head .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:16px;color:#fff;flex-shrink:0}
-  .act-head .txt{flex:1}
-  .act-head .txt b{display:block;font-size:13.5px}
-  .act-head .txt span{font-size:12px;color:var(--muted)}
+  /* 2026-09-04 (F44) — Ryan sent a mockup of these exact cards with larger two-layer icons
+     (a pale halo circle + a smaller solid-colour glyph circle, plus a small secondary badge
+     overlapping bottom-left) and asked for it "across the website," not just the marketing
+     preview — this is the ONE .act-head/.ico definition, so the real lesson page and the
+     marketing How It Works page (which reuses this same markup, F44 Phase 1) update together
+     automatically. --ic/--icbg are set per-instance via inline style (each section already had
+     its own colour inline) so one CSS rule serves every colour. */
+  .act-head{display:flex;align-items:flex-start;gap:16px;cursor:pointer}
+  .act-head .ico{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--icbg);flex-shrink:0;position:relative}
+  .act-head .ico .glyph{width:42px;height:42px;border-radius:50%;background:var(--ic);color:#fff;display:grid;place-items:center;font-size:19px}
+  .act-head .ico2{position:absolute;bottom:-4px;left:-4px;width:25px;height:25px;border-radius:50%;background:var(--card);border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;box-shadow:0 1px 3px rgba(15,23,42,.15)}
+  .act-head .txt{flex:1;padding-top:8px}
+  .act-head .txt b{display:block;font-size:14.5px}
+  .act-head .txt span{font-size:12.5px;color:var(--muted);display:block}
+  .act-head .txt span.act-sub{font-weight:700;margin:2px 0 4px}
+  .act-head .time-chip,.act-head>button,.act-head .chev{margin-top:8px}
+  .act-head .btn{border-radius:999px}
   .time-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);background:var(--surf2);border:1px solid var(--line);padding:3px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0}
   .time-chip:empty{display:none}
   @media(max-width:560px){.time-chip{display:none}}
@@ -958,7 +970,7 @@
              renderPkcCard() when the lesson has no priorCheck content authored. -->
         <section class="card pkc-card" id="secPkc" style="display:none;border:1px solid #ddd6fe;background:#faf9ff">
           <div class="act-head">
-            <div class="ico" style="background:var(--purple)">📋</div>
+            <div class="ico" style="--ic:var(--purple);--icbg:var(--purple-bg)"><span class="glyph">📋</span></div>
             <div class="txt"><b>Prior Knowledge Checker</b><span>A short check of what you already know before we start.</span></div>
             <span class="time-chip">~5 minutes</span>
             <button class="btn o-purple" id="pkcBtn">Start Checker</button>
@@ -977,8 +989,8 @@
 
         <section class="card" id="secLearn">
           <div class="act-head" data-toggle="secLearn">
-            <div class="ico" style="background:var(--blue)">▶</div>
-            <div class="txt"><b>1. Watch Lesson &amp; Read Notes</b><span>Watch the video explanation with worked examples, then read the summary notes with key formulas.</span></div>
+            <div class="ico" style="--ic:var(--blue);--icbg:var(--blue-soft)"><span class="glyph">▶</span><span class="ico2">📄</span></div>
+            <div class="txt"><b>1. Watch Lesson &amp; Read Notes</b><span class="act-sub" style="color:var(--blue)">Build understanding before attempting questions.</span><span>Watch the video explanation with worked examples, then read the summary notes with key formulas.</span></div>
             <span class="time-chip" id="timeLearn"></span>
             <button class="btn solid" id="learnBtn">Start ⊕</button>
             <span class="chev">▼</span>
@@ -988,8 +1000,8 @@
 
         <section class="card" id="secQuiz">
           <div class="act-head">
-            <div class="ico" style="background:var(--orange)">🧠</div>
-            <div class="txt"><b>2. Diagnostic Quiz</b><span>Test your understanding with 10 questions. You'll get instant feedback!</span></div>
+            <div class="ico" style="--ic:var(--orange);--icbg:var(--orange-bg)"><span class="glyph">🧠</span><span class="ico2">📋</span></div>
+            <div class="txt"><b>2. Diagnostic Quiz</b><span class="act-sub" style="color:var(--orange)">Discover what you know and what to improve.</span><span>Test your understanding with 10 questions. You'll get instant feedback!</span></div>
             <span class="time-chip" id="timeQuiz"></span>
             <button class="btn o-orange" id="quizBtn">Start Quiz</button>
           </div>
@@ -1012,8 +1024,8 @@
 
         <section class="card" id="secWs">
           <div class="act-head" data-toggle="secWs">
-            <div class="ico" style="background:var(--purple)">⛰</div>
-            <div class="txt"><b>3. From Method to Meaning</b><span>Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.</span></div>
+            <div class="ico" style="--ic:var(--purple);--icbg:var(--purple-bg)"><span class="glyph">⛰</span><span class="ico2">💬</span></div>
+            <div class="txt"><b>3. From Method to Meaning</b><span class="act-sub" style="color:var(--purple)">Develop mathematical reasoning through guided practice.</span><span>Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.</span></div>
             <span class="time-chip" id="timeWs"></span>
             <button class="btn o-purple" id="wsBtn">Start</button>
             <span class="chev">▼</span>
@@ -1023,8 +1035,8 @@
 
         <section class="card" id="secGen">
           <div class="act-head" data-toggle="secGen">
-            <div class="ico" style="background:var(--pink)">🎲</div>
-            <div class="txt"><b>4. Question Generator</b><span>Generate unlimited exam-style questions to challenge your understanding.</span></div>
+            <div class="ico" style="--ic:var(--pink);--icbg:#fdf2f8"><span class="glyph">🎲</span><span class="ico2">📊</span></div>
+            <div class="txt"><b>4. Question Generator</b><span class="act-sub" style="color:var(--pink)">Unlimited personalised practice.</span><span>Generate unlimited exam-style questions to challenge your understanding.</span></div>
             <span class="time-chip" id="timeGen"></span>
             <button class="btn o-pink" id="hiwBtn">ⓘ How It Works</button>
             <span class="chev">▼</span>
@@ -2201,11 +2213,11 @@ function renderHome(){
    DOM/CSS to what a student actually sees, wrapped at a readable width for a single-column
    marketing page. Prior Knowledge deliberately stays OUTSIDE the numbered steps here too,
    matching the real lesson's own design decision (see the comment at index.html:977-979). */
-function realStepCardHtml(iconBg, icon, title, desc, timeKey, extraBodyHtml){
+function realStepCardHtml(ic, icBg, icon, icon2, title, sub, desc, timeKey, extraBodyHtml){
   return `<section class="card" style="max-width:640px;margin:0 auto 14px">
     <div class="act-head" style="cursor:default">
-      <div class="ico" style="background:${iconBg}">${icon}</div>
-      <div class="txt"><b>${esc(title)}</b><span>${esc(desc)}</span></div>
+      <div class="ico" style="--ic:${ic};--icbg:${icBg}"><span class="glyph">${icon}</span><span class="ico2">${icon2}</span></div>
+      <div class="txt"><b>${esc(title)}</b><span class="act-sub" style="color:${ic}">${esc(sub)}</span><span>${esc(desc)}</span></div>
       <span class="time-chip">${esc(SECTION_TIME_DEFAULTS[timeKey])}</span>
     </div>
     ${extraBodyHtml || ''}
@@ -2236,15 +2248,15 @@ function renderHowItWorks(){
 
       <section class="card pkc-card" style="max-width:640px;margin:0 auto 14px;border:1px solid #ddd6fe;background:#faf9ff">
         <div class="act-head" style="cursor:default">
-          <div class="ico" style="background:var(--purple)">📋</div>
+          <div class="ico" style="--ic:var(--purple);--icbg:var(--purple-bg)"><span class="glyph">📋</span></div>
           <div class="txt"><b>Prior Knowledge Checker</b><span>A short check of what you already know before we start.</span></div>
           <span class="time-chip">~5 minutes</span>
         </div>
       </section>
 
-      ${realStepCardHtml('var(--blue)', '▶', '1. Watch Lesson & Read Notes', 'Watch the video explanation with worked examples, then read the summary notes with key formulas.', 'learn')}
-      ${realStepCardHtml('var(--orange)', '🧠', '2. Diagnostic Quiz', "Test your understanding with 10 questions. You'll get instant feedback!", 'quiz')}
-      ${realStepCardHtml('var(--purple)', '⛰', '3. From Method to Meaning', 'Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.', 'worksheet',
+      ${realStepCardHtml('var(--blue)', 'var(--blue-soft)', '▶', '📄', '1. Watch Lesson & Read Notes', 'Build understanding before attempting questions.', 'Watch the video explanation with worked examples, then read the summary notes with key formulas.', 'learn')}
+      ${realStepCardHtml('var(--orange)', 'var(--orange-bg)', '🧠', '📋', '2. Diagnostic Quiz', 'Discover what you know and what to improve.', "Test your understanding with 10 questions. You'll get instant feedback!", 'quiz')}
+      ${realStepCardHtml('var(--purple)', 'var(--purple-bg)', '⛰', '💬', '3. From Method to Meaning', 'Develop mathematical reasoning through guided practice.', 'Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.', 'worksheet',
         `<div class="body" style="display:block">
            <p class="ad-note" style="margin-bottom:6px;font-weight:700;color:var(--purple)">Students build upon skills of:</p>
            <ul class="mkt-skills">
@@ -2253,7 +2265,7 @@ function renderHowItWorks(){
              <li>Solving increasingly challenging questions</li>
            </ul>
          </div>`)}
-      ${realStepCardHtml('var(--pink)', '🎲', '4. Question Generator', 'Generate unlimited exam-style questions to challenge your understanding.', 'generate')}
+      ${realStepCardHtml('var(--pink)', '#fdf2f8', '🎲', '📊', '4. Question Generator', 'Unlimited personalised practice.', 'Generate unlimited exam-style questions to challenge your understanding.', 'generate')}
 
       <div class="mkt-points">
         <div class="rh" style="color:var(--gold)">🏅 Earn Points &amp; Badges</div>
