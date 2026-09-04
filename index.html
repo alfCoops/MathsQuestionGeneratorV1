@@ -823,11 +823,29 @@
   .mkt-feat .ic{font-size:22px;margin-bottom:10px}
   .mkt-feat b{display:block;font-size:14.5px;color:var(--navy);margin-bottom:4px}
   .mkt-feat span{font-size:13px;color:var(--muted)}
+  /* F41 restyle 2026-09-04 — matches the mockup's icon-circle + numbered-badge treatment
+     (Ryan flagged the first pass as too plain: inline emoji next to text, no colour, no
+     progress-stepper demo, no research footer). */
+  .mkt-progress-demo{border:1.5px solid var(--line);border-radius:16px;padding:22px 24px;margin-top:28px}
+  .mkt-progress-demo-head{display:flex;justify-content:space-between;align-items:baseline;font-weight:800;color:var(--navy)}
+  .mkt-progress-demo-head span{color:var(--green);font-size:18px}
+  .mkt-progress-demo-track{display:flex;align-items:center;margin:18px 0 8px}
+  .mkt-progress-demo-node{width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;flex-shrink:0}
+  .mkt-progress-demo-node.star{background:var(--gold)}
+  .mkt-progress-demo-line{flex:1;height:2px;background:var(--green-line)}
+  .mkt-progress-demo-labels{display:flex;font-size:11px;color:var(--muted);font-weight:600;text-align:center}
+  .mkt-progress-demo-labels span{flex:1}
   .mkt-steps{display:flex;flex-direction:column;gap:14px;margin-top:26px}
-  .mkt-step{display:flex;gap:16px;align-items:flex-start;border:1.5px solid var(--line);border-radius:16px;padding:18px 20px}
-  .mkt-step .num{width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+  .mkt-step{display:flex;gap:16px;align-items:flex-start;border:1.5px solid var(--line);border-radius:16px;padding:18px 20px;position:relative}
+  .mkt-step .num{position:absolute;top:-11px;left:-11px;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 2px 5px rgba(15,23,42,.15)}
+  .mkt-step .mkt-step-icon{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:24px;flex-shrink:0}
   .mkt-step b{display:block;font-size:15px;color:var(--navy)}
+  .mkt-step .mkt-step-sub{font-size:13px;font-weight:700;display:block;margin:2px 0 4px}
   .mkt-step span{font-size:13px;color:var(--muted)}
+  .mkt-research{border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:16px;padding:22px 24px;margin-top:22px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+  .mkt-research .rh{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--green);font-size:14.5px}
+  .mkt-research p{font-size:12.5px;color:var(--text2);margin-top:6px;max-width:340px}
+  .mkt-research-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 20px;font-size:12.5px;font-weight:600;color:var(--text2)}
   .mkt-testis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:26px}
   .mkt-testi{border:1.5px solid var(--line);border-radius:16px;padding:18px 20px;font-size:13.5px;color:var(--text2)}
   .mkt-testi .stars{color:var(--gold);font-size:13px;margin-bottom:8px}
@@ -2157,21 +2175,56 @@ function renderHome(){
     </div>
     ${mktCtaStripHtml()}`;
 }
+/* Icon-circle colour pairs, reusing existing tokens (no new palette) — matches the mockup's
+   green/orange/purple/pink treatment per step. */
+const HIW_STEP_STYLE = [
+  { bg:'var(--green-bg)',  fg:'var(--green)' },
+  { bg:'var(--orange-bg)', fg:'var(--orange)' },
+  { bg:'var(--purple-bg)', fg:'var(--purple)' },
+  { bg:'#fdf2f8',          fg:'var(--pink)' },
+];
 function renderHowItWorks(){
   document.title = 'How MasterMaths Works — MasterMaths Tutoring';
   const root = marketingChrome();
   const steps = [
-    { ic:'▶', t:SECTION_TIME_DEFAULTS.learn, title:'1. Video & Notes', sub:'Build understanding before attempting questions.', body:'Watch a concise video lesson with worked examples, then revise using clear notes that explain both the method and why it works.' },
-    { ic:'🧠', t:SECTION_TIME_DEFAULTS.quiz, title:'2. Diagnostic Quiz', sub:'Discover what you know and what to improve.', body:'Complete a short quiz designed to identify misconceptions and give instant feedback, so you always know your next step.' },
-    { ic:'⛰', t:SECTION_TIME_DEFAULTS.worksheet, title:'3. From Method to Meaning', sub:'Develop mathematical reasoning through guided practice.', body:'Climb from using the method to explaining why it works — clarifying, justifying and generalising your reasoning, one question at a time.' },
-    { ic:'🎲', t:SECTION_TIME_DEFAULTS.generate, title:'4. Adaptive Question Generator', sub:'Unlimited personalised practice.', body:'Generate unlimited exam-style questions that automatically adapt to your progress.' },
+    { ic:'▶', title:'Video & Notes', t:SECTION_TIME_DEFAULTS.learn, sub:'Build understanding before attempting questions.', body:'Watch a concise video lesson with worked examples, then revise using clear notes that explain both the method and why it works.' },
+    { ic:'🧠', title:'Diagnostic Quiz', t:SECTION_TIME_DEFAULTS.quiz, sub:'Discover what you know and what to improve.', body:'Complete a short quiz designed to identify misconceptions and give instant feedback, so you always know your next step.' },
+    { ic:'✏️', title:'From Method to Meaning', t:SECTION_TIME_DEFAULTS.worksheet, sub:'Develop mathematical reasoning through guided practice.', body:'Climb from using the method to explaining why it works — clarifying, justifying and generalising your reasoning, one question at a time.' },
+    { ic:'🎲', title:'Adaptive Question Generator', t:SECTION_TIME_DEFAULTS.generate, sub:'Unlimited personalised practice.', body:'Generate unlimited exam-style questions that automatically adapt to your progress.' },
   ];
   root.innerHTML = `
     <div class="mkt-section">
       <h2>How MasterMaths Works</h2>
       <p class="mkt-sub">Four simple steps that help you understand maths, build confidence, and become an independent problem solver.</p>
+
+      <div class="mkt-progress-demo">
+        <div class="mkt-progress-demo-head"><b>Your Progress</b><span>100%</span></div>
+        <div class="mkt-progress-demo-track">
+          <div class="mkt-progress-demo-node">1</div><div class="mkt-progress-demo-line"></div>
+          <div class="mkt-progress-demo-node">2</div><div class="mkt-progress-demo-line"></div>
+          <div class="mkt-progress-demo-node">3</div><div class="mkt-progress-demo-line"></div>
+          <div class="mkt-progress-demo-node">4</div><div class="mkt-progress-demo-line"></div>
+          <div class="mkt-progress-demo-node star">★</div>
+        </div>
+        <div class="mkt-progress-demo-labels">
+          <span>1. Video &amp; Notes</span><span>2. Diagnostic Quiz</span><span>3. Method to Meaning</span><span>4. Question Generator</span><span>Lesson Complete</span>
+        </div>
+      </div>
+
       <div class="mkt-steps">
-        ${steps.map((s,i)=>`<div class="mkt-step"><div class="num">${i+1}</div><div style="flex:1"><b>${esc(s.ic)} ${esc(s.title)}</b><span style="color:var(--green);font-weight:700;display:block;margin:2px 0 4px">${esc(s.sub)}</span><span>${esc(s.body)}</span></div><span class="chip time" style="flex-shrink:0">${esc(s.t)}</span></div>`).join('')}
+        ${steps.map((s,i)=>`<div class="mkt-step"><div class="num">${i+1}</div><div class="mkt-step-icon" style="background:${HIW_STEP_STYLE[i].bg};color:${HIW_STEP_STYLE[i].fg}">${esc(s.ic)}</div><div style="flex:1"><b>${i+1}. ${esc(s.title)}</b><span class="mkt-step-sub" style="color:${HIW_STEP_STYLE[i].fg}">${esc(s.sub)}</span><span>${esc(s.body)}</span></div><span class="chip time" style="flex-shrink:0">${esc(s.t)}</span></div>`).join('')}
+      </div>
+
+      <div class="mkt-research">
+        <div>
+          <div class="rh">📖 Research-Informed Learning</div>
+          <p>MasterMaths is built on evidence-based approaches from mathematics education and cognitive science.</p>
+        </div>
+        <div class="mkt-research-grid">
+          <span>💡 Explicit Instruction</span><span>📋 Formative Assessment</span>
+          <span>🧮 Mathematical Reasoning</span><span>🔄 Retrieval Practice</span>
+          <span>🎯 Adaptive Learning</span><span>🏅 Mastery Learning</span>
+        </div>
       </div>
     </div>
     ${mktCtaStripHtml()}`;
