@@ -1373,14 +1373,22 @@ let siteSettings = Object.assign({ requireSequential:true, freeWeeks:1, freeLess
 /* F40 — Topic Resources. Global (not per-lesson) authored content, unlike everything else in
    this payload, but travels the exact same save/load/publish path — no new Supabase table. */
 let RESOURCES = Array.isArray(window.MM_CONTENT&&window.MM_CONTENT.RESOURCES) ? window.MM_CONTENT.RESOURCES : [];
+/* F41 follow-up — public marketing page copy, teacher-editable via marketingPanel(). Same
+   "global content, not per-lesson, travels the existing save/load/publish path" treatment as
+   RESOURCES above. Starts with About Us only; more pages (Home/Pricing/How It Works) follow
+   the same MARKETING.<page> shape as they're made editable. Absent/blank = renderAbout()'s
+   own hardcoded default copy, so this is fully back-compatible with content saved before
+   this shipped. */
+let MARKETING = Object.assign({ aboutTitle:'', about:'' }, (window.MM_CONTENT&&window.MM_CONTENT.MARKETING)||{});
 
 /* Central content shape used by every save/load path. */
-function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES }; }
+function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES, MARKETING }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
     COURSES = defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(Array.isArray(d.RESOURCES)) RESOURCES = d.RESOURCES;   /* absent = keep whatever's already loaded (back-compat) */
+    if(d.MARKETING) MARKETING = Object.assign({ aboutTitle:'', about:'' }, d.MARKETING);   /* absent = keep whatever's already loaded (back-compat) */
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
     window.MM_CONTENT = contentPayload();
@@ -2201,18 +2209,30 @@ function renderPricing(){
     </div>`;
   root.querySelectorAll('.mkt-premium-btn').forEach(b=>b.addEventListener('click',()=>go('Premium plans are launching soon — you’re welcome to use everything free during the pilot 🎉')));
 }
+/* Fallback copy — mirrors themes already public on the live Wix site (qualified teacher,
+   DBS-checked, personalised tutoring), NOT fabricated biographical detail. Shown until Ryan
+   edits the page via the Teacher Editor's marketingPanel(); MARKETING.about/.aboutTitle
+   override these once he saves real copy. */
+const ABOUT_DEFAULT_TITLE = 'About MasterMaths Tutoring';
+const ABOUT_DEFAULT_BODY = '<p>MasterMaths Tutoring is a one-to-one GCSE Maths tutoring practice, built on the belief that real progress comes from understanding <i>why</i> a method works — not just memorising the steps. This platform brings that same approach online: clear explanations, guided reasoning practice, and exam-style questions that adapt to how each student is actually doing.</p><p>Every lesson is written by a qualified, DBS-checked tutor, and the platform is built to be a natural extension of that same one-to-one teaching — calm, focused, and exam-relevant, without unnecessary pressure or gimmicks.</p>';
 function renderAbout(){
   document.title = 'About Us — MasterMaths Tutoring';
   const root = marketingChrome();
-  /* Placeholder copy mirroring the themes already public on the live Wix site (qualified
-     teacher, DBS-checked, personalised tutoring) — NOT fabricated biographical detail.
-     Flagged for Ryan to review/edit the exact wording before this is treated as final. */
+  const title = MARKETING.aboutTitle || ABOUT_DEFAULT_TITLE;
+  const body = MARKETING.about || ABOUT_DEFAULT_BODY;
+  /* Same visual language as the How It Works page (feature-card row + a content card) rather
+     than plain paragraphs on white — matches Ryan's "mimic the style" ask for every page. */
   root.innerHTML = `
-    <div class="mkt-section" style="max-width:760px">
-      <h2 style="text-align:left">About MasterMaths Tutoring</h2>
-      <p style="color:var(--text2);font-size:14.5px;line-height:1.7;margin-top:16px">MasterMaths Tutoring is a one-to-one GCSE Maths tutoring practice, built on the belief that real progress comes from understanding <i>why</i> a method works — not just memorising the steps. This platform brings that same approach online: clear explanations, guided reasoning practice, and exam-style questions that adapt to how each student is actually doing.</p>
-      <p style="color:var(--text2);font-size:14.5px;line-height:1.7;margin-top:14px">Every lesson is written by a qualified, DBS-checked tutor, and the platform is built to be a natural extension of that same one-to-one teaching — calm, focused, and exam-relevant, without unnecessary pressure or gimmicks.</p>
-      <p class="ad-note" style="margin-top:18px">This page is placeholder copy — Ryan, please review and edit before this goes live.</p>
+    <div class="mkt-section">
+      <h2>${esc(title)}</h2>
+      <p class="mkt-sub">The people and the approach behind your lessons.</p>
+      <div class="mkt-features">
+        <div class="mkt-feat"><div class="ic">🎓</div><b>Qualified &amp; DBS-checked</b><span>Every lesson comes from a qualified tutor with an up-to-date DBS check.</span></div>
+        <div class="mkt-feat"><div class="ic">💡</div><b>Understanding, not memorising</b><span>We focus on why a method works, not just the steps to repeat.</span></div>
+        <div class="mkt-feat"><div class="ic">🎯</div><b>Exam-focused</b><span>Every question and explanation stays relevant to your actual GCSE exam.</span></div>
+      </div>
+      <div class="card" style="max-width:760px;margin:28px auto 0;text-align:left;font-size:14.5px;line-height:1.7;color:var(--text2)">${body}</div>
+      ${(!MARKETING.about && isTeacherSignedIn()) ? '<p class="ad-note" style="text-align:center;margin-top:10px">Only you can see this note: this is still placeholder copy — edit it from the 🌐 About Us page panel in the Teacher Editor.</p>' : ''}
     </div>
     ${mktCtaStripHtml()}`;
 }
@@ -5345,7 +5365,7 @@ function buildAdminForm(){
   const f = $('adForm');
 
   if(L.comingSoon){
-    f.innerHTML = weeksPanel() + resourcesPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
+    f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
       ${inp('Lesson title','ad-title',L.title)}
       <div class="ad-steps" style="margin-top:10px;background:#fef9c3;border-color:#facc15">This lesson is a <b>“coming soon” placeholder</b>. Untick the box below to turn it into a full lesson — video, quiz, worksheet and generator editors will appear.</div>
       <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0;font-size:13px"><input type="checkbox" id="ad-soon" checked> Keep as a “coming soon” placeholder &nbsp;—&nbsp; <b>untick to start adding content</b></label></div>
@@ -5357,7 +5377,7 @@ function buildAdminForm(){
   const lessonIds = Object.keys(LESSONS);
   const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
 
-  f.innerHTML = weeksPanel() + resourcesPanel() + importPanel() + `
+  f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + importPanel() + `
   <div class="ad-panel"><h4>📋 Basics</h4>
     ${inp('Lesson title','ad-title',L.title)}
     <div class="ad-grid2">
@@ -5784,6 +5804,10 @@ function collectAdminForm(){
   f.querySelectorAll('.rs-captions').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].captionsUrl = inp.value.trim(); });
   f.querySelectorAll('.rs-body').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].body = inp.value; });
 
+  /* F41 follow-up — Marketing pages panel (also present on every editor screen) */
+  if(rq('mkt-about-title')) MARKETING.aboutTitle = rq('mkt-about-title').value.trim();
+  if(rq('mkt-about-body')) MARKETING.about = richValue(rq('mkt-about-body'));
+
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
     if(g('ad-soon') && !g('ad-soon').checked){ delete L.comingSoon; Object.assign(L, {...BLANK_LESSON(), ...L}); }
@@ -6014,6 +6038,20 @@ function resourceRowHtml(r, ri){
   </div>`;
 }
 
+/* ---------- F41 follow-up — public marketing page copy, editable from the Teacher Editor.
+   Same "global content, present on every editor screen" treatment as weeksPanel()/
+   resourcesPanel() above. Starts with About Us only — Home/Pricing/How It Works get their
+   own fields here the same way as we work through each page. Uses the shared rich-text
+   toolbar (richToolbarHtml(), rendered once above #adForm) via rich()/richValue(), exactly
+   like every per-lesson rich field (e.g. L.wsTip). */
+function marketingPanel(){
+  return `<div class="ad-panel"><h4>🌐 About Us page <span class="ad-note">(shown at #/about)</span></h4>
+    <label class="ad-lb">Page heading</label>
+    <input class="ad-in mkt-about-title" value="${esc(MARKETING.aboutTitle||ABOUT_DEFAULT_TITLE)}">
+    <label class="ad-lb" style="margin-top:8px">Page content</label>
+    ${rich('mkt-about-body', MARKETING.about||ABOUT_DEFAULT_BODY)}
+  </div>`;
+}
 /* ---------- F34 — Import Question (Ryan's OWN material only, never exam papers — see the
    copyright ruling recorded in DEVELOPMENT-PLAN.md). Same "present on every editor screen"
    treatment as weeksPanel()/resourcesPanel() above: this isn't per-lesson content, it lands
