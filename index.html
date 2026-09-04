@@ -786,6 +786,83 @@
   html[data-theme="hc"]{--wm:0}          /* high contrast: no backdrop at all */
   html.pf-focus{--wm:0}                   /* focus mode strips the backdrop (focus wins) */
   @media print{ body::before{display:none} }
+
+  /* ============================================================================
+     F41 — public marketing chrome: Home / How It Works / Pricing / About, and
+     F42's login page. A second, sidebar-less page mode alongside the existing
+     .sidebar+.main app shell (pageChrome()) — every existing app page (courses,
+     lessons, admin, parent/teacher dashboards) is untouched and keeps using that
+     shell. .mkt-logo deliberately reuses the SAME mark already in the favicon
+     above (green rounded-square, white √) rather than inventing new brand art —
+     the CSS-only .mm-logo class above was defined but never actually instantiated
+     anywhere in the app, so it isn't a real "existing logo" to match.
+     ============================================================================ */
+  .mkt-mode .sidebar{display:none}
+  .mkt-mode .main{max-width:none;padding:0}
+  .mkt-mode .crumb,.mkt-mode .title-row,.mkt-mode #comingSoon{display:none}
+  .mkt-logo{width:36px;height:36px;border-radius:9px;background:var(--mm-green);color:#fff;display:grid;place-items:center;font-family:Georgia,serif;font-size:20px;flex-shrink:0}
+  .mkt-nav{display:flex;align-items:center;gap:22px;padding:14px 28px;border-bottom:1px solid var(--line);background:var(--card)}
+  .mkt-brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--navy);font-size:15.5px;text-decoration:none;flex-shrink:0}
+  .mkt-brand small{display:block;font-weight:600;color:var(--muted);font-size:10.5px;margin-top:1px}
+  .mkt-links{display:flex;gap:20px;margin-left:18px;flex:1}
+  .mkt-links a{font-size:13.5px;font-weight:600;color:var(--text2);text-decoration:none}
+  .mkt-links a:hover{color:var(--green)}
+  .mkt-cta{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .mkt-hero{display:flex;align-items:center;gap:36px;padding:56px 28px;max-width:1100px;margin:0 auto;flex-wrap:wrap}
+  .mkt-hero>div{flex:1;min-width:280px}
+  .mkt-hero h1{font-size:34px;font-weight:800;letter-spacing:-.02em;color:var(--navy);line-height:1.18}
+  .mkt-hero h1 .accent{color:var(--green)}
+  .mkt-hero p{font-size:15px;color:var(--muted);margin:14px 0 20px;max-width:440px}
+  .mkt-badges{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--muted);font-weight:600}
+  .mkt-hero-art{flex:1;min-width:240px;display:flex;justify-content:center}
+  .mkt-hero-art .card{max-width:320px}
+  .mkt-section{padding:44px 28px;max-width:1100px;margin:0 auto}
+  .mkt-section h2{font-size:26px;font-weight:800;color:var(--navy);text-align:center}
+  .mkt-section>p.mkt-sub{text-align:center;color:var(--muted);font-size:14px;max-width:520px;margin:8px auto 0}
+  .mkt-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:28px}
+  .mkt-feat{border:1.5px solid var(--line);border-radius:16px;padding:20px;text-align:left}
+  .mkt-feat .ic{font-size:22px;margin-bottom:10px}
+  .mkt-feat b{display:block;font-size:14.5px;color:var(--navy);margin-bottom:4px}
+  .mkt-feat span{font-size:13px;color:var(--muted)}
+  .mkt-steps{display:flex;flex-direction:column;gap:14px;margin-top:26px}
+  .mkt-step{display:flex;gap:16px;align-items:flex-start;border:1.5px solid var(--line);border-radius:16px;padding:18px 20px}
+  .mkt-step .num{width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+  .mkt-step b{display:block;font-size:15px;color:var(--navy)}
+  .mkt-step span{font-size:13px;color:var(--muted)}
+  .mkt-testis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:26px}
+  .mkt-testi{border:1.5px solid var(--line);border-radius:16px;padding:18px 20px;font-size:13.5px;color:var(--text2)}
+  .mkt-testi .stars{color:var(--gold);font-size:13px;margin-bottom:8px}
+  .mkt-testi .who{margin-top:10px;font-weight:700;color:var(--navy);font-size:12.5px}
+  .mkt-pricing{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:28px;align-items:start}
+  .mkt-price-card{border:1.5px solid var(--line);border-radius:18px;padding:22px 20px;text-align:left;position:relative}
+  .mkt-price-card.pop{border-color:var(--green);box-shadow:0 4px 16px rgba(20,108,67,.14)}
+  .mkt-price-card .pop-tag{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:10.5px;font-weight:800;padding:3px 12px;border-radius:999px;white-space:nowrap}
+  .mkt-price-card .plan{font-size:15px;font-weight:800;color:var(--navy)}
+  .mkt-price-card .amt{font-size:28px;font-weight:800;color:var(--navy);margin:8px 0}
+  .mkt-price-card .amt span{font-size:13px;font-weight:600;color:var(--muted)}
+  .mkt-price-card ul.ticks{margin:16px 0}
+  .mkt-price-card .btn{width:100%;justify-content:center;text-align:center;margin-top:6px}
+  .mkt-cta-strip{background:var(--green);color:#fff;border-radius:18px;padding:26px 30px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:44px auto 0;max-width:1100px}
+  .mkt-cta-strip p{margin:0;font-weight:700}
+  .mkt-cta-strip .btn.solid{background:#fff;color:var(--green)}
+  .mkt-cta-strip .btn.solid:hover{background:#f0fdf4}
+  .mkt-footer{border-top:1px solid var(--line);padding:26px 28px;text-align:center;font-size:12px;color:var(--muted);margin-top:50px}
+  @media(max-width:760px){.mkt-links{display:none} .mkt-hero{flex-direction:column;text-align:center;padding:40px 20px} .mkt-hero p{margin-left:auto;margin-right:auto} .mkt-cta-strip{flex-direction:column;text-align:center}}
+
+  /* F42 — login/signup redesign: bare-card auth wrapper (sits inside marketingChrome()),
+     account-type selector, OAuth buttons, and the post-signup welcome/avatar interstitial. */
+  .mkt-auth-wrap{display:flex;justify-content:center;padding:50px 20px}
+  .acct-type-row{display:flex;gap:10px;margin:2px 0 6px}
+  .acct-type-card{flex:1;text-align:left;border:1.5px solid var(--line);border-radius:12px;padding:12px 13px;background:var(--card);cursor:pointer;font:inherit;display:flex;flex-direction:column;gap:2px}
+  .acct-type-card .ic{font-size:17px}
+  .acct-type-card b{font-size:13px;color:var(--navy)}
+  .acct-type-card span{font-size:11px;color:var(--muted);font-weight:500}
+  .acct-type-card.on{border-color:var(--green);background:var(--green-bg)}
+  .auth-oauth{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+  .auth-oauth-sep{display:block;text-align:center;font-size:11px;color:var(--muted);margin-bottom:2px}
+  .oauth-btn{display:flex;align-items:center;justify-content:center;gap:8px}
+  .avatar-carousel{display:flex;align-items:center;justify-content:center;gap:18px;margin:18px 0}
+  .avatar-big{width:84px;height:84px;border-radius:50%;background:var(--green-bg);border:1.5px solid var(--green-line);display:grid;place-items:center;font-size:38px}
 </style>
 </head>
 <body>
@@ -825,6 +902,7 @@
 
     <div id="adminRoot" style="display:none"></div>
     <div id="coursesRoot" style="display:none"></div>
+    <div id="mktRoot" style="display:none"></div>
 
     <div class="grid" id="lessonGrid">
       <!-- LEFT -->
@@ -1404,9 +1482,10 @@ async function loadProfile(){
   try{ const { data } = await sbClient.from('profiles').select('*').eq('user_id', authUser.id).maybeSingle(); authProfile = data||null; }
   catch(e){ authProfile = null; }
 }
-async function ensureProfile(name){
+async function ensureProfile(name, role){
   if(!sbClient || !authUser) return;
   const row = { user_id: authUser.id }; if(name!=null) row.display_name = name;
+  if(role!=null) row.role = role;   /* F42 — Parent account type at signup; every other call site omits this and keeps the DB default */
   try{ await sbClient.from('profiles').upsert(row, { onConflict:'user_id' }); }catch(e){}
   await loadProfile();
 }
@@ -1414,8 +1493,17 @@ async function authInit(){
   if(!sbClient){ authReady = true; renderAuthBox(); return; }
   try{ const { data } = await sbClient.auth.getSession(); authUser = (data&&data.session)?data.session.user:null; if(authUser) await onSignedIn(); }catch(e){}
   authReady = true;
-  sbClient.auth.onAuthStateChange((_e, session)=>{
-    authUser = session?session.user:null; if(!authUser) authProfile=null; renderAuthBox();
+  sbClient.auth.onAuthStateChange(async (_e, session)=>{
+    authUser = session?session.user:null; if(!authUser) authProfile=null;
+    /* F43 — OAuth's redirect flow never otherwise calls onSignedIn() (unlike signInEmail()/
+       signUpEmail(), which call it directly): without this, an OAuth sign-in would leave
+       authProfile null forever — no profile row, no synced progress. The !authProfile guard
+       means email sign-in (which already calls onSignedIn() itself) doesn't double-fire it
+       here — by the time THIS listener runs for that case, it may still fire once more
+       redundantly, but onSignedIn()/ensureProfile() are idempotent upserts, so that's
+       harmless, not a correctness issue. */
+    if(authUser && !authProfile) await onSignedIn();
+    renderAuthBox();
     /* T3 — the deliberate moment to move on from the neutral authCallback holding page
        (see parseHash()'s guard): Supabase has now consumed the token from the hash and
        handed us a real session, safe to navigate away from it. Recovery goes to the reset
@@ -1423,7 +1511,7 @@ async function authInit(){
        to the dashboard — Supabase cleans the URL via history.replaceState, which does NOT
        fire hashchange on its own, so this can't rely on the router noticing by itself. */
     if(_e==='PASSWORD_RECOVERY'){ location.hash = '#/reset-password'; return; }
-    if(authUser && parseHash().view==='authCallback'){ location.hash = '#/courses'; }
+    if(authUser && parseHash().view==='authCallback'){ location.hash = '#/welcome'; }   /* F42 — routes through the one-time interstitial; renderWelcome() itself skips straight on for anyone already onboarded */
   });
   renderAuthBox();
   route();   /* re-evaluate the current route now that we know the sign-in state */
@@ -1438,13 +1526,13 @@ function friendlyAuthErr(e){
   if(m.indexOf('valid email')>=0 || (m.indexOf('invalid')>=0 && m.indexOf('email')>=0)) return 'Please enter a valid email address.';
   return (e&&e.message) || 'Something went wrong — please try again.';
 }
-async function signUpEmail(email, password, name){
+async function signUpEmail(email, password, name, role){
   if(!sbClient) return { ok:false, msg:'Accounts are unavailable right now.' };
   const { data, error } = await sbClient.auth.signUp({ email, password });
   if(error) return { ok:false, msg:friendlyAuthErr(error) };
   authUser = data.user || (data.session&&data.session.user) || null;
   if(!authUser) return { ok:false, msg:'Account made, but email confirmation seems on — turn off “Confirm email” in Supabase.' };
-  await ensureProfile(name);
+  await ensureProfile(name, role);
   await syncProgressOnLogin(); flushOfflineQueue();   /* migrate any anonymous localStorage progress into the new account */
   return { ok:true };
 }
@@ -1852,6 +1940,7 @@ function parseHash(){
   if(/access_token=/.test(h)) return { view:'authCallback' };
   if(/^#\/?admin\b/.test(h))   return { view:'admin' };
   if(/^#\/?login\b/.test(h))   return { view:'login' };
+  if(/^#\/?welcome\b/.test(h)) return { view:'welcome' };   /* F42 — one-time post-signup interstitial */
   if(/^#\/?reset-password\b/.test(h)) return { view:'reset-password' };
   if(/^#\/?privacy\b/.test(h)) return { view:'privacy' };
   if(/^#\/?teacher\b/.test(h)) return { view:'teacher' };
@@ -1862,6 +1951,17 @@ function parseHash(){
   if(/^#\/?resources\b/.test(h)) return { view:'resources' };
   if(/^#\/?unsubscribe\b/.test(h)){ const qs=(h.split('?')[1]||''); return { view:'unsubscribe', token:new URLSearchParams(qs).get('token') }; }
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
+  /* F41 — public marketing pages. "home" only wins for a signed-OUT visitor at the truly
+     empty hash (or explicit #/home) — a signed-in visitor at the bare URL still lands on
+     #/courses exactly as before, so nothing changes for existing users/bookmarks. */
+  if(/^#\/?how-it-works\b/.test(h)) return { view:'how-it-works' };
+  if(/^#\/?pricing\b/.test(h))      return { view:'pricing' };
+  if(/^#\/?about\b/.test(h))        return { view:'about' };
+  /* sbClient check (not just !authUser): in a no-backend/local-only deployment (CLAUDE.md
+     rule 2), EVERY visitor is permanently signed-out — there's no accounts system to sign up
+     into, so the marketing page's Log in/Create Account CTAs wouldn't make sense there. That
+     config keeps its original behaviour (empty hash → courses dashboard) unchanged. */
+  if(/^#?\/?(home)?$/.test(h) && !authUser && sbClient) return { view:'home' };   // matches '', '#', '#/' and '#/home'
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
   m = h.match(/^#\/?([\w-]+)/);
@@ -1873,6 +1973,7 @@ function route(){
   if(r.view==='authCallback') return renderAuthCallback();   /* T3 — see parseHash()'s guard */
   if(r.view==='admin')   return renderAdmin();
   if(r.view==='login')   return renderLogin();
+  if(r.view==='welcome') return renderWelcome();
   if(r.view==='reset-password') return renderResetPassword();
   if(r.view==='privacy') return renderPrivacy();
   if(r.view==='teacher') return renderTeacher();
@@ -1883,6 +1984,10 @@ function route(){
   if(r.view==='resources') return renderResourcesPage();
   if(r.view==='unsubscribe') return renderUnsubscribe(r.token);
   if(r.view==='courses') return renderCourses();
+  if(r.view==='home') return renderHome();
+  if(r.view==='how-it-works') return renderHowItWorks();
+  if(r.view==='pricing') return renderPricing();
+  if(r.view==='about') return renderAbout();
   /* lesson view */
   const cid = (r.courseId && courseById(r.courseId)) ? r.courseId : currentCourseId;
   setCourse(cid);
@@ -1915,12 +2020,49 @@ window.addEventListener('hashchange', route);
 /* =============================== courses dashboard (F15) =============================== */
 function pageChrome(){                                 /* shared shell for non-lesson pages */
   cur = null;
+  document.body.classList.remove('mkt-mode');           /* F41 — leaving marketing chrome, back to the sidebar shell */
+  $('mktRoot').style.display='none';
   document.querySelector('.title-row').style.display='none';
   $('comingSoon').style.display='none';
   $('lessonGrid').style.display='none';
   $('adminRoot').style.display='none';
   renderSidebar();
   const root=$('coursesRoot'); root.style.display='block'; return root;
+}
+/* F41 — sidebar-less chrome for the public marketing pages (Home/How It Works/Pricing/About)
+   and F42's login page. Parallel to pageChrome() above, not built on top of it — every
+   existing app page (courses, lessons, admin, parent/teacher dashboards) keeps calling
+   pageChrome() untouched, so nothing about the signed-in product experience changes. */
+function marketingChrome(){
+  cur = null;
+  document.body.classList.add('mkt-mode');
+  document.querySelector('.title-row').style.display='none';
+  $('comingSoon').style.display='none';
+  $('lessonGrid').style.display='none';
+  $('adminRoot').style.display='none';
+  $('coursesRoot').style.display='none';
+  const root=$('mktRoot'); root.style.display='block';
+  renderMktNav();
+  return $('mktBody');
+}
+function renderMktNav(){
+  const signedIn = !!authUser;
+  const cta = signedIn
+    ? `<a class="btn ghost" href="#/courses">My Courses</a>`
+    : `<a class="btn ghost" href="#/login">Log in</a><a class="btn solid" href="#/login?up=1">Create Free Account</a>`;
+  $('mktRoot').innerHTML = `
+    <nav class="mkt-nav">
+      <a href="#/" class="mkt-brand"><span class="mkt-logo">√</span><span>MasterMaths<small>Tutoring</small></span></a>
+      <div class="mkt-links">
+        <a href="#/how-it-works">How It Works</a>
+        <a href="#/courses">For Students</a>
+        <a href="#/pricing">Pricing</a>
+        <a href="#/about">About Us</a>
+      </div>
+      <div class="mkt-cta">${cta}</div>
+    </nav>
+    <div id="mktBody"></div>
+    <footer class="mkt-footer">© ${new Date().getFullYear()} MasterMaths Tutoring · <a href="#/privacy" style="color:inherit">Privacy</a></footer>`;
 }
 /* T6 — Ryan's intended catalogue: qualification → board → tier/strand. The third level is a
    GENERIC string on the course object (course.tier); its LABEL is per-qualification ("Tier" for
@@ -1966,22 +2108,149 @@ function renderCourses(){
   }));
   const cb = root.querySelector('[data-continue]'); if(cb) cb.addEventListener('click', ()=>{ location.hash = '#/'+cb.dataset.continue; });
 }
+/* ============================ F41 — public marketing pages ============================ */
+const MKT_TESTIS = [
+  { text:'MasterMaths has made a huge difference to my daughter’s confidence and grades.', who:'Sarah, Parent' },
+  { text:'The lessons are clear, the practice is helpful, and I can track my progress easily.', who:'Ethan, Student' },
+  { text:'A fantastic platform that keeps me connected and informed as a parent.', who:'James, Parent' },
+];
+function mktTestisHtml(){
+  return `<div class="mkt-testis">${MKT_TESTIS.map(t=>`<div class="mkt-testi"><div class="stars">★★★★★</div>“${esc(t.text)}”<div class="who">— ${esc(t.who)}</div></div>`).join('')}</div>`;
+}
+function mktCtaStripHtml(){
+  return `<div class="mkt-cta-strip"><p>Ready to master maths?</p><a class="btn solid" href="#/login?up=1">Get Started Free →</a></div>`;
+}
+function renderHome(){
+  document.title = 'MasterMaths Tutoring — GCSE Maths';
+  const root = marketingChrome();
+  root.innerHTML = `
+    <div class="mkt-hero">
+      <div>
+        <h1>Build understanding.<br>Think clearly.<br><span class="accent">Solve confidently.</span></h1>
+        <p>MasterMaths helps you develop strong mathematical understanding and clear thinking — so you can solve any GCSE question with confidence.</p>
+        <a class="btn solid" href="#/login?up=1" style="padding:12px 22px;font-size:13.5px">Start Free Today →</a>
+        <a class="btn ghost" href="#/how-it-works" style="padding:12px 22px;font-size:13.5px;margin-left:8px">See How It Works</a>
+        <div class="mkt-badges"><span>✓ Free to get started</span><span>✓ No credit card required</span><span>✓ Start learning in minutes</span></div>
+      </div>
+      <div class="mkt-hero-art"><div class="card green"><h3><span class="ic">🚀</span>One-to-one tutoring behind it</h3><p style="font-size:13px;color:var(--text2)">Built by a qualified, DBS-checked GCSE Maths tutor — the same teaching approach from real lessons, now available any time you need to practise.</p></div></div>
+    </div>
+    <div class="mkt-section">
+      <div class="mkt-features">
+        <div class="mkt-feat"><div class="ic">💡</div><b>Understand</b><span>Learn with clear explanations and worked examples that make sense.</span></div>
+        <div class="mkt-feat"><div class="ic">🎯</div><b>Practice</b><span>Get exam-style questions that match your level and help you improve.</span></div>
+        <div class="mkt-feat"><div class="ic">🔄</div><b>Remember</b><span>We bring back topics at the right time so you don't forget.</span></div>
+        <div class="mkt-feat"><div class="ic">📈</div><b>Track Progress</b><span>See how you're doing and stay motivated every step of the way.</span></div>
+      </div>
+    </div>
+    <div class="mkt-section" style="background:var(--surf2);max-width:none">
+      <div style="max-width:1100px;margin:0 auto">
+        <h2>Loved by students and parents</h2>
+        ${mktTestisHtml()}
+      </div>
+    </div>
+    ${mktCtaStripHtml()}`;
+}
+function renderHowItWorks(){
+  document.title = 'How MasterMaths Works — MasterMaths Tutoring';
+  const root = marketingChrome();
+  const steps = [
+    { ic:'▶', t:SECTION_TIME_DEFAULTS.learn, title:'1. Video & Notes', sub:'Build understanding before attempting questions.', body:'Watch a concise video lesson with worked examples, then revise using clear notes that explain both the method and why it works.' },
+    { ic:'🧠', t:SECTION_TIME_DEFAULTS.quiz, title:'2. Diagnostic Quiz', sub:'Discover what you know and what to improve.', body:'Complete a short quiz designed to identify misconceptions and give instant feedback, so you always know your next step.' },
+    { ic:'⛰', t:SECTION_TIME_DEFAULTS.worksheet, title:'3. From Method to Meaning', sub:'Develop mathematical reasoning through guided practice.', body:'Climb from using the method to explaining why it works — clarifying, justifying and generalising your reasoning, one question at a time.' },
+    { ic:'🎲', t:SECTION_TIME_DEFAULTS.generate, title:'4. Adaptive Question Generator', sub:'Unlimited personalised practice.', body:'Generate unlimited exam-style questions that automatically adapt to your progress.' },
+  ];
+  root.innerHTML = `
+    <div class="mkt-section">
+      <h2>How MasterMaths Works</h2>
+      <p class="mkt-sub">Four simple steps that help you understand maths, build confidence, and become an independent problem solver.</p>
+      <div class="mkt-steps">
+        ${steps.map((s,i)=>`<div class="mkt-step"><div class="num">${i+1}</div><div style="flex:1"><b>${esc(s.ic)} ${esc(s.title)}</b><span style="color:var(--green);font-weight:700;display:block;margin:2px 0 4px">${esc(s.sub)}</span><span>${esc(s.body)}</span></div><span class="chip time" style="flex-shrink:0">${esc(s.t)}</span></div>`).join('')}
+      </div>
+    </div>
+    ${mktCtaStripHtml()}`;
+}
+function renderPricing(){
+  document.title = 'Pricing — MasterMaths Tutoring';
+  const root = marketingChrome();
+  const go = (msg)=>toast(msg);
+  root.innerHTML = `
+    <div class="mkt-section">
+      <h2>Simple pricing. Powerful learning.</h2>
+      <p class="mkt-sub">Choose the plan that works best for you and start mastering maths today.</p>
+      <div class="mkt-pricing">
+        <div class="mkt-price-card">
+          <div class="plan">Free — On-Topic Access</div>
+          <div class="amt">£0 <span>/month</span></div>
+          <ul class="ticks"><li>Access one topic at a time</li><li>Video lessons &amp; notes</li><li>Worksheets for that topic</li><li>Topic quizzes</li><li>Basic progress tracking</li></ul>
+          <a class="btn ghost" href="#/login?up=1">Get Started Free</a>
+        </div>
+        <div class="mkt-price-card pop"><span class="pop-tag">MOST POPULAR</span>
+          <div class="plan">Premium Monthly</div>
+          <div class="amt">£14.99 <span>/month</span></div>
+          <ul class="ticks"><li>Everything in Free, plus:</li><li>Unlimited topics</li><li>Unlimited worksheets</li><li>Unlimited question generator</li><li>Detailed progress tracking</li></ul>
+          <button class="btn solid mkt-premium-btn" type="button">Get Premium Monthly</button>
+        </div>
+        <div class="mkt-price-card">
+          <div class="plan">Premium Annual</div>
+          <div class="amt">£99.99 <span>/year</span></div>
+          <ul class="ticks"><li>Everything in Premium Monthly</li><li>Best value — save 50%</li><li>All premium features included</li></ul>
+          <button class="btn solid mkt-premium-btn" type="button">Get Premium Annual</button>
+        </div>
+      </div>
+      <p class="cat-note" style="text-align:center;margin-top:22px">Every plan is completely free during our current pilot — nothing to pay yet.</p>
+    </div>`;
+  root.querySelectorAll('.mkt-premium-btn').forEach(b=>b.addEventListener('click',()=>go('Premium plans are launching soon — you’re welcome to use everything free during the pilot 🎉')));
+}
+function renderAbout(){
+  document.title = 'About Us — MasterMaths Tutoring';
+  const root = marketingChrome();
+  /* Placeholder copy mirroring the themes already public on the live Wix site (qualified
+     teacher, DBS-checked, personalised tutoring) — NOT fabricated biographical detail.
+     Flagged for Ryan to review/edit the exact wording before this is treated as final. */
+  root.innerHTML = `
+    <div class="mkt-section" style="max-width:760px">
+      <h2 style="text-align:left">About MasterMaths Tutoring</h2>
+      <p style="color:var(--text2);font-size:14.5px;line-height:1.7;margin-top:16px">MasterMaths Tutoring is a one-to-one GCSE Maths tutoring practice, built on the belief that real progress comes from understanding <i>why</i> a method works — not just memorising the steps. This platform brings that same approach online: clear explanations, guided reasoning practice, and exam-style questions that adapt to how each student is actually doing.</p>
+      <p style="color:var(--text2);font-size:14.5px;line-height:1.7;margin-top:14px">Every lesson is written by a qualified, DBS-checked tutor, and the platform is built to be a natural extension of that same one-to-one teaching — calm, focused, and exam-relevant, without unnecessary pressure or gimmicks.</p>
+      <p class="ad-note" style="margin-top:18px">This page is placeholder copy — Ryan, please review and edit before this goes live.</p>
+    </div>
+    ${mktCtaStripHtml()}`;
+}
 function authMsg(m){ const e=$('authMsg'); if(e){ e.textContent=m||''; e.style.display=m?'block':'none'; } }
+/* F43 — social sign-in, email-only scope (no name/photo requested from the provider —
+   CLAUDE.md's data-minimisation rule for minors). Triggers a full-page redirect; the return
+   trip lands back through the EXISTING renderAuthCallback()/parseHash() access_token guard
+   (T3) — that's already generic to any Supabase auth redirect, nothing new needed there.
+   'azure' is Supabase's provider key for Microsoft/Entra accounts. Until Ryan completes
+   OAUTH-SETUP.md, Supabase itself rejects with a clear "provider not enabled" error, which
+   friendlyAuthErr() surfaces as-is — a real message, not a silent dead click. */
+async function oauthSignIn(provider){
+  if(!sbClient){ authMsg('Accounts are unavailable right now.'); return; }
+  try{
+    const { error } = await sbClient.auth.signInWithOAuth({ provider, options:{ scopes:'email', redirectTo: location.origin+location.pathname+'#/' } });
+    if(error) throw error;
+  }catch(e){ authMsg(friendlyAuthErr(e)); }
+}
 function renderLogin(){
   document.title = 'Sign in — MasterMaths Tutoring';
-  $('crumb').innerHTML = '<a href="#/courses" style="color:inherit;text-decoration:none">Courses</a> <span class="sep">›</span> <span class="here">Account</span>';
-  const root = pageChrome();
+  const root = marketingChrome();
   if(authUser){ location.hash='#/courses'; return; }
-  if(!sbClient){ root.innerHTML = `<div class="auth-card"><h2>Accounts unavailable</h2><p class="auth-note">Sign-in isn't available right now — but you can still use the free lesson.</p><a class="btn solid" href="#/${currentCourseId}/${(WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:'1a'}">Go to the free lesson →</a></div>`; return; }
+  if(!sbClient){ root.innerHTML = `<div class="mkt-auth-wrap"><div class="auth-card"><h2>Accounts unavailable</h2><p class="auth-note">Sign-in isn't available right now — but you can still use the free lesson.</p><a class="btn solid" href="#/${currentCourseId}/${(WEEKS[0]&&WEEKS[0].lessons)?WEEKS[0].lessons[0]:'1a'}">Go to the free lesson →</a></div></div>`; return; }
+  const qs = new URLSearchParams((location.hash.split('?')[1])||'');    // F42 — #/login?up=1 opens straight to Create account
+  let tab = qs.get('up') ? 'up' : 'in';
+  let accountType = 'student';                                          // F42 — Parent/Student selector, Create-account tab only
   root.innerHTML = `
-    <div class="auth-card">
-      <div class="auth-tabs"><button class="auth-tab active" data-tab="in">Sign in</button><button class="auth-tab" data-tab="up">Create account</button></div>
+    <div class="mkt-auth-wrap"><div class="auth-card">
+      <div class="auth-tabs"><button class="auth-tab ${tab==='in'?'active':''}" data-tab="in">Sign in</button><button class="auth-tab ${tab==='up'?'active':''}" data-tab="up">Create account</button></div>
       <div id="authForm"></div>
       <div class="auth-msg" id="authMsg" style="display:none"></div>
-    </div>`;
-  let tab='in';
+    </div></div>`;
   function draw(){
     const f=$('authForm');
+    const oauthHtml = `<div class="auth-oauth"><span class="auth-oauth-sep">or</span>
+      <button class="btn ghost auth-submit oauth-btn" id="oaGoogle" type="button">🔎 Continue with Google</button>
+      <button class="btn ghost auth-submit oauth-btn" id="oaMicrosoft" type="button">🪟 Continue with Microsoft</button>
+    </div>`;
     if(tab==='in'){
       f.innerHTML = `
         <label class="auth-lb">Email</label><input class="auth-in" id="liEmail" type="email" autocomplete="email">
@@ -1991,7 +2260,8 @@ function renderLogin(){
         <div id="liForgotBox" style="display:none;margin-top:6px">
           <label class="auth-lb">Email</label><input class="auth-in" id="frEmail" type="email" autocomplete="email">
           <button class="btn ghost auth-submit" id="frGo" type="button">Send reset link</button>
-        </div>`;
+        </div>
+        ${oauthHtml}`;
       $('liGo').addEventListener('click', async ()=>{ const r=await signInEmail($('liEmail').value.trim(), $('liPass').value); if(r.ok){ toast('Signed in 👋'); location.hash='#/courses'; } else authMsg(r.msg); });
       $('liForgot').addEventListener('click', e=>{
         e.preventDefault();
@@ -2010,20 +2280,84 @@ function renderLogin(){
           toast('Check your email for a reset link.');
         }catch(e){ authMsg(friendlyAuthErr(e)); }
       });
+      $('oaGoogle').addEventListener('click', ()=>oauthSignIn('google'));
+      $('oaMicrosoft').addEventListener('click', ()=>oauthSignIn('azure'));
     } else {
       f.innerHTML = `
+        <label class="auth-lb">I am a…</label>
+        <div class="acct-type-row">
+          <button type="button" class="acct-type-card on" data-type="student"><span class="ic">🎓</span><b>Student</b><span>Lessons, practice &amp; progress</span></button>
+          <button type="button" class="acct-type-card" data-type="parent"><span class="ic">👤</span><b>Parent</b><span>Follow your child's progress</span></button>
+        </div>
         <label class="auth-lb">Email</label><input class="auth-in" id="suEmail" type="email" autocomplete="email">
         <label class="auth-lb">Password <span class="auth-hint">(at least 6 characters)</span></label><input class="auth-in" id="suPass" type="password" autocomplete="new-password">
         <label class="auth-lb">Display name <span class="auth-hint">— a nickname; please don't use your real name</span></label>
         <div class="auth-row"><input class="auth-in" id="suName" maxlength="24" placeholder="e.g. SilverFox42"><button class="btn ghost" id="suSuggest" type="button">Suggest one</button></div>
         <button class="btn solid auth-submit" id="suGo">Create account</button>
-        <p class="auth-note">By creating an account you agree to our <a href="#/privacy">privacy notice</a>. We only store your email and nickname.</p>`;
+        <p class="auth-note">By creating an account you agree to our <a href="#/privacy">privacy notice</a>. We only store your email and nickname.</p>
+        ${oauthHtml}`;
+      f.querySelectorAll('.acct-type-card').forEach(c=>c.addEventListener('click',()=>{ accountType=c.dataset.type; f.querySelectorAll('.acct-type-card').forEach(x=>x.classList.toggle('on', x===c)); }));
       $('suSuggest').addEventListener('click', ()=>{ $('suName').value = suggestName(); authMsg(''); });
-      $('suGo').addEventListener('click', async ()=>{ const nc=nameClean($('suName').value); if(!nc.ok) return authMsg(nc.msg); const r=await signUpEmail($('suEmail').value.trim(), $('suPass').value, nc.value); if(r.ok){ toast('Welcome to MasterMaths 🎉'); location.hash='#/courses'; } else authMsg(r.msg); });
+      $('suGo').addEventListener('click', async ()=>{
+        const nc=nameClean($('suName').value); if(!nc.ok) return authMsg(nc.msg);
+        const r=await signUpEmail($('suEmail').value.trim(), $('suPass').value, nc.value, accountType==='parent'?'parent':undefined);
+        if(r.ok){ toast('Welcome to MasterMaths 🎉'); location.hash='#/welcome'; } else authMsg(r.msg);
+      });
+      $('oaGoogle').addEventListener('click', ()=>oauthSignIn('google'));
+      $('oaMicrosoft').addEventListener('click', ()=>oauthSignIn('azure'));
     }
   }
   root.querySelectorAll('.auth-tab').forEach(t=>t.addEventListener('click',()=>{ tab=t.dataset.tab; root.querySelectorAll('.auth-tab').forEach(x=>x.classList.toggle('active', x===t)); authMsg(''); draw(); }));
   draw();
+}
+/* F42 — one-time post-signup interstitial (nickname if OAuth skipped it, then the avatar
+   picker), gated by prefs.onboarded so an existing user is never shown this again — reached
+   after email signup (renderLogin's suGo) and after every auth-callback landing (authInit()),
+   so it also catches a fresh OAuth signup; an ordinary returning sign-in never routes here at
+   all, so nothing changes for existing users. */
+function renderWelcome(){
+  if(!authUser){ location.hash='#/login'; return; }
+  const dest = (authProfile && authProfile.role==='parent') ? '#/parent' : '#/courses';
+  if(prefs.onboarded){ location.hash = dest; return; }
+  document.title = 'Welcome — MasterMaths Tutoring';
+  const root = marketingChrome();
+  function finish(){ setPref('onboarded', true); location.hash = dest; }
+  function drawAvatar(){
+    let idx = Math.max(0, AVATARS.indexOf(prefs.avatarId));
+    root.innerHTML = `<div class="mkt-auth-wrap"><div class="auth-card">
+      <h2>Choose your avatar</h2>
+      <p class="auth-note">You can change this any time in ⚙ Display &amp; reading settings.</p>
+      <div class="avatar-carousel">
+        <button class="btn ghost" id="avPrev" type="button">‹</button>
+        <div class="avatar-big" id="avBig">${AVATARS[idx]}</div>
+        <button class="btn ghost" id="avNext" type="button">›</button>
+      </div>
+      <button class="btn solid auth-submit" id="avGo">Start Learning</button>
+      <p class="auth-note" style="text-align:center"><a href="#" id="avSkip" style="color:inherit;font-weight:700">Skip for now</a></p>
+    </div></div>`;
+    const paint = ()=>{ $('avBig').textContent = AVATARS[idx]; };
+    $('avPrev').addEventListener('click', ()=>{ idx=(idx-1+AVATARS.length)%AVATARS.length; paint(); });
+    $('avNext').addEventListener('click', ()=>{ idx=(idx+1)%AVATARS.length; paint(); });
+    $('avGo').addEventListener('click', ()=>{ setPref('avatarId', AVATARS[idx]); finish(); });
+    $('avSkip').addEventListener('click', e=>{ e.preventDefault(); finish(); });
+  }
+  function drawName(){
+    root.innerHTML = `<div class="mkt-auth-wrap"><div class="auth-card">
+      <h2>Welcome to MasterMaths 🎉</h2>
+      <p class="auth-note">One last thing — pick a nickname. Please don't use your real name.</p>
+      <label class="auth-lb">Display name</label>
+      <div class="auth-row"><input class="auth-in" id="wcName" maxlength="24" placeholder="e.g. SilverFox42"><button class="btn ghost" id="wcSuggest" type="button">Suggest one</button></div>
+      <button class="btn solid auth-submit" id="wcGo">Continue</button>
+    </div></div>`;
+    $('wcSuggest').addEventListener('click', ()=>{ $('wcName').value = suggestName(); });
+    $('wcGo').addEventListener('click', async ()=>{
+      const nc = nameClean($('wcName').value); if(!nc.ok){ toast(nc.msg); return; }
+      await ensureProfile(nc.value); drawAvatar();
+    });
+  }
+  /* Email signup already collects a nickname; only a fresh OAuth signup (which never does)
+     needs this step first. */
+  if(!(authProfile && authProfile.display_name)) drawName(); else drawAvatar();
 }
 /* T3 — neutral holding page while Supabase's own detectSessionInUrl processes the auth
    tokens in the hash (confirmation, recovery, etc). Deliberately does nothing else — no
@@ -3580,6 +3914,8 @@ function renderCountersTool(container){
 }
 function loadLesson(id, section){
   if(typeof TTS!=='undefined') TTS.stop();   /* F17 — stop any read-aloud when changing lessons */
+  document.body.classList.remove('mkt-mode');   /* F41 — a signed-out visitor can reach the free lesson straight from a marketing page, bypassing pageChrome() entirely */
+  $('mktRoot').style.display='none';
   $('adminRoot').style.display='none';
   $('coursesRoot').style.display='none';
   document.querySelector('.title-row').style.display='flex';
@@ -4924,6 +5260,8 @@ function renderAdmin(){
     if(!authReady){ $('adminRoot').style.display='block'; $('adminRoot').innerHTML='<p class="auth-note">Loading…</p>'; return; }
     if(!isTeacherSignedIn()){ toast('Sign in with your teacher account to open the editor.'); location.hash = '#/courses'; return; }
   }
+  document.body.classList.remove('mkt-mode');   /* F41 — defensive; admin has its own auth gate above, kept for belt-and-suspenders consistency with pageChrome()/loadLesson() */
+  $('mktRoot').style.display='none';
   document.querySelector('.title-row').style.display='none';
   $('comingSoon').style.display='none';
   $('lessonGrid').style.display='none';
