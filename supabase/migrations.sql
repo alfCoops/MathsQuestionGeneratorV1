@@ -596,3 +596,30 @@ revoke all on function public.send_streak_reminders() from public;
 -- known, accepted imprecision for a soft nudge, not worth a DST lookup table).
 select cron.schedule('streak-reminders-daily', '0 17 * * *', $$select public.send_streak_reminders()$$)
 where not exists (select 1 from cron.job where jobname = 'streak-reminders-daily');
+
+
+-- ============================================================================
+-- F34 — Question Import (teacher's own material only — never copyrighted exam
+-- papers; see DEVELOPMENT-PLAN.md's standing ruling on that). A teacher uploads
+-- their own worksheet/PDF/photo; the generator service extracts it into a draft
+-- via /v1/import (see IMPORT-ENDPOINT-SPEC.md) and the APP inserts the draft
+-- row itself, using the teacher's own signed-in session — unlike AI drafts,
+-- which only the service's service_role key ever inserts. That's why 'import'
+-- needs its own, narrowly-scoped insert policy rather than reusing the AI path:
+-- a compromised teacher session must never be able to forge a fake 'ai' row.
+-- ============================================================================
+alter table public.questions_review drop constraint if exists questions_review_source_check;
+alter table public.questions_review add constraint questions_review_source_check check (source in ('ai','import'));
+
+drop policy if exists "teacher inserts import" on public.questions_review;
+create policy "teacher inserts import" on public.questions_review
+  for insert with check (public.is_teacher() and source = 'import');
+
+-- Private bucket for uploaded originals — NOT public, since this is unreviewed
+-- teacher material, not (yet) student-facing content. Same teacher-session-auth
+-- pattern as the `videos` bucket write policy above.
+insert into storage.buckets (id, name, public) values ('imports', 'imports', false) on conflict do nothing;
+drop policy if exists "teacher rw imports bucket" on storage.objects;
+create policy "teacher rw imports bucket" on storage.objects
+  for all using (bucket_id = 'imports' and public.is_teacher())
+  with check (bucket_id = 'imports' and public.is_teacher());

@@ -1545,24 +1545,31 @@ async function testBackend(){
    videos bucket" RLS policy (migrations.sql) is what authorises this, not key possession.
    Kept as a raw XHR (rather than sbClient.storage.upload()) specifically so upload PROGRESS
    still works — the Supabase JS storage client doesn't expose progress events. */
-async function storageUpload(file, pathHint, onProgress, kind){
+/* bucket param (F34) — defaults to BACKEND.bucket ('videos', public) so every existing call
+   site is untouched; the import panel passes 'imports' (private — unreviewed teacher
+   uploads aren't student-facing). For a private bucket the "public" url below won't
+   actually be fetchable without auth — callers that need it read {bucket,path} instead and
+   let the generator service fetch it directly with its own service_role key, same as it
+   already legitimately does for everything else (generator-CLAUDE.md). */
+async function storageUpload(file, pathHint, onProgress, kind, bucket){
   kind = kind || 'video';
+  bucket = bucket || BACKEND.bucket;
   if(!backendOn())         return { ok:false, msg:'Set up the cloud backend first (BACKEND url + anonKey).' };
   if(!isTeacherSignedIn()) return { ok:false, msg:'Sign in with your teacher account first.' };
   if(!file)                return { ok:false, msg:'No file.' };
   const okType = kind==='image'
     ? (/^image\//.test(file.type||'') || /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name||''))
     : kind==='file'
-    ? (/^(image\/|application\/pdf)/.test(file.type||'') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))
+    ? (/^(image\/|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)/.test(file.type||'') || /\.(pdf|png|jpe?g|webp|docx?)$/i.test(file.name||''))
     : (/^video\//.test(file.type||'') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(file.name||''));
-  if(!okType) return { ok:false, msg: kind==='image' ? 'That is not an image file (use png, jpg, gif or webp).' : kind==='file' ? 'Use a PDF or an image file (pdf, png, jpg).' : 'That is not a video file (use mp4, webm, mov…).' };
+  if(!okType) return { ok:false, msg: kind==='image' ? 'That is not an image file (use png, jpg, gif or webp).' : kind==='file' ? 'Use a PDF, Word doc or an image file (pdf, doc, docx, png, jpg).' : 'That is not a video file (use mp4, webm, mov…).' };
   let token; try{ const { data } = await sbClient.auth.getSession(); token = data && data.session && data.session.access_token; }catch(e){}
   if(!token) return { ok:false, msg:'Your session has expired — sign out and in again.' };
   const safe = (file.name||'video').replace(/[^\w.\-]+/g,'_');
   const path = `${(pathHint||'video').replace(/[^\w.\-]+/g,'_')}-${Date.now()}-${safe}`;
   return new Promise(resolve=>{
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${beBase()}/storage/v1/object/${BACKEND.bucket}/${path}`);
+    xhr.open('POST', `${beBase()}/storage/v1/object/${bucket}/${path}`);
     xhr.setRequestHeader('Authorization', 'Bearer '+token);
     xhr.setRequestHeader('apikey', BACKEND.anonKey);
     xhr.setRequestHeader('x-upsert', 'true');
@@ -1570,11 +1577,11 @@ async function storageUpload(file, pathHint, onProgress, kind){
     xhr.upload.onprogress = e => { if(e.lengthComputable && onProgress) onProgress(e.loaded/e.total); };
     xhr.onload = () => {
       if(xhr.status>=200 && xhr.status<300){
-        resolve({ ok:true, url:`${beBase()}/storage/v1/object/public/${BACKEND.bucket}/${path}` });
+        resolve({ ok:true, bucket, path, url:`${beBase()}/storage/v1/object/public/${bucket}/${path}` });
       } else {
         let hint = (xhr.responseText||'').slice(0,180);
-        if(xhr.status===404) hint = 'the "'+BACKEND.bucket+'" storage bucket does not exist yet — create it (public) in Supabase → Storage.';
-        if(xhr.status===400 && /Bucket not found/i.test(xhr.responseText||'')) hint = 'bucket "'+BACKEND.bucket+'" not found — create it (public) in Supabase → Storage.';
+        if(xhr.status===404) hint = 'the "'+bucket+'" storage bucket does not exist yet — create it in Supabase → Storage.';
+        if(xhr.status===400 && /Bucket not found/i.test(xhr.responseText||'')) hint = 'bucket "'+bucket+'" not found — create it in Supabase → Storage.';
         if(xhr.status===401||xhr.status===403) hint = 'permission denied — confirm your account is signed in with role=teacher.';
         resolve({ ok:false, msg:'Upload failed (HTTP '+xhr.status+'): '+hint });
       }
@@ -2829,7 +2836,9 @@ function renderMathIn(el){
    The generation service (F32) inserts 'pending' items; this tab owns every status transition.
    An EDIT records a field-level diff in edited_diff — that diff is the taste signal the generator
    learns from, so it's stored deliberately, not as an audit trail. Teacher-only via RLS. */
-const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints'];
+/* F34 — tables_html/parts/source_info only ever appear on source:'import' items; harmless
+   no-ops for AI items (before/after both undefined, no diff entry). */
+const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints','tables_html','parts','source_info'];
 async function loadReviewQueue(){
   try{
     const { data, error } = await sbClient.from('questions_review').select('*').eq('status','pending').order('created_at',{ascending:true});
@@ -2911,6 +2920,7 @@ function reviewGroupHtml(g){
 }
 function reviewMetaHtml(it){
   const bits=[esc(it.kind||'item')];
+  if(it.source==='import') bits.push('📥 imported');   /* F34 — vs the default 'ai' source */
   if(it.grade_band!=null) bits.push('Grade '+esc(it.grade_band));
   if(Array.isArray(it.spec_ref)&&it.spec_ref.length) bits.push('Spec '+it.spec_ref.map(esc).join(', '));
   if(it.similarity_score!=null) bits.push('Similarity '+(Math.round(it.similarity_score*100)/100));
@@ -3043,8 +3053,12 @@ function reviewItemHtml(it){
     <div class="rv-q">${sanitizeHtml(p.question_html||p.question||'<i>(no question text)</i>')}</div>
     ${renderScaffoldParts(p.scaffold)}
     ${opts?`<ul class="rv-opts">${opts}</ul>`:''}
+    ${Array.isArray(p.parts)&&p.parts.length?`<div class="rv-ms"><b>Question parts</b><ol>${p.parts.map(x=>`<li>${sanitizeHtml(String(x))}</li>`).join('')}</ol></div>`:''}
+    ${p.tables_html?`<div class="rv-ms"><b>Table</b>${sanitizeHtml(p.tables_html)}</div>`:''}
+    ${p.figure_flag?`<div class="rv-ms" style="color:var(--orange)"><b>⚠ Figure detected</b> — the original had a diagram/chart here that couldn't be extracted. Edit this item to attach an image of it.</div>`:''}
     ${p.mark_scheme?`<div class="rv-ms"><b>Mark scheme</b> ${sanitizeHtml(p.mark_scheme)}${p.marks!=null?` <span class="rv-marks">(${esc(p.marks)} mark${(+p.marks)===1?'':'s'})</span>`:''}${p.answer_numeric!=null?` <span class="rv-marks">answer: ${esc(p.answer_numeric)}</span>`:''}</div>`:''}
     ${(Array.isArray(p.hints)&&p.hints.length)?`<div class="rv-ms"><b>Hints</b>${renderStagedHints(p.hints)}</div>`:''}
+    ${p.source_info?`<p class="ad-note">Source: ${esc(p.source_info)}</p>`:''}
     ${reviewFlagsHtml(it)}
     ${reviewTraceHtml(it)}
     <div class="rv-actions">
@@ -3063,10 +3077,21 @@ function reviewEditFormHtml(it){
     const stage = (h&&typeof h==='object'&&h.stage!=null) ? h.stage : i+1;
     return `<div class="ad-row" style="align-items:flex-start;margin-top:4px"><span class="ad-note" style="margin-top:9px;white-space:nowrap;min-width:52px">Hint ${esc(stage)}</span><textarea class="ad-in ad-ta rvf-hint" data-i="${i}">${esc(text)}</textarea></div>`;
   }).join('') : '<p class="ad-note">No hints on this item.</p>';
+  /* F34 — import-only fields. Never shown for source:'ai' items, so the existing AI review
+     flow (already well-tested) is completely unaffected. */
+  const isImport = it.source==='import';
+  const importFields = isImport ? `
+    <label class="ad-lb" style="margin-top:10px">Table <span class="ad-note">(raw HTML — e.g. &lt;table&gt;…&lt;/table&gt;; leave blank if none)</span></label><textarea class="ad-in ad-ta rvf-tables">${esc(p.tables_html||'')}</textarea>
+    <label class="ad-lb">Question parts <span class="ad-note">(one per line, e.g. "(a) …")</span></label><textarea class="ad-in ad-ta rvf-parts">${esc((Array.isArray(p.parts)?p.parts:[]).join('\n'))}</textarea>
+    <label class="ad-lb">Source <span class="ad-note">(e.g. which of your own worksheets this came from)</span></label><input class="ad-in rvf-source" value="${esc(p.source_info||'')}">
+    ${p.figure_flag?`<label class="ad-lb">Figure <span class="ad-note">— attach an image of the diagram/chart this was flagged for; it's added to the end of the question above</span></label>
+      <input type="file" class="rvimg-file" id="rvimgfile${esc(it.id)}" data-id="${esc(it.id)}" accept="image/*" hidden>
+      <label for="rvimgfile${esc(it.id)}" class="btn ghost ad-mini">🖼 Attach image</label>`:''}` : '';
   return `<label class="ad-lb">Question</label><textarea class="ad-in ad-ta rvf-q">${esc(p.question_html||p.question||'')}</textarea>
     <label class="ad-lb">Mark scheme</label><textarea class="ad-in ad-ta rvf-ms">${esc(p.mark_scheme||'')}</textarea>
     <label class="ad-lb">Marks</label><input class="ad-in rvf-marks" type="number" value="${esc(p.marks!=null?p.marks:'')}" style="width:90px">
     <label class="ad-lb">Hints <span class="ad-note">(edit the wording; the stage order and any images are kept)</span></label>${hintRows}
+    ${importFields}
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>
     <p class="ad-note" style="margin-top:6px">Options/distractors aren’t editable here yet — reject and regenerate if a distractor is wrong.</p>`;
 }
@@ -3078,8 +3103,13 @@ function reviewEdit(payload, edits){
   const after  = { question_html:edits.question_html, mark_scheme:edits.mark_scheme, marks:edits.marks, hints:edits.hints };
   const newPayload = Object.assign({}, p, { mark_scheme:after.mark_scheme, marks:after.marks, hints:after.hints });
   if('question_html' in p || !('question' in p)) newPayload.question_html = after.question_html; else newPayload.question = after.question_html;
+  /* F34 — only present at all when the edit form actually offered them (source:'import'), so
+     an AI item's diff/payload never grows these keys just from opening its unrelated form. */
+  if(edits.tables_html!==undefined){ before.tables_html=(p.tables_html||''); after.tables_html=edits.tables_html; newPayload.tables_html=edits.tables_html; }
+  if(edits.parts!==undefined){ before.parts=(Array.isArray(p.parts)?p.parts:[]); after.parts=edits.parts; newPayload.parts=edits.parts; }
+  if(edits.source_info!==undefined){ before.source_info=(p.source_info||''); after.source_info=edits.source_info; newPayload.source_info=edits.source_info; }
   const diff={};
-  RV_EDIT_FIELDS.forEach(k=>{ if(JSON.stringify(before[k])!==JSON.stringify(after[k])) diff[k]={ from:before[k], to:after[k] }; });
+  RV_EDIT_FIELDS.forEach(k=>{ if((k in before) && JSON.stringify(before[k])!==JSON.stringify(after[k])) diff[k]={ from:before[k], to:after[k] }; });
   return { newPayload, diff };
 }
 function wireReviewItems(items){
@@ -3091,7 +3121,21 @@ function wireReviewItems(items){
     box.innerHTML=reviewEditFormHtml(it); box.style.display='block';
     box.querySelector('.rv-canceledit').addEventListener('click',()=>{ box.style.display='none'; box.innerHTML=''; });
     box.querySelector('.rv-savedit').addEventListener('click',()=>reviewSaveEdit(it, box));
+    const imgInp = box.querySelector('.rvimg-file');   /* F34 — only present when p.figure_flag */
+    if(imgInp) imgInp.addEventListener('change', ()=>{ const f=imgInp.files&&imgInp.files[0]; if(f) doRvImageUpload(box, f); });
   }));
+}
+/* F34 — attaches an image to the END of the question text in the edit form currently open
+   (plain textarea, not rich text, so append rather than insert-at-caret). Uses the default
+   PUBLIC bucket, unlike the original uploaded worksheet file: once approved, this image IS
+   meant to be student-facing. */
+async function doRvImageUpload(box, file){
+  toast('Uploading image…');
+  const res = await storageUpload(file, 'import-figure', null, 'image');
+  if(!res.ok){ toast('⚠ '+res.msg); return; }
+  const q = box.querySelector('.rvf-q');
+  if(q) q.value = (q.value||'') + `\n<img src="${res.url}" alt="" style="max-width:100%;border-radius:8px">`;
+  toast('✓ Image added to the question text below.');
 }
 async function reviewTransition(id, status){
   try{ const { error } = await sbClient.from('questions_review').update({ status, approved_by:(authUser&&authUser.id)||null }).eq('id', id); if(error) throw error;
@@ -3106,6 +3150,12 @@ async function reviewSaveEdit(it, box){
     marks:         (box.querySelector('.rvf-marks').value===''? (it.payload&&it.payload.marks) : +box.querySelector('.rvf-marks').value),
     hints:         mergeHintEdits(it.payload&&it.payload.hints, editedTexts)   /* preserves {stage,text,image?} objects */
   };
+  /* F34 — only present in the form for source:'import' items (reviewEditFormHtml); leaving
+     these undefined for an AI item is exactly what keeps reviewEdit() from touching them. */
+  const tablesEl=box.querySelector('.rvf-tables'), partsEl=box.querySelector('.rvf-parts'), sourceEl=box.querySelector('.rvf-source');
+  if(tablesEl) edits.tables_html = tablesEl.value;
+  if(partsEl) edits.parts = partsEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(sourceEl) edits.source_info = sourceEl.value;
   const { newPayload, diff } = reviewEdit(it.payload, edits);
   try{ const { error } = await sbClient.from('questions_review').update({ payload:newPayload, edited_diff:diff, status:'edited', approved_by:(authUser&&authUser.id)||null }).eq('id', it.id); if(error) throw error;
     toast('Saved & marked edited ✓'); const el=document.querySelector('.rv-item[data-id="'+it.id+'"]'); if(el) el.remove(); reviewCheckEmpty();
@@ -4957,7 +5007,7 @@ function buildAdminForm(){
   const f = $('adForm');
 
   if(L.comingSoon){
-    f.innerHTML = weeksPanel() + resourcesPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
+    f.innerHTML = weeksPanel() + resourcesPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
       ${inp('Lesson title','ad-title',L.title)}
       <div class="ad-steps" style="margin-top:10px;background:#fef9c3;border-color:#facc15">This lesson is a <b>“coming soon” placeholder</b>. Untick the box below to turn it into a full lesson — video, quiz, worksheet and generator editors will appear.</div>
       <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0;font-size:13px"><input type="checkbox" id="ad-soon" checked> Keep as a “coming soon” placeholder &nbsp;—&nbsp; <b>untick to start adding content</b></label></div>
@@ -4969,7 +5019,7 @@ function buildAdminForm(){
   const lessonIds = Object.keys(LESSONS);
   const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
 
-  f.innerHTML = weeksPanel() + resourcesPanel() + `
+  f.innerHTML = weeksPanel() + resourcesPanel() + importPanel() + `
   <div class="ad-panel"><h4>📋 Basics</h4>
     ${inp('Lesson title','ad-title',L.title)}
     <div class="ad-grid2">
@@ -5071,6 +5121,7 @@ function wireForm(f){
   f.addEventListener('change', onImageFilePick);
   f.addEventListener('change', onGenImageFilePick);
   f.addEventListener('change', onWsFileFilePick);
+  f.addEventListener('change', onImportFilePick);
   f.addEventListener('dragover', onVideoDragOver);
   f.addEventListener('dragleave', onVideoDragLeave);
   f.addEventListener('drop', onVideoDrop);
@@ -5623,6 +5674,71 @@ function resourceRowHtml(r, ri){
       <label class="ad-lb" style="margin-top:6px">Captions file (.vtt) <span class="ad-note">${missingCaptions?'— ⚠ no captions yet: hidden from students until this is filled in':'(only works with a direct-hosted video file, not YouTube/Vimeo — its own CC toggle applies there instead)'}</span></label><input class="ad-in rs-captions" data-rs="${ri}" value="${esc(r.captionsUrl||'')}" placeholder="https://…/captions.vtt">`:''}
     ${r.type==='skills'?`<label class="ad-lb" style="margin-top:6px">Guide content</label><textarea class="ad-in rs-body" data-rs="${ri}" rows="4" placeholder="Plain text, one idea per line">${esc(r.body||'')}</textarea>`:''}
   </div>`;
+}
+
+/* ---------- F34 — Import Question (Ryan's OWN material only, never exam papers — see the
+   copyright ruling recorded in DEVELOPMENT-PLAN.md). Same "present on every editor screen"
+   treatment as weeksPanel()/resourcesPanel() above: this isn't per-lesson content, it lands
+   in questions_review (source:'import') exactly like an AI draft, reviewed the same way. */
+function importPanel(){
+  return `<div class="ad-panel"><h4>📥 Import Question <span class="ad-note">(your own worksheets or material only — never a copyrighted exam paper)</span></h4>
+    <p class="ad-note" style="margin:0 0 8px">Upload a PDF, Word document, or a photo/scan of your own worksheet. It's read and turned into an editable draft in your <b>Review</b> tab — nothing reaches students until you approve it there, same as an AI-drafted question.</p>
+    <input type="file" class="import-file" id="importFileInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" hidden>
+    <label for="importFileInput" class="btn ghost ad-mini">📎 Choose a file to import</label>
+    <div id="importStatus" style="margin-top:8px"></div>
+  </div>`;
+}
+function onImportFilePick(e){
+  const inp = e.target.closest('.import-file'); if(!inp) return;
+  const file = inp.files && inp.files[0]; if(file) doQuestionImport(file);
+}
+async function doQuestionImport(file){
+  collectAdminForm();
+  if(!backendOn()){ toast('Set up the cloud backend first to import questions.'); return; }
+  if(!isTeacherSignedIn()){ toast('Sign in with your teacher account first.'); return; }
+  const el = $('importStatus');
+  if(el) el.innerHTML = '<p class="auth-note">Uploading…</p>';
+  const up = await storageUpload(file, `import-${currentCourseId}`, pct=>{
+    if(el) el.innerHTML = `<p class="auth-note">Uploading… ${Math.round(pct*100)}%</p>`;
+  }, 'file', 'imports');
+  if(!up.ok){ if(el) el.innerHTML = `<p class="auth-msg" style="display:block">⚠ ${esc(up.msg)}</p>`; return; }
+  if(el) el.innerHTML = '<p class="auth-note">Reading your worksheet — this can take a minute…</p>';
+  /* /v1/import only EXTRACTS (see IMPORT-ENDPOINT-SPEC.md) — unlike the AI generation path,
+     where the service inserts via its own service_role key, this app inserts the row itself
+     using the teacher's own session, matching the narrow "source='import'" insert policy
+     (supabase/migrations.sql) rather than widening the service_role-only path. */
+  const r = await genPOST('/v1/import', { bucket:up.bucket, path:up.path, courseId:currentCourseId, lessonId:(adminSel && LESSONS[adminSel]) ? adminSel : null });
+  if(!r.ok || !r.data || !r.data.question_html){
+    /* Progressive enhancement: /v1/import doesn't exist yet (see IMPORT-ENDPOINT-SPEC.md) —
+       the file is safely uploaded either way, this just can't extract it into a draft yet. */
+    const msg = r.status===404 ? 'Question import isn’t switched on yet — the file uploaded fine, but the reading step needs a small addition to the generator service first.' : genErrorMessage(r);
+    if(el) el.innerHTML = `<p class="auth-msg" style="display:block">⚠ ${esc(msg)}</p>`;
+    return;
+  }
+  const d = r.data;
+  /* Same-course duplicate check (this is NOT the AI path's copyright-similarity gate — see
+     the plan notes — just catching an accidental double-upload of the same worksheet). */
+  try{
+    const { data: existing } = await sbClient.from('questions_review').select('id')
+      .eq('course_id', currentCourseId).eq('source','import')
+      .ilike('payload->>question_html', (d.question_html||'').slice(0,60)+'%').limit(1);
+    if(existing && existing.length){
+      if(el) el.innerHTML = '<p class="auth-msg" style="display:block">⚠ This looks like a duplicate of something already imported for this course — check the Review tab before uploading again.</p>';
+      return;
+    }
+  }catch(e){ /* dedup check is a courtesy, not a gate — never block a real import over it failing */ }
+  try{
+    const { error } = await sbClient.from('questions_review').insert({
+      course_id: currentCourseId, lesson_id:(adminSel && LESSONS[adminSel]) ? adminSel : null,
+      kind:'generator', source:'import', status:'pending',
+      payload:{ question_html:d.question_html, mark_scheme:d.mark_scheme||'', marks:d.marks!=null?d.marks:null,
+                hints:Array.isArray(d.hints)?d.hints:[], tables_html:d.tables_html||'', parts:Array.isArray(d.parts)?d.parts:[],
+                figure_flag:!!d.figure_flag, source_info:d.source_info||file.name }
+    });
+    if(error) throw error;
+  }catch(e){ if(el) el.innerHTML = '<p class="auth-msg" style="display:block">⚠ Extracted, but couldn’t save it to the review queue — try again.</p>'; return; }
+  if(el) el.innerHTML = '<p class="ad-note">✓ Imported — check the <b>Review</b> tab to edit and approve it.</p>';
+  toast('Imported — review it in the Review tab.');
 }
 
 function addLessonToWeek(wi){

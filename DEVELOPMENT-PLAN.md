@@ -772,3 +772,46 @@ branding. **Exam papers are not an import source** (ruling above); the generator
 the legitimate route to Edexcel-style items.
 **AC:** ☐ a scanned Ryan worksheet becomes editable structured questions ☐ every
 import passes the similarity gate ☐ nothing publishes without the review screen.
+
+**Status: ◐ CODE-SHIPPED 2026-09-04, `/v1/import` doesn't exist yet.** App-side
+plumbing built end-to-end; the extraction endpoint itself is a separate-repo build
+(`IMPORT-ENDPOINT-SPEC.md`), so upload → review → approve can't be exercised live yet
+— matches the same pattern as F38's `/v1/grade`. Scope trimmed from the original AC,
+flagged rather than silently dropped:
+- **Free-response only, no MCQ/distractors** — matches the existing practice-bank
+  pipeline (`kind:'generator'`) exactly; distractor authoring for imports is a
+  follow-up, not core.
+- **One question/section per upload**, not auto-splitting a multi-question document —
+  real question-boundary-detection complexity, and Ryan's own worksheets are typically
+  one exercise anyway.
+- **The AI similarity gate doesn't apply here and isn't built for imports.** That gate
+  is 100% server-side in the generator repo, fingerprinting AI *output* against a
+  copyrighted exam-paper corpus to catch drift — there's nothing to fingerprint a
+  teacher's own worksheet against. Replaced with a same-course duplicate-text check
+  (catches an accidental double-upload, not copyright proximity) — the AC line above
+  is superseded by this.
+- **Diagrams/graphs aren't recreated as editable elements.** Extraction flags "a figure
+  was here" (`figure_flag`); the teacher attaches a cropped image via the existing F26
+  image-upload button in the review tab — far lower risk than diagram vectorisation.
+
+Shipped: `storageUpload()` extended (new `bucket` param, defaults unchanged; widened
+file-type regex for `.doc(x)?`); new private `imports` Storage bucket + teacher-only
+RLS (`supabase/migrations.sql`); `questions_review.source` check widened to
+`('ai','import')` plus a new insert policy scoped to `is_teacher() and source='import'`
+— deliberately narrow, so a compromised teacher session still can't forge a fake `'ai'`
+row (only the service's service_role key can insert those, unchanged); Teacher Editor
+gains a "📥 Import Question" panel (`importPanel()`); `doQuestionImport()` uploads to
+`imports`, calls `/v1/import`, runs the same-course duplicate check, then inserts the
+extracted draft into `questions_review` itself using the teacher's own session (unlike
+AI drafts, which only the service ever inserts); Review tab extended
+(`RV_EDIT_FIELDS`/`reviewEditFormHtml`/`reviewEdit`/`reviewSaveEdit`) with import-only
+fields — tables, multi-part text, source info, and a flagged-figure image-attach slot
+— shown only when `source==='import'`, with a self-caught fix so these optional fields
+never pollute the edit-diff for ordinary AI-sourced items. Once approved, an imported
+item is indistinguishable from an AI one to `practice_questions` and everything
+downstream — F12-lite already serves it.
+
+**Note (re-affirmed 2026-09-04):** mid-session, Ryan asked to revisit the exam-paper
+ruling above and I declined that specific piece — copyright protects the questions
+themselves, not just branding, and reformatting a lifted paper doesn't launder it. This
+build is the legitimate scope instead: Ryan's own material only. The ruling stands.
