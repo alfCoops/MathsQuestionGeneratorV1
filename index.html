@@ -255,6 +255,14 @@
   .auth-link{background:none;border:none;color:#9fb3d1;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left;padding:2px 4px;font-family:inherit;text-decoration:underline}
   .auth-link:hover{color:#fff}
   .auth-link.solid{background:var(--green);color:#fff;border-radius:8px;padding:7px 11px;text-decoration:none;width:100%;text-align:center}
+  /* F44 Phase 5 — dark-sidebar palette (the generic .energy-meter isn't reused on a light
+     background anywhere, so no separate light-mode variant needed): --blue-mid for the
+     track/chrome, --green for the earned fill, matching the brief's colour hierarchy. */
+  .energy-meter{width:100%;margin:2px 0 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 10px}
+  .energy-meter-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700;color:#c7d2e8}
+  .energy-meter-head b{color:#fff;font-size:11.5px}
+  .energy-bar{height:6px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:5px}
+  .energy-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue-mid),var(--green));border-radius:999px}
   .auth-card{max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 2px 10px rgba(15,23,42,.05)}
   .auth-card.wide{max-width:620px}
   .auth-card h2{font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px}
@@ -1518,7 +1526,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-04T21:26:56Z', ref:'73a162a+' };
+const BUILD = { at:'2026-09-04T21:44:50Z', ref:'6d00e87+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -1886,7 +1894,12 @@ async function syncProgressOnLogin(){
    exists instead of leaving the account permanently profile-less. ensureProfile() is a
    no-op upsert when the row already exists (no name passed here), so this is safe on every
    sign-in, not just the first. */
-async function onSignedIn(){ await ensureProfile(); if(authProfile && authProfile.last_location){ lastLoc = authProfile.last_location; try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){} } if(typeof loadPrefsFromProfile==='function') loadPrefsFromProfile(); await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
+async function onSignedIn(){ await ensureProfile(); if(authProfile && authProfile.last_location){ lastLoc = authProfile.last_location; try{ localStorage.setItem('mm-last-loc', JSON.stringify(lastLoc)); }catch(e){} } if(typeof loadPrefsFromProfile==='function') loadPrefsFromProfile();
+  /* F44 Phase 5 — prime the rank-seen baseline here (not just inside onEnergyUpdated) so a
+     fresh browser's FIRST activity-triggered recompute can still detect a genuine rank-up,
+     instead of always priming silently on that first call. No-op if already set. */
+  if(authProfile){ try{ if(localStorage.getItem(RANK_SEEN_KEY)===null) localStorage.setItem(RANK_SEEN_KEY, String(rankNumber(authProfile.energy_total||0))); }catch(e){} }
+  await syncProgressOnLogin(); flushOfflineQueue(); renderAuthBox(); }
 window.addEventListener('online', flushOfflineQueue);
 
 /* ---------- F5: "continue where you left off" (last_location) ---------- */
@@ -1967,7 +1980,39 @@ let _pointsT=null;
 function recomputeMyPoints(){
   if(!sbClient || !authUser) return;
   clearTimeout(_pointsT);
-  _pointsT=setTimeout(()=>{ try{ sbClient.rpc('recompute_my_points'); }catch(e){} }, 1200);
+  _pointsT=setTimeout(async ()=>{
+    try{
+      const { data } = await sbClient.rpc('recompute_my_points');   /* F44 Phase 5 — now returns {points, energy_total}, not just points */
+      if(data && typeof data.energy_total==='number') onEnergyUpdated(data.energy_total);
+    }catch(e){}
+  }, 1200);
+}
+/* F44 Phase 5 — Energy Meter + ranks. energy_total is monotonic (never decreases, same shape
+   as points), so "current tier" and "rank number" are pure derivations, never separately
+   stored: energy_total=250 → rank 2 ("Problem Solver"), 50/100 into the next one. RANKS is
+   hardcoded for this pass (admin-editable names/thresholds is real scope-creep on an already
+   large brief — flagged as a clean follow-up, not blocking this). */
+const RANKS = ['Novice','Explorer','Problem Solver','Strategist','Scholar','Expert','Master','Grandmaster','Legend','Champion'];
+function rankNumber(energyTotal){ return Math.floor((energyTotal||0)/100); }
+function rankName(n){ return RANKS[Math.min(n, RANKS.length-1)]; }
+const RANK_SEEN_KEY = 'mm-rank-seen';
+/* Called after every recompute (fired debounced from any activity — quiz answers, mountain-
+   journey answers, lesson completion). Detects a rank-up by comparing against the last rank
+   this BROWSER saw (localStorage, not per-account — same lightweight, unkeyed pattern already
+   used for badge-ack; a shared machine seeing one extra celebratory toast is a harmless
+   edge case, not a security or data issue). First-ever load just primes the baseline instead
+   of celebrating a "rank up" from nothing. */
+function onEnergyUpdated(energyTotal){
+  if(!authProfile) return;
+  authProfile.energy_total = energyTotal;
+  const rank = rankNumber(energyTotal);
+  let seen = null; try{ const raw = localStorage.getItem(RANK_SEEN_KEY); if(raw!==null) seen = +raw; }catch(e){}
+  if(seen===null){ try{ localStorage.setItem(RANK_SEEN_KEY, String(rank)); }catch(e){} }
+  else if(rank > seen){
+    try{ localStorage.setItem(RANK_SEEN_KEY, String(rank)); }catch(e){}
+    toast('🎉 Rank Up! You are now ' + rankName(rank) + '.');
+  }
+  renderAuthBox();
 }
 function progressStats(){
   const cp = allProgress[currentCourseId] || {};
@@ -3109,8 +3154,12 @@ async function renderLeaderboard(){
     if(error) throw error;
     const iAmIn = !!(authProfile && authProfile.leaderboard_opt_in);
     const joinCta = `<p class="ad-note" style="margin-top:14px">${iAmIn ? 'You’re on the leaderboard — manage it in' : 'Not on the leaderboard yet — join in'} ⚙ <a href="#" id="lbOpenPrefs" style="color:inherit;font-weight:700">Display &amp; reading settings</a>.</p>`;
+    /* F44 Phase 5 — rank chip alongside points, integrated into this SAME leaderboard (not a
+       new one). Points stays the sort key/headline number, unchanged and already anti-gaming-
+       hardened; rank is a light, clean addition per the brief ("do not overload the
+       leaderboard"), not a second competing ranking. */
     el.innerHTML = (rows&&rows.length)
-      ? `<ul class="tch-list">${rows.map((r,i)=>`<li class="${authUser&&r.user_id===authUser.id?'lb-me':''}" style="display:flex;gap:10px;justify-content:space-between"><span>#${i+1} ${esc(r.display_name||'Student')}${r.user_id===authUser.id?' (you)':''}</span><b>${r.points||0}</b></li>`).join('')}</ul>${joinCta}`
+      ? `<ul class="tch-list">${rows.map((r,i)=>`<li class="${authUser&&r.user_id===authUser.id?'lb-me':''}" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><span>#${i+1} ${esc(r.display_name||'Student')}${r.user_id===authUser.id?' (you)':''}</span><span style="display:flex;align-items:center;gap:8px"><span class="chip time" style="background:var(--blue-soft);color:var(--blue);border-color:transparent">${esc(rankName(rankNumber(r.energy_total)))}</span><b>${r.points||0}</b></span></li>`).join('')}</ul>${joinCta}`
       : `<p class="auth-note">No one’s on the leaderboard yet.</p>${joinCta}`;
     const lp=$('lbOpenPrefs'); if(lp) lp.addEventListener('click', e=>{ e.preventDefault(); openPrefs(); });
   }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the leaderboard.</p>'; }
@@ -3931,6 +3980,15 @@ function genPollLoop(jobId, requested, attempt){
   }, 3000);
 }
 
+/* F44 Phase 5 — sidebar Energy Meter. --blue track/--green fill per the brief's colour
+   hierarchy (blue = structural/meter chrome, green = progress/earned). */
+function energyMeterHtml(energyTotal){
+  const rank = rankNumber(energyTotal), cur = (energyTotal||0)%100;
+  return `<div class="energy-meter" title="${100-cur} Energy until next rank">
+    <div class="energy-meter-head"><span>⚡ ${esc(rankName(rank))}</span><b>${cur}/100</b></div>
+    <div class="energy-bar"><i style="width:${cur}%"></i></div>
+  </div>`;
+}
 function renderAuthBox(){
   const box=$('authBox'); if(!box) return;
   if(!sbClient){ box.innerHTML=''; return; }
@@ -3940,7 +3998,10 @@ function renderAuthBox(){
     const qa = `<button class="auth-link" id="authQanda">🎙 Weekly Q&amp;A</button>`;   /* F23 — visible to every signed-in account, not role-gated */
     const lb = `<button class="auth-link" id="authLeaderboard">🏆 Leaderboard</button>`;   /* F24 — visible to every signed-in account, not role-gated */
     const pl = `<button class="auth-link" id="authPlanner">📅 Study Planner</button>`;   /* F39 — visible to every signed-in account, not role-gated */
-    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${tch}${par}${qa}${lb}${pl}<button class="auth-link" id="authOut">Sign out</button>`;
+    /* F44 Phase 5 — students only: a teacher/parent account never accrues Energy, so showing
+       "Novice 0/100" for those roles would be meaningless clutter, not informative. */
+    const energyHtml = (authProfile && authProfile.role==='student') ? energyMeterHtml(authProfile.energy_total||0) : '';
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${energyHtml}${tch}${par}${qa}${lb}${pl}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const pa=$('authParent'); if(pa) pa.addEventListener('click', ()=>{ location.hash='#/parent'; });
     const qb=$('authQanda'); if(qb) qb.addEventListener('click', ()=>{ location.hash='#/qanda'; });
@@ -4530,6 +4591,16 @@ async function recordQuizResults(){
   const rows = quizResultRows(quiz.attemptId || uuid4()).map(r=>Object.assign({ user_id:authUser.id }, r));
   try{ await sbClient.from('quiz_results').insert(rows); }catch(e){}
 }
+/* F44 Phase 5 — one row per Method to Meaning question answered (correct or not — Ryan's
+   Energy rule doesn't gate this on correctness, unlike quiz answers). Fire-and-forget, same
+   best-effort shape as recordQuizResults() above; triggers a debounced recompute so Energy
+   updates as the student progresses through the mountain journey, not just when the whole
+   worksheet is marked done. */
+function recordReasoningAnswer(lessonId, qIndex){
+  if(!sbClient || !authUser) return;
+  try{ sbClient.from('reasoning_answers').insert({ user_id:authUser.id, course_id:currentCourseId, lesson_id:lessonId, q_index:qIndex }); }catch(e){}
+  recomputeMyPoints();
+}
 
 $('quizBtn').addEventListener('click', ()=>{ openAct('secQuiz'); renderQuiz(); });
 $('qExit').addEventListener('click', ()=> $('secQuiz').classList.remove('open'));
@@ -5049,8 +5120,10 @@ function renderMountainQuestion(mm){
   el.querySelectorAll('[data-mm-insert]').forEach(b=>b.addEventListener('click', ()=>{ insertAtCaret(ta, b.dataset.mmInsert); sync(); }));
 
   function advance(){
+    const answeredPos = mm.pos;   /* F44 Phase 5 — capture BEFORE mm.pos++ below, so the recorded index is the question just answered, not the next one */
     const finishedStage = mm.pos%3===2, stageIdx = mmCurrentStage(mm);
     mm.pos++;
+    recordReasoningAnswer(cur.code, answeredPos);
     saveProgress();
     renderWsMiniStepper();
     if(finishedStage && mm.pos<12) renderMountainStageFeedback(mm, stageIdx);

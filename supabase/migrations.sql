@@ -77,6 +77,25 @@ drop policy if exists "own quiz_results" on public.quiz_results;
 create policy "own quiz_results" on public.quiz_results for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- teacher read-all lands with F10 (same security-definer/role approach as the tables above).
 
+-- F44 Phase 5 — Energy Meter needs to count individual Method to Meaning (mountain-journey)
+-- answers, same way quiz_results already lets it count individual quiz answers. Nothing
+-- equivalent existed before this: the mountain journey only ever persisted its whole-worksheet
+-- done/not-done flag (progress.steps.worksheet), never a per-question record. Deliberately
+-- minimal columns (no topic/misconception/grade_band like quiz_results) — nothing downstream
+-- reads this for anything but a count, unlike quiz_results which also feeds F10/F21 analytics.
+create table if not exists public.reasoning_answers (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  course_id   text not null default 'gcse-edexcel-foundation',
+  lesson_id   text not null,
+  q_index     int not null,               -- 0-11, position in the 12-question mountain journey
+  answered_at timestamptz not null default now()
+);
+create index if not exists reasoning_answers_user_idx on public.reasoning_answers (user_id);
+alter table public.reasoning_answers enable row level security;
+drop policy if exists "own reasoning_answers" on public.reasoning_answers;
+create policy "own reasoning_answers" on public.reasoning_answers for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 
 -- ============================================================================
 -- Phase 3 — F10: teacher read-all + comp-access toggle (D5) + F30-ready opt-in.
@@ -386,11 +405,20 @@ create policy "own vote"              on public.qanda_votes for all    using (au
 -- ============================================================================
 alter table public.profiles add column if not exists leaderboard_opt_in boolean not null default false;
 alter table public.profiles add column if not exists points int not null default 0;
+-- F44 Phase 5 — Energy Meter, a SEPARATE progression number from points above, not derived
+-- from it (points keeps its own existing weights/streak bonus for the leaderboard sort;
+-- Energy uses Ryan's own explicit per-activity weights, which don't match points' weights).
+-- Monotonic total, same shape as points — never decreases, so "excess energy carries over on
+-- rank-up" and "rank never loses energy" are just floor(energy_total/100) and
+-- energy_total%100 computed client-side; nothing else to store or keep in sync.
+alter table public.profiles add column if not exists energy_total int not null default 0;
 
 create or replace function public.recompute_my_points()
-returns int
+returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare lessons_complete int; quizzes_passed int; cur_streak int; total int;
+declare
+  lessons_complete int; quizzes_passed int; cur_streak int; total int;
+  correct_answers int; reasoning_answered int; energy int;
 begin
   select count(*) into lessons_complete from public.progress
     where user_id = auth.uid() and (steps->>'complete')::boolean is true;
@@ -398,20 +426,36 @@ begin
     where user_id = auth.uid() and (steps->>'quiz')::boolean is true;
   select coalesce(streak_current,0) into cur_streak from public.profiles where user_id = auth.uid();
   total := lessons_complete*10 + quizzes_passed*5 + cur_streak;
-  update public.profiles set points = total where user_id = auth.uid();
-  return total;
+  -- Ryan's own values, refined to per-question granularity: every CORRECT quiz answer = 1
+  -- Energy (quiz_results.correct, already recorded per-question by recordQuizResults());
+  -- every Method to Meaning question answered = 1 Energy, correct or not (reasoning_answers,
+  -- new above — nothing recorded this before); Lesson Complete bonus = 10. Watch Lesson &
+  -- Read Notes and the Question Generator deliberately contribute nothing — Ryan's choice,
+  -- not an oversight.
+  select count(*) into correct_answers from public.quiz_results
+    where user_id = auth.uid() and correct = true;
+  select count(*) into reasoning_answered from public.reasoning_answers
+    where user_id = auth.uid();
+  energy := correct_answers + reasoning_answered + lessons_complete*10;
+  update public.profiles set points = total, energy_total = energy where user_id = auth.uid();
+  return jsonb_build_object('points', total, 'energy_total', energy);
 end; $$;
 revoke all on function public.recompute_my_points() from public;
 grant execute on function public.recompute_my_points() to authenticated;
 
 revoke update (points) on public.profiles from authenticated;
+revoke update (energy_total) on public.profiles from authenticated;
 
 -- Narrow, opted-in-only leaderboard view — same security_invoker=false pattern as
 -- practice_questions above: exposes ONLY display_name + points for opted-in
 -- students, never the raw profiles row (role/comp_access/streak_last etc. stay hidden).
+-- F44 Phase 5 — energy_total added so the leaderboard can show rank alongside points
+-- (integrating into the existing leaderboard per the brief, not a second one). Rank itself
+-- is derived client-side (floor(energy_total/100)) against the RANKS name list, same as
+-- everywhere else Energy is shown — nothing new to keep in sync here.
 create or replace view public.leaderboard
 with (security_invoker = false) as
-select user_id, display_name, points
+select user_id, display_name, points, energy_total
 from public.profiles
 where leaderboard_opt_in = true
 order by points desc;
