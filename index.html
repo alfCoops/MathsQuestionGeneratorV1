@@ -862,6 +862,8 @@
   .mkt-skills{display:grid;grid-template-columns:1fr 1fr;gap:5px 18px;margin:6px 0 8px;list-style:none}
   .mkt-skills li{display:flex;gap:6px;font-size:13px;color:var(--text2)}
   .mkt-skills li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+  .hiw-card{max-width:640px;margin:0 auto 14px}
+  .hiw-card .body p,.pkc-card .body p{font-size:13px;color:var(--text2);line-height:1.6}
   .mkt-research{border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:16px;padding:22px 24px;margin-top:22px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
   .mkt-research .rh{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--green);font-size:14.5px}
   .mkt-research p{font-size:12.5px;color:var(--text2);margin-top:6px;max-width:340px}
@@ -2213,15 +2215,26 @@ function renderHome(){
    DOM/CSS to what a student actually sees, wrapped at a readable width for a single-column
    marketing page. Prior Knowledge deliberately stays OUTSIDE the numbered steps here too,
    matching the real lesson's own design decision (see the comment at index.html:977-979). */
-function realStepCardHtml(ic, icBg, icon, icon2, title, sub, desc, timeKey, extraBodyHtml){
-  return `<section class="card" style="max-width:640px;margin:0 auto 14px">
-    <div class="act-head" style="cursor:default">
+/* 2026-09-04 — Ryan asked for a clickable "explain this clearly" dropdown on each card.
+   Reuses the real .body/.open>.body{display:block} + .chev rotate CSS already defined for
+   the real lesson accordion, but wired with its OWN tiny toggle (wireHiwCards() below) —
+   deliberately NOT openAct()/toggleAct(), which also touch real lesson state (noteSection(),
+   video focus, one-at-a-time collapsing) that has no meaning on a static preview page. */
+function realStepCardHtml(ic, icBg, icon, icon2, title, sub, desc, timeKey, explain, extraBodyHtml){
+  return `<section class="card hiw-card">
+    <div class="act-head">
       <div class="ico" style="--ic:${ic};--icbg:${icBg}"><span class="glyph">${icon}</span><span class="ico2">${icon2}</span></div>
       <div class="txt"><b>${esc(title)}</b><span class="act-sub" style="color:${ic}">${esc(sub)}</span><span>${esc(desc)}</span></div>
       <span class="time-chip">${esc(SECTION_TIME_DEFAULTS[timeKey])}</span>
+      <span class="chev">▼</span>
     </div>
-    ${extraBodyHtml || ''}
+    <div class="body"><p>${esc(explain)}</p>${extraBodyHtml || ''}</div>
   </section>`;
+}
+function wireHiwCards(root){
+  root.querySelectorAll('.hiw-card > .act-head, .pkc-card > .act-head').forEach(h=>{
+    h.addEventListener('click', ()=> h.closest('.card').classList.toggle('open'));
+  });
 }
 function renderHowItWorks(){
   document.title = 'How MasterMaths Works — MasterMaths Tutoring';
@@ -2246,26 +2259,30 @@ function renderHowItWorks(){
         </div>
       </div>
 
-      <section class="card pkc-card" style="max-width:640px;margin:0 auto 14px;border:1px solid #ddd6fe;background:#faf9ff">
-        <div class="act-head" style="cursor:default">
+      <section class="card pkc-card hiw-card" style="border:1px solid #ddd6fe;background:#faf9ff">
+        <div class="act-head">
           <div class="ico" style="--ic:var(--purple);--icbg:var(--purple-bg)"><span class="glyph">📋</span></div>
           <div class="txt"><b>Prior Knowledge Checker</b><span>A short check of what you already know before we start.</span></div>
           <span class="time-chip">~5 minutes</span>
+          <span class="chev">▼</span>
         </div>
+        <div class="body"><p>Maths builds on itself — a gap in what a topic assumes you already know is easier to fix before the lesson than during it. This is a handful of quick questions on exactly the skills this lesson depends on. Answer them and you'll see exactly what's solid and what's worth a 2-minute refresher first, before the new material starts.</p></div>
       </section>
 
-      ${realStepCardHtml('var(--blue)', 'var(--blue-soft)', '▶', '📄', '1. Watch Lesson & Read Notes', 'Build understanding before attempting questions.', 'Watch the video explanation with worked examples, then read the summary notes with key formulas.', 'learn')}
-      ${realStepCardHtml('var(--orange)', 'var(--orange-bg)', '🧠', '📋', '2. Diagnostic Quiz', 'Discover what you know and what to improve.', "Test your understanding with 10 questions. You'll get instant feedback!", 'quiz')}
+      ${realStepCardHtml('var(--blue)', 'var(--blue-soft)', '▶', '📄', '1. Watch Lesson & Read Notes', 'Build understanding before attempting questions.', 'Watch the video explanation with worked examples, then read the summary notes with key formulas.', 'learn',
+        "A short, focused video works through the topic step by step with worked examples — not a talking-head lecture. Underneath, written notes summarise the method and key formulas in one place, so once you've watched it you've always got something concise to check back against before a quiz or exam.")}
+      ${realStepCardHtml('var(--orange)', 'var(--orange-bg)', '🧠', '📋', '2. Diagnostic Quiz', 'Discover what you know and what to improve.', "Test your understanding with 10 questions. You'll get instant feedback!", 'quiz',
+        "It's called \"diagnostic\" because the point isn't just a score — every question is tagged to a specific misconception, so if something's wrong, you (and your tutor) know exactly which part of the method didn't land, not just that something went wrong.")}
       ${realStepCardHtml('var(--purple)', 'var(--purple-bg)', '⛰', '💬', '3. From Method to Meaning', 'Develop mathematical reasoning through guided practice.', 'Climb from using the method to explaining why it works — 12 reasoning questions, one at a time.', 'worksheet',
-        `<div class="body" style="display:block">
-           <p class="ad-note" style="margin-bottom:6px;font-weight:700;color:var(--purple)">Students build upon skills of:</p>
+        "Instead of more practice questions, you get guided prompts that ask you to explain your thinking — clarify an answer, justify why a method works, generalise the idea to a new situation, and try a question that doesn't look like the ones you just practised. This is the stage built specifically to stop \"I can do it in the lesson but not in the exam.\"",
+        `<p class="ad-note" style="margin:10px 0 6px;font-weight:700;color:var(--purple)">Students build upon skills of:</p>
            <ul class="mkt-skills">
              <li>Clarifying their answers</li><li>Generalising mathematical ideas</li>
              <li>Justifying why methods work</li><li>Explaining their reasoning with confidence</li>
              <li>Solving increasingly challenging questions</li>
-           </ul>
-         </div>`)}
-      ${realStepCardHtml('var(--pink)', '#fdf2f8', '🎲', '📊', '4. Question Generator', 'Unlimited personalised practice.', 'Generate unlimited exam-style questions to challenge your understanding.', 'generate')}
+           </ul>`)}
+      ${realStepCardHtml('var(--pink)', '#fdf2f8', '🎲', '📊', '4. Question Generator', 'Unlimited personalised practice.', 'Generate unlimited exam-style questions to challenge your understanding.', 'generate',
+        "Once you've learned and practised, generate as many exam-style questions on this topic as you want, whenever you want. Each one is written fresh — not pulled from a fixed bank you could just memorise — and the difficulty adapts to how you're doing, so you get more practice where you need it and less time on what you've already mastered.")}
 
       <div class="mkt-points">
         <div class="rh" style="color:var(--gold)">🏅 Earn Points &amp; Badges</div>
@@ -2288,6 +2305,7 @@ function renderHowItWorks(){
       </div>
     </div>
     ${mktCtaStripHtml()}`;
+  wireHiwCards(root);
 }
 function renderPricing(){
   document.title = 'Pricing — MasterMaths Tutoring';
