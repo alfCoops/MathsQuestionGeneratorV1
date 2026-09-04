@@ -792,15 +792,14 @@
      F42's login page. A second, sidebar-less page mode alongside the existing
      .sidebar+.main app shell (pageChrome()) — every existing app page (courses,
      lessons, admin, parent/teacher dashboards) is untouched and keeps using that
-     shell. .mkt-logo deliberately reuses the SAME mark already in the favicon
-     above (green rounded-square, white √) rather than inventing new brand art —
-     the CSS-only .mm-logo class above was defined but never actually instantiated
-     anywhere in the app, so it isn't a real "existing logo" to match.
+     shell. .mkt-logo renders Ryan's real logo (assets/mm-logo.png, 2026-09-04) — a plain
+     screenshot with an opaque white background, not a transparent export, which is why it's
+     sized/cropped to a circle rather than composited freely.
      ============================================================================ */
   .mkt-mode .sidebar{display:none}
   .mkt-mode .main{max-width:none;padding:0}
   .mkt-mode .crumb,.mkt-mode .title-row,.mkt-mode #comingSoon{display:none}
-  .mkt-logo{width:36px;height:36px;border-radius:9px;background:var(--mm-green);color:#fff;display:grid;place-items:center;font-family:Georgia,serif;font-size:20px;flex-shrink:0}
+  .mkt-logo{width:40px;height:40px;border-radius:50%;flex-shrink:0;object-fit:cover;object-position:center}
   .mkt-nav{display:flex;align-items:center;gap:22px;padding:14px 28px;border-bottom:1px solid var(--line);background:var(--card)}
   .mkt-brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--navy);font-size:15.5px;text-decoration:none;flex-shrink:0}
   .mkt-brand small{display:block;font-weight:600;color:var(--muted);font-size:10.5px;margin-top:1px}
@@ -2060,7 +2059,7 @@ function renderMktNav(){
     : `<a class="btn ghost" href="#/login">Log in</a><a class="btn solid" href="#/login?up=1">Create Free Account</a>`;
   $('mktRoot').innerHTML = `
     <nav class="mkt-nav">
-      <a href="#/" class="mkt-brand"><span class="mkt-logo">√</span><span>MasterMaths<small>Tutoring</small></span></a>
+      <a href="#/" class="mkt-brand"><img class="mkt-logo" src="assets/mm-logo.png" alt="MasterMaths Tutoring"><span>MasterMaths<small>Tutoring</small></span></a>
       <div class="mkt-links">
         <a href="#/how-it-works">How It Works</a>
         <a href="#/courses">For Students</a>
