@@ -838,7 +838,16 @@
   .mkt-steps{display:flex;flex-direction:column;gap:14px;margin-top:26px}
   .mkt-step{display:flex;gap:16px;align-items:flex-start;border:1.5px solid var(--line);border-radius:16px;padding:18px 20px;position:relative}
   .mkt-step .num{position:absolute;top:-11px;left:-11px;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 2px 5px rgba(15,23,42,.15)}
-  .mkt-step .mkt-step-icon{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:24px;flex-shrink:0}
+  .mkt-step .mkt-step-icon{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:24px;flex-shrink:0;position:relative}
+  .mkt-step .mkt-step-icon::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px dashed currentColor;opacity:.35}
+  .mkt-step .mkt-step-icon2{position:absolute;bottom:-4px;left:-4px;width:22px;height:22px;border-radius:50%;background:var(--card);border:1.5px solid var(--line);display:grid;place-items:center;font-size:11px;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+  .mkt-skills{display:grid;grid-template-columns:1fr 1fr;gap:5px 18px;margin:6px 0 8px;list-style:none}
+  .mkt-skills li{display:flex;gap:6px;font-size:13px;color:var(--text2)}
+  .mkt-skills li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+  .mkt-pkc-card{display:flex;align-items:center;gap:16px;border:1.5px solid var(--purple-line);background:var(--purple-bg);border-radius:16px;padding:16px 20px;margin-top:22px}
+  .mkt-pkc-card .mkt-pkc-icon{width:44px;height:44px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:20px;flex-shrink:0}
+  .mkt-pkc-card b{display:block;color:var(--purple);font-size:14.5px}
+  .mkt-pkc-card span.sub{font-size:12.5px;color:var(--text2)}
   .mkt-step b{display:block;font-size:15px;color:var(--navy)}
   .mkt-step .mkt-step-sub{font-size:13px;font-weight:700;display:block;margin:2px 0 4px}
   .mkt-step span{font-size:13px;color:var(--muted)}
@@ -2196,17 +2205,30 @@ const HIW_STEP_STYLE = [
 function renderHowItWorks(){
   document.title = 'How MasterMaths Works — MasterMaths Tutoring';
   const root = marketingChrome();
+  /* icon2 = the small overlapping badge in Ryan's mockup (e.g. play-icon circle + a tiny
+     notes-page badge bottom-left); skills = step 3's structured checklist body in the mockup
+     (replacing plain prose, only for that one step). */
   const steps = [
-    { ic:'▶', title:'Video & Notes', t:SECTION_TIME_DEFAULTS.learn, sub:'Build understanding before attempting questions.', body:'Watch a concise video lesson with worked examples, then revise using clear notes that explain both the method and why it works.' },
-    { ic:'🧠', title:'Diagnostic Quiz', t:SECTION_TIME_DEFAULTS.quiz, sub:'Discover what you know and what to improve.', body:'Complete a short quiz designed to identify misconceptions and give instant feedback, so you always know your next step.' },
-    { ic:'✏️', title:'From Method to Meaning', t:SECTION_TIME_DEFAULTS.worksheet, sub:'Develop mathematical reasoning through guided practice.', body:'Climb from using the method to explaining why it works — clarifying, justifying and generalising your reasoning, one question at a time.' },
-    { ic:'🎲', title:'Adaptive Question Generator', t:SECTION_TIME_DEFAULTS.generate, sub:'Unlimited personalised practice.', body:'Generate unlimited exam-style questions that automatically adapt to your progress.' },
+    { ic:'▶', ic2:'📄', title:'Watch Lesson & Read Notes', t:SECTION_TIME_DEFAULTS.learn, sub:'Build understanding before attempting questions.', body:'Watch a concise video lesson with worked examples, then revise using clear notes that explain both the method and why it works.' },
+    { ic:'🧠', ic2:'📋', title:'Diagnostic Quiz', t:SECTION_TIME_DEFAULTS.quiz, sub:'Discover what you know and what to improve.', body:'Complete a short quiz designed to identify misconceptions and give instant feedback, so you always know your next step.' },
+    { ic:'✏️', ic2:'💬', title:'Method to Meaning', t:SECTION_TIME_DEFAULTS.worksheet, sub:'Develop mathematical reasoning through guided practice.',
+      body:'These activities develop deeper understanding and help students tackle unfamiliar problems independently.',
+      skills:['Clarifying their answers','Justifying why methods work','Solving increasingly challenging questions','Generalising mathematical ideas','Explaining their reasoning with confidence'] },
+    { ic:'🎲', ic2:'📊', title:'Adaptive Question Generator', t:SECTION_TIME_DEFAULTS.generate, sub:'Unlimited personalised practice.', body:'Generate unlimited exam-style questions that automatically adapt to your progress.' },
   ];
   root.innerHTML = `
-    <div class="mkt-section">
-      <h2>How MasterMaths Works</h2>
-      <p class="mkt-sub">Four simple steps that help you understand maths, build confidence, and become an independent problem solver.</p>
-
+    <div class="mkt-hero" style="padding-bottom:0">
+      <div>
+        <h1>How MasterMaths<br><span class="accent">Works</span></h1>
+        <p>Four simple steps that help you understand maths, build confidence, and become an independent problem solver.</p>
+      </div>
+      <div class="mkt-hero-art"><div class="card" style="max-width:220px;text-align:center;padding:22px">
+        <div style="font-size:30px">💡</div>
+        <div style="background:var(--purple-bg);color:var(--purple);border-radius:10px;padding:6px 14px;font-weight:700;font-size:13px;display:inline-block;margin-top:12px">Why?</div>
+        <div style="margin-top:16px;font-family:Georgia,serif;font-size:16px;color:var(--green);font-weight:700">a² + b² = c²</div>
+      </div></div>
+    </div>
+    <div class="mkt-section" style="padding-top:0">
       <div class="mkt-progress-demo">
         <div class="mkt-progress-demo-head"><b>Your Progress</b><span>100%</span></div>
         <div class="mkt-progress-demo-track">
@@ -2217,12 +2239,18 @@ function renderHowItWorks(){
           <div class="mkt-progress-demo-node star">★</div>
         </div>
         <div class="mkt-progress-demo-labels">
-          <span>1. Video &amp; Notes</span><span>2. Diagnostic Quiz</span><span>3. Method to Meaning</span><span>4. Question Generator</span><span>Lesson Complete</span>
+          <span>1. Watch Lesson &amp; Read Notes</span><span>2. Diagnostic Quiz</span><span>3. Method to Meaning</span><span>4. Question Generator</span><span>Lesson Complete</span>
         </div>
       </div>
 
+      <div class="mkt-pkc-card">
+        <div class="mkt-pkc-icon">📋</div>
+        <div style="flex:1"><b>Prior Knowledge Checker</b><span class="sub">A short check of what you already know before you start, so the lesson can focus on exactly what you need.</span></div>
+        <span class="chip time" style="flex-shrink:0">~5 minutes</span>
+      </div>
+
       <div class="mkt-steps">
-        ${steps.map((s,i)=>`<div class="mkt-step"><div class="num">${i+1}</div><div class="mkt-step-icon" style="background:${HIW_STEP_STYLE[i].bg};color:${HIW_STEP_STYLE[i].fg}">${esc(s.ic)}</div><div style="flex:1"><b>${i+1}. ${esc(s.title)}</b><span class="mkt-step-sub" style="color:${HIW_STEP_STYLE[i].fg}">${esc(s.sub)}</span><span>${esc(s.body)}</span></div><span class="chip time" style="flex-shrink:0">${esc(s.t)}</span></div>`).join('')}
+        ${steps.map((s,i)=>`<div class="mkt-step"><div class="num">${i+1}</div><div class="mkt-step-icon" style="background:${HIW_STEP_STYLE[i].bg};color:${HIW_STEP_STYLE[i].fg}">${esc(s.ic)}<span class="mkt-step-icon2">${esc(s.ic2)}</span></div><div style="flex:1"><b>${i+1}. ${esc(s.title)}</b><span class="mkt-step-sub" style="color:${HIW_STEP_STYLE[i].fg}">${esc(s.sub)}</span>${s.skills?`<ul class="mkt-skills">${s.skills.map(sk=>`<li>${esc(sk)}</li>`).join('')}</ul>`:''}<span>${esc(s.body)}</span></div><span class="chip time" style="flex-shrink:0">${esc(s.t)}</span></div>`).join('')}
       </div>
 
       <div class="mkt-points">
