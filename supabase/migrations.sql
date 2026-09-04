@@ -296,6 +296,23 @@ end; $$;
 revoke all on function public.redeem_invite_code(text) from public;
 grant execute on function public.redeem_invite_code(text) to authenticated;
 
+-- F44 Phase 4 — Parent-only action: remove a link. No separate RLS delete policy needed
+-- (and deliberately not added): this SECURITY DEFINER function IS the sole write path, same
+-- as redeem_invite_code() above — it bypasses RLS itself and enforces the scope directly in
+-- its WHERE clause (parent_user_id = auth.uid()), so a parent can only ever remove their OWN
+-- link, never another parent's, and a student can't unlink themselves either (symmetry with
+-- redeeming being parent-only). Adding a matching RLS policy on top would just open a second,
+-- redundant write path (a raw client .delete()) with no benefit.
+create or replace function public.unlink_student(student_id uuid)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.parent_links where parent_user_id = auth.uid() and student_user_id = student_id;
+  return found;
+end; $$;
+revoke all on function public.unlink_student(uuid) from public;
+grant execute on function public.unlink_student(uuid) to authenticated;
+
 
 -- ============================================================================
 -- F23 — Weekly Q&A (D12: Zoom, not YouTube Live — no public live-embed, so this

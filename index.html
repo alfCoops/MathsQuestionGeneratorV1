@@ -1518,7 +1518,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-04T21:20:45Z', ref:'957c3c8' };
+const BUILD = { at:'2026-09-04T21:26:56Z', ref:'73a162a+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2914,7 +2914,9 @@ async function loadParentStudents(){
   try{
     const { data:links, error:linkErr } = await sbClient.from('parent_links').select('student_user_id');
     if(linkErr) throw linkErr;
-    if(!links || !links.length){ el.innerHTML = '<p class="auth-note">No linked students yet — enter a code above.</p>'; return; }
+    /* F44 Phase 4 — clearer empty state: explains what "linked" actually means here, not just
+       that the list is empty, since this is often the very first thing a new parent sees. */
+    if(!links || !links.length){ el.innerHTML = '<p class="auth-note">No linked students yet. Ask your child for their code (⚙ Display &amp; reading → Parent access on their account) and enter it above to connect.</p>'; return; }
     const ids = links.map(l=>l.student_user_id);
     const [{ data:profiles, error:pErr }, { data:progress, error:prErr }] = await Promise.all([
       sbClient.from('profiles').select('user_id,display_name,streak_current,streak_best'),
@@ -2922,7 +2924,25 @@ async function loadParentStudents(){
     ]);
     if(pErr || prErr) throw (pErr||prErr);
     el.innerHTML = ids.map(sid=>parentStudentCardHtml(sid, profiles||[], progress||[])).join('');
+    /* Wired here (not addEventListener in parentStudentCardHtml, which only returns a string)
+       — one listener per rendered card, re-wired every reload same as the rest of this page. */
+    el.querySelectorAll('.parent-unlink').forEach(b=>b.addEventListener('click', ()=>onParentUnlink(b.dataset.sid, b)));
   }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load student progress.</p>'; }
+}
+/* F44 Phase 4 — calls unlink_student(), the one write path (see migrations.sql — a SECURITY
+   DEFINER function scoped to auth.uid() in its own WHERE clause, not a raw client .delete()).
+   Confirms first, matching the existing confirm() pattern already used for another
+   destructive, hard-to-undo action (rejecting a generated item, reviewTransition() above). */
+async function onParentUnlink(sid, btn){
+  if(!confirm('Unlink this student? You’ll stop seeing their progress until they share their code with you again.')) return;
+  btn.disabled = true;
+  try{
+    const { data, error } = await sbClient.rpc('unlink_student', { student_id: sid });
+    if(error) throw error;
+    if(!data){ toast('Couldn’t unlink — try again in a moment.'); btn.disabled = false; return; }
+    toast('Unlinked.');
+    loadParentStudents();
+  }catch(e){ toast('Couldn’t unlink — try again in a moment.'); btn.disabled = false; }
 }
 function parentStudentCardHtml(sid, profiles, progress){
   const prof = profiles.find(p=>p.user_id===sid);
@@ -2934,8 +2954,13 @@ function parentStudentCardHtml(sid, profiles, progress){
     return `<li>${esc(LESSONS[r.lesson_id]?LESSONS[r.lesson_id].title.replace(/^\d\w+\.\s*/,''):r.lesson_id)} <span class="ad-note">${state}</span></li>`;
   }).join('');
   return `<div class="ad-panel" style="margin-bottom:12px">
-    <h4 style="margin:0 0 4px">${esc((prof&&prof.display_name)||'Student')}</h4>
-    <p class="ad-note" style="margin:0 0 10px">Last active: ${lastActive ? new Date(lastActive).toLocaleDateString('en-GB') : 'never'} &nbsp;·&nbsp; Streak: ${(prof&&prof.streak_current)||0} day${((prof&&prof.streak_current)||0)===1?'':'s'} (best ${(prof&&prof.streak_best)||0})</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div>
+        <h4 style="margin:0 0 4px;display:flex;align-items:center;gap:8px">${esc((prof&&prof.display_name)||'Student')} <span class="chip time" style="background:var(--green-bg);color:var(--green);border-color:var(--green-line)">✓ Connected</span></h4>
+        <p class="ad-note" style="margin:0 0 10px">Last active: ${lastActive ? new Date(lastActive).toLocaleDateString('en-GB') : 'never'} &nbsp;·&nbsp; Streak: ${(prof&&prof.streak_current)||0} day${((prof&&prof.streak_current)||0)===1?'':'s'} (best ${(prof&&prof.streak_best)||0})</p>
+      </div>
+      <button class="btn ghost ad-mini parent-unlink" data-sid="${esc(sid)}" style="color:var(--red);border-color:var(--red-line);flex-shrink:0">Unlink</button>
+    </div>
     <ul class="tch-list">${items || '<li>No lessons started yet.</li>'}</ul>
   </div>`;
 }
