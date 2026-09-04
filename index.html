@@ -1428,7 +1428,8 @@ let RESOURCES = Array.isArray(window.MM_CONTENT&&window.MM_CONTENT.RESOURCES) ? 
    the same MARKETING.<page> shape as they're made editable. Absent/blank = renderAbout()'s
    own hardcoded default copy, so this is fully back-compatible with content saved before
    this shipped. */
-let MARKETING = Object.assign({ aboutTitle:'', about:'' }, (window.MM_CONTENT&&window.MM_CONTENT.MARKETING)||{});
+const MARKETING_DEFAULTS = { aboutTitle:'', about:'', homeHeading:'', homeSub:'', homeCta:'', howItWorksIntro:'', pricingIntro:'', tutorialVideoUrl:'' };
+let MARKETING = Object.assign({}, MARKETING_DEFAULTS, (window.MM_CONTENT&&window.MM_CONTENT.MARKETING)||{});
 
 /* Central content shape used by every save/load path. */
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES, MARKETING }; }
@@ -1437,7 +1438,7 @@ function applyContentData(d){
     COURSES = defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(Array.isArray(d.RESOURCES)) RESOURCES = d.RESOURCES;   /* absent = keep whatever's already loaded (back-compat) */
-    if(d.MARKETING) MARKETING = Object.assign({ aboutTitle:'', about:'' }, d.MARKETING);   /* absent = keep whatever's already loaded (back-compat) */
+    if(d.MARKETING) MARKETING = Object.assign({}, MARKETING_DEFAULTS, d.MARKETING);   /* absent = keep whatever's already loaded (back-compat) */
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
     window.MM_CONTENT = contentPayload();
@@ -2177,15 +2178,25 @@ function mktTestisHtml(){
 function mktCtaStripHtml(){
   return `<div class="mkt-cta-strip"><p>Ready to master maths?</p><a class="btn solid" href="#/login?up=1">Get Started Free →</a></div>`;
 }
+/* Phase 2 (F44) — 2026-09-04: Home's heading/sub/CTA are now Teacher-Editor-editable
+   (marketingPanel()), same MARKETING.* pattern as About Us. Kept simple per the brief ("I do
+   not need an unnecessarily complicated CMS") — a custom heading loses the default's 3-line
+   colour-split treatment and renders as one plain line; the fancy default only shows while
+   the field is empty. */
+const HOME_DEFAULT_SUB = 'MasterMaths helps you develop strong mathematical understanding and clear thinking — so you can solve any GCSE question with confidence.';
+const HOME_DEFAULT_CTA = 'Start Free Today →';
 function renderHome(){
   document.title = 'MasterMaths Tutoring — GCSE Maths';
   const root = marketingChrome();
+  const headingHtml = MARKETING.homeHeading
+    ? `<h1>${esc(MARKETING.homeHeading)}</h1>`
+    : `<h1>Build understanding.<br>Think clearly.<br><span class="accent">Solve confidently.</span></h1>`;
   root.innerHTML = `
     <div class="mkt-hero">
       <div>
-        <h1>Build understanding.<br>Think clearly.<br><span class="accent">Solve confidently.</span></h1>
-        <p>MasterMaths helps you develop strong mathematical understanding and clear thinking — so you can solve any GCSE question with confidence.</p>
-        <a class="btn solid" href="#/login?up=1" style="padding:12px 22px;font-size:13.5px">Start Free Today →</a>
+        ${headingHtml}
+        <p>${esc(MARKETING.homeSub || HOME_DEFAULT_SUB)}</p>
+        <a class="btn solid" href="#/login?up=1" style="padding:12px 22px;font-size:13.5px">${esc(MARKETING.homeCta || HOME_DEFAULT_CTA)}</a>
         <a class="btn ghost" href="#/how-it-works" style="padding:12px 22px;font-size:13.5px;margin-left:8px">See How It Works</a>
         <div class="mkt-badges"><span>✓ Free to get started</span><span>✓ No credit card required</span><span>✓ Start learning in minutes</span></div>
       </div>
@@ -2243,7 +2254,7 @@ function renderHowItWorks(){
     <div class="mkt-hero" style="padding-bottom:0">
       <div>
         <h1>How MasterMaths<br><span class="accent">Works</span></h1>
-        <p>Four simple steps that help you understand maths, build confidence, and become an independent problem solver.</p>
+        <p>${esc(MARKETING.howItWorksIntro || 'Four simple steps that help you understand maths, build confidence, and become an independent problem solver.')}</p>
       </div>
       <div class="mkt-hero-art"><img src="assets/how-it-works-hero.png" alt="" style="max-width:100%;border-radius:12px"></div>
     </div>
@@ -2284,6 +2295,16 @@ function renderHowItWorks(){
       ${realStepCardHtml('var(--pink)', '#fdf2f8', '🎲', '📊', '4. Question Generator', 'Unlimited personalised practice.', 'Generate unlimited exam-style questions to challenge your understanding.', 'generate',
         "Once you've learned and practised, generate as many exam-style questions on this topic as you want, whenever you want. Each one is written fresh — not pulled from a fixed bank you could just memorise — and the difficulty adapts to how you're doing, so you get more practice where you need it and less time on what you've already mastered.")}
 
+      <!-- Phase 3 (F44) — deliberately separate from the 5-stage lesson journey above (per the
+           brief): how to navigate the wider platform, not what happens inside a lesson.
+           Reuses videoEmbedHtml() — the exact same "file or embed link, friendly placeholder
+           until one exists" helper the real lesson video player already uses. -->
+      <div class="mkt-section" style="padding:0;max-width:640px;margin:32px auto 0">
+        <h2 style="text-align:left;font-size:20px">How to Use MasterMaths</h2>
+        <p class="ad-note" style="margin:4px 0 14px">A quick walkthrough of the wider platform — finding a course, moving through a lesson, checking your progress, and more.</p>
+        ${videoEmbedHtml(MARKETING.tutorialVideoUrl)}
+      </div>
+
       <div class="mkt-points">
         <div class="rh" style="color:var(--gold)">🏅 Earn Points &amp; Badges</div>
         <p>Every lesson you finish, quiz you pass and day you keep your streak going earns you points — shown on an optional leaderboard only if you choose to. Hit a milestone and you'll unlock a badge to go with it.</p>
@@ -2314,7 +2335,7 @@ function renderPricing(){
   root.innerHTML = `
     <div class="mkt-section">
       <h2>Simple pricing. Powerful learning.</h2>
-      <p class="mkt-sub">Choose the plan that works best for you and start mastering maths today.</p>
+      <p class="mkt-sub">${esc(MARKETING.pricingIntro || 'Choose the plan that works best for you and start mastering maths today.')}</p>
       <div class="mkt-pricing">
         <div class="mkt-price-card">
           <div class="plan">Free — On-Topic Access</div>
@@ -5610,6 +5631,7 @@ function wireForm(f){
   f.addEventListener('change', onGenImageFilePick);
   f.addEventListener('change', onWsFileFilePick);
   f.addEventListener('change', onImportFilePick);
+  f.addEventListener('change', onMktTutorialFilePick);
   f.addEventListener('dragover', onVideoDragOver);
   f.addEventListener('dragleave', onVideoDragLeave);
   f.addEventListener('drop', onVideoDrop);
@@ -5934,9 +5956,15 @@ function collectAdminForm(){
   f.querySelectorAll('.rs-captions').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].captionsUrl = inp.value.trim(); });
   f.querySelectorAll('.rs-body').forEach(inp=>{ const ri=+inp.dataset.rs; if(RESOURCES[ri]) RESOURCES[ri].body = inp.value; });
 
-  /* F41 follow-up — Marketing pages panel (also present on every editor screen) */
+  /* F41/F44 — Marketing pages panel (also present on every editor screen) */
   if(rq('mkt-about-title')) MARKETING.aboutTitle = rq('mkt-about-title').value.trim();
   if(rq('mkt-about-body')) MARKETING.about = richValue(rq('mkt-about-body'));
+  if(rq('mkt-home-heading')) MARKETING.homeHeading = rq('mkt-home-heading').value.trim();
+  if(rq('mkt-home-sub')) MARKETING.homeSub = rq('mkt-home-sub').value.trim();
+  if(rq('mkt-home-cta')) MARKETING.homeCta = rq('mkt-home-cta').value.trim();
+  if(rq('mkt-hiw-intro')) MARKETING.howItWorksIntro = rq('mkt-hiw-intro').value.trim();
+  if(rq('mkt-pricing-intro')) MARKETING.pricingIntro = rq('mkt-pricing-intro').value.trim();
+  if(rq('mkt-tutorial-url')) MARKETING.tutorialVideoUrl = rq('mkt-tutorial-url').value.trim();
 
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
@@ -6168,19 +6196,61 @@ function resourceRowHtml(r, ri){
   </div>`;
 }
 
-/* ---------- F41 follow-up — public marketing page copy, editable from the Teacher Editor.
-   Same "global content, present on every editor screen" treatment as weeksPanel()/
-   resourcesPanel() above. Starts with About Us only — Home/Pricing/How It Works get their
-   own fields here the same way as we work through each page. Uses the shared rich-text
-   toolbar (richToolbarHtml(), rendered once above #adForm) via rich()/richValue(), exactly
-   like every per-lesson rich field (e.g. L.wsTip). */
+/* ---------- F41/F44 — public marketing page copy, editable from the Teacher Editor. Same
+   "global content, present on every editor screen" treatment as weeksPanel()/resourcesPanel()
+   above. Uses the shared rich-text toolbar (richToolbarHtml(), rendered once above #adForm)
+   via rich()/richValue() for the About Us body, exactly like a lesson's Key Notes field;
+   everything else here is plain text (CLAUDE.md: "keep this simple, no unnecessary CMS") —
+   headings/intros/CTA text, not free-form HTML, so there's nothing for a teacher to break. */
 function marketingPanel(){
-  return `<div class="ad-panel"><h4>🌐 About Us page <span class="ad-note">(shown at #/about)</span></h4>
+  return `<div class="ad-panel"><h4>🏠 Home page <span class="ad-note">(shown at #/)</span></h4>
+    <label class="ad-lb">Hero heading <span class="ad-note">(replaces the default 3-line heading with one plain line once you type here)</span></label>
+    <input class="ad-in mkt-home-heading" value="${esc(MARKETING.homeHeading)}" placeholder="Build understanding. Think clearly. Solve confidently.">
+    <label class="ad-lb" style="margin-top:8px">Hero paragraph</label>
+    <input class="ad-in mkt-home-sub" value="${esc(MARKETING.homeSub)}" placeholder="${esc(HOME_DEFAULT_SUB)}">
+    <label class="ad-lb" style="margin-top:8px">Main button text</label>
+    <input class="ad-in mkt-home-cta" value="${esc(MARKETING.homeCta)}" placeholder="${esc(HOME_DEFAULT_CTA)}" style="width:220px">
+  </div>
+  <div class="ad-panel"><h4>❓ How It Works page <span class="ad-note">(shown at #/how-it-works — the 5-stage journey itself always tracks the real lesson, so only the intro line is editable here)</span></h4>
+    <label class="ad-lb">Intro line</label>
+    <input class="ad-in mkt-hiw-intro" value="${esc(MARKETING.howItWorksIntro)}" placeholder="Four simple steps that help you understand maths, build confidence, and become an independent problem solver.">
+  </div>
+  <div class="ad-panel"><h4>💷 Pricing page <span class="ad-note">(shown at #/pricing — plans/prices stay fixed, only the intro line is editable here)</span></h4>
+    <label class="ad-lb">Intro line</label>
+    <input class="ad-in mkt-pricing-intro" value="${esc(MARKETING.pricingIntro)}" placeholder="Choose the plan that works best for you and start mastering maths today.">
+  </div>
+  <div class="ad-panel"><h4>🎬 How to Use MasterMaths — tutorial video <span class="ad-note">(shown on the How It Works page, below the 5-stage journey)</span></h4>
+    <p class="ad-note" style="margin:0 0 8px">Upload a video file, or paste a YouTube/Vimeo embed link below. Leave both blank to show a "coming soon" placeholder.</p>
+    <input type="file" accept="video/*" class="mkt-tutorial-file" id="mktTutorialFile" hidden>
+    <label for="mktTutorialFile" class="btn ghost ad-mini">📎 Choose a video file</label>
+    <div id="mktTutorialStatus" style="margin-top:8px"></div>
+    <label class="ad-lb" style="margin-top:10px">…or paste an embed link</label>
+    <input class="ad-in mkt-tutorial-url" value="${esc(MARKETING.tutorialVideoUrl)}" placeholder="https://www.youtube.com/embed/VIDEO_ID">
+  </div>
+  <div class="ad-panel"><h4>🌐 About Us page <span class="ad-note">(shown at #/about)</span></h4>
     <label class="ad-lb">Page heading</label>
     <input class="ad-in mkt-about-title" value="${esc(MARKETING.aboutTitle||ABOUT_DEFAULT_TITLE)}">
     <label class="ad-lb" style="margin-top:8px">Page content</label>
     ${rich('mkt-about-body', MARKETING.about||ABOUT_DEFAULT_BODY)}
   </div>`;
+}
+function onMktTutorialFilePick(e){
+  const inp = e.target.closest('.mkt-tutorial-file'); if(!inp) return;
+  const file = inp.files && inp.files[0]; if(file) doMktTutorialUpload(file);
+}
+async function doMktTutorialUpload(file){
+  if(!backendOn()){ toast('Set up the cloud backend first to upload videos.'); return; }
+  if(!isTeacherSignedIn()){ toast('Sign in with your teacher account first.'); return; }
+  const el = $('mktTutorialStatus');
+  if(el) el.innerHTML = '<p class="auth-note">Uploading…</p>';
+  const res = await storageUpload(file, 'tutorial-video', pct=>{
+    if(el) el.innerHTML = `<p class="auth-note">Uploading… ${Math.round(pct*100)}%</p>`;
+  }, 'video');
+  if(!res.ok){ if(el) el.innerHTML = `<p class="auth-msg" style="display:block">⚠ ${esc(res.msg)}</p>`; return; }
+  const urlInp = document.querySelector('.mkt-tutorial-url');
+  if(urlInp) urlInp.value = res.url;
+  if(el) el.innerHTML = '<p class="ad-note">✓ Uploaded — press 💾 Save changes to publish it.</p>';
+  toast('Video uploaded — remember to Save changes.');
 }
 /* ---------- F34 — Import Question (Ryan's OWN material only, never exam papers — see the
    copyright ruling recorded in DEVELOPMENT-PLAN.md). Same "present on every editor screen"
