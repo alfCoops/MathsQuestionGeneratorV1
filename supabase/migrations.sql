@@ -453,9 +453,12 @@ revoke update (energy_total) on public.profiles from authenticated;
 -- (integrating into the existing leaderboard per the brief, not a second one). Rank itself
 -- is derived client-side (floor(energy_total/100)) against the RANKS name list, same as
 -- everywhere else Energy is shown — nothing new to keep in sync here.
+-- F44 Phase 6 — avatar_id extracted from prefs (not the whole prefs jsonb — that also holds
+-- unrelated accessibility/theme settings that were never meant to be exposed via this
+-- curated public view).
 create or replace view public.leaderboard
 with (security_invoker = false) as
-select user_id, display_name, points, energy_total
+select user_id, display_name, points, energy_total, prefs->>'avatarId' as avatar_id
 from public.profiles
 where leaderboard_opt_in = true
 order by points desc;

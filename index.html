@@ -251,7 +251,7 @@
   .continue-banner .cb-go{font-size:13.5px;font-weight:800;color:var(--green)}
   /* F1 — auth UI */
   .auth-box{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .auth-nick{color:#c7d2e8;font-size:12px;font-weight:700}
+  .auth-nick{color:#c7d2e8;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px}   /* F44 — room for the mathematician avatar circle */
   .auth-link{background:none;border:none;color:#9fb3d1;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left;padding:2px 4px;font-family:inherit;text-decoration:underline}
   .auth-link:hover{color:#fff}
   .auth-link.solid{background:var(--green);color:#fff;border-radius:8px;padding:7px 11px;text-decoration:none;width:100%;text-align:center}
@@ -950,8 +950,22 @@
   .auth-oauth{margin-top:16px;display:flex;flex-direction:column;gap:8px}
   .auth-oauth-sep{display:block;text-align:center;font-size:11px;color:var(--muted);margin-bottom:2px}
   .oauth-btn{display:flex;align-items:center;justify-content:center;gap:8px}
+  /* F44 Phase 6 — Famous Mathematician avatars. .mm-avatar-img/.mm-avatar-ph share size
+     classes so an image and a placeholder are always interchangeable at the same call site
+     (avatarHtml() picks one or the other, layout never needs to know which). --blue-mid used
+     for the placeholder background — the brief asks for "MasterMaths blue and green
+     throughout the collection" and green is already claimed by success/progress states. */
+  .mm-avatar-ph{display:inline-grid;place-items:center;border-radius:50%;background:var(--blue-mid);color:#fff;font-weight:800;flex-shrink:0;line-height:1}
+  .mm-avatar-img{border-radius:50%;object-fit:cover;flex-shrink:0}
+  .mm-avatar-sm{width:22px;height:22px;font-size:11px}
+  .mm-avatar-md{width:38px;height:38px;font-size:16px}
+  .mm-avatar-lg{width:84px;height:84px;font-size:32px}
   .avatar-carousel{display:flex;align-items:center;justify-content:center;gap:18px;margin:18px 0}
-  .avatar-big{width:84px;height:84px;border-radius:50%;background:var(--green-bg);border:1.5px solid var(--green-line);display:grid;place-items:center;font-size:38px}
+  .avatar-card{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:150px}
+  .avatar-card b{font-size:14px;color:var(--navy)}
+  .avatar-card span{font-size:11.5px;color:var(--muted);text-align:center;max-width:170px;line-height:1.4}
+  .mm-avatar-pick{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:1.5px solid var(--line);border-radius:12px;padding:8px 6px;cursor:pointer;font:inherit;font-size:9.5px;color:var(--text2);text-align:center}
+  .mm-avatar-pick.on{border-color:var(--blue);background:var(--blue-soft)}
 </style>
 </head>
 <body>
@@ -1222,7 +1236,7 @@
     <button class="modal-x" data-close="prefsModal">✕</button>
     <div class="pref-h">⚙ Display &amp; reading</div>
     <div class="pref-sub">Adjust how the site looks and reads. Saved to this device, and to your account when you're signed in.</div>
-    <div class="pref-row"><span class="pref-lb">Your avatar</span>
+    <div class="pref-row"><span class="pref-lb">Change Avatar</span>
       <div class="seg avatar-seg" id="avatarBody"></div>
     </div>
     <div id="prefsBody"></div>
@@ -1478,15 +1492,58 @@ let RESOURCES = Array.isArray(window.MM_CONTENT&&window.MM_CONTENT.RESOURCES) ? 
    this shipped. */
 const MARKETING_DEFAULTS = { aboutTitle:'', about:'', homeHeading:'', homeSub:'', homeCta:'', howItWorksIntro:'', pricingIntro:'', tutorialVideoUrl:'' };
 let MARKETING = Object.assign({}, MARKETING_DEFAULTS, (window.MM_CONTENT&&window.MM_CONTENT.MARKETING)||{});
+/* F44 Phase 6 — Famous Mathematician avatars, replacing F36's emoji preset. Same global,
+   admin-editable array-of-objects pattern as RESOURCES (id/name/desc/image/active/order per
+   the brief's own field list) — travels the exact same save/publish path, no new Supabase
+   table. `image` is deliberately blank in every seed entry: no character art exists yet
+   (that needs Ryan to generate it, same workflow as mm-logo.png/how-it-works-hero.png), so
+   avatarHtml() below renders a colour+initial placeholder wherever `image` is empty — never
+   a broken <img> pointing at a file that doesn't exist. */
+const DEFAULT_MATHEMATICIANS = [
+  { id:'ada-lovelace',      name:'Ada Lovelace',          desc:'Early pioneer of computer programming',                image:'', active:true },
+  { id:'alan-turing',       name:'Alan Turing',           desc:'Father of computer science and codebreaking',          image:'', active:true },
+  { id:'katherine-johnson', name:'Katherine Johnson',     desc:'NASA mathematician behind historic space flights',     image:'', active:true },
+  { id:'ramanujan',         name:'Ramanujan',             desc:'Known for extraordinary discoveries in number theory', image:'', active:true },
+  { id:'emmy-noether',      name:'Emmy Noether',          desc:'Revolutionised abstract algebra',                      image:'', active:true },
+  { id:'gauss',             name:'Carl Friedrich Gauss',  desc:'Called the "Prince of Mathematicians"',                image:'', active:true },
+  { id:'euler',             name:'Leonhard Euler',        desc:'One of the most prolific mathematicians in history',   image:'', active:true },
+  { id:'hypatia',           name:'Hypatia',               desc:'Ancient Alexandria’s great philosopher-mathematician', image:'', active:true },
+  { id:'newton',            name:'Isaac Newton',          desc:'Laid the foundations of calculus and physics',         image:'', active:true },
+  { id:'mirzakhani',        name:'Maryam Mirzakhani',     desc:'First woman to win the Fields Medal',                  image:'', active:true },
+];
+let MATHEMATICIANS = (Array.isArray(window.MM_CONTENT&&window.MM_CONTENT.MATHEMATICIANS) && window.MM_CONTENT.MATHEMATICIANS.length) ? window.MM_CONTENT.MATHEMATICIANS : DEFAULT_MATHEMATICIANS;
+
+/* F44 Phase 6 — avatar lookup/render helpers. avatarHtml() is the ONE place that decides
+   image-vs-placeholder, so every call site (sidebar, leaderboard, parent dashboard, mountain
+   summit, signup carousel, settings picker) automatically gets real art the moment Ryan
+   fills in an `image` path — no other code to touch when that happens. */
+function activeMathematicians(){ return MATHEMATICIANS.filter(m=>m.active!==false); }   /* array position IS the display order, same convention as WEEKS/RESOURCES — no separate order field to keep in sync */
+function mathematicianById(id){ return MATHEMATICIANS.find(m=>m.id===id); }
+function defaultMathematicianId(){ const list=activeMathematicians(); return list.length ? list[0].id : DEFAULT_MATHEMATICIANS[0].id; }
+/* Old emoji values (pre-F44) and any id that's been deactivated/removed both fall through to
+   the default — this is the one place that back-compat resolves itself, no migration script. */
+function avatarMathematician(avatarId){
+  const m = mathematicianById(avatarId);
+  return (m && m.active!==false) ? m : mathematicianById(defaultMathematicianId());
+}
+function avatarInitial(name){ return (name||'?').trim().charAt(0).toUpperCase(); }
+function avatarHtml(avatarId, sizeClass){
+  const m = avatarMathematician(avatarId); if(!m) return '';
+  const cls = 'mm-avatar-' + (sizeClass||'sm');
+  return m.image
+    ? `<img class="mm-avatar-img ${cls}" src="${esc(m.image)}" alt="${esc(m.name)}">`
+    : `<span class="mm-avatar-ph ${cls}" title="${esc(m.name)}">${esc(avatarInitial(m.name))}</span>`;
+}
 
 /* Central content shape used by every save/load path. */
-function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES, MARKETING }; }
+function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES, MARKETING, MATHEMATICIANS }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
     COURSES = defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(Array.isArray(d.RESOURCES)) RESOURCES = d.RESOURCES;   /* absent = keep whatever's already loaded (back-compat) */
     if(d.MARKETING) MARKETING = Object.assign({}, MARKETING_DEFAULTS, d.MARKETING);   /* absent = keep whatever's already loaded (back-compat) */
+    if(Array.isArray(d.MATHEMATICIANS) && d.MATHEMATICIANS.length) MATHEMATICIANS = d.MATHEMATICIANS;   /* absent = keep whatever's already loaded (back-compat) */
     if(!courseById(currentCourseId)) currentCourseId = COURSES[0].id;
     setCourse(currentCourseId);
     window.MM_CONTENT = contentPayload();
@@ -1526,7 +1583,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-04T21:44:50Z', ref:'6d00e87+' };
+const BUILD = { at:'2026-09-04T22:04:25Z', ref:'473d1d5+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2623,22 +2680,28 @@ function renderWelcome(){
   const root = marketingChrome();
   function finish(){ setPref('onboarded', true); location.hash = dest; }
   function drawAvatar(){
-    let idx = Math.max(0, AVATARS.indexOf(prefs.avatarId));
+    /* F44 Phase 6 — Famous Mathematician picker, replacing the emoji carousel. Shows
+       character (placeholder circle until Ryan supplies real art) + name + short description
+       per the brief's own signup example ("Ada Lovelace / Early pioneer of computer
+       programming"). */
+    const list = activeMathematicians();
+    let idx = Math.max(0, list.findIndex(m=>m.id===prefs.avatarId));
     root.innerHTML = `<div class="mkt-auth-wrap"><div class="auth-card">
       <h2>Choose your avatar</h2>
-      <p class="auth-note">You can change this any time in ⚙ Display &amp; reading settings.</p>
+      <p class="auth-note">Pick a famous mathematician to represent you. You can change this any time in ⚙ Display &amp; reading settings.</p>
       <div class="avatar-carousel">
         <button class="btn ghost" id="avPrev" type="button">‹</button>
-        <div class="avatar-big" id="avBig">${AVATARS[idx]}</div>
+        <div class="avatar-card" id="avBig"></div>
         <button class="btn ghost" id="avNext" type="button">›</button>
       </div>
       <button class="btn solid auth-submit" id="avGo">Start Learning</button>
       <p class="auth-note" style="text-align:center"><a href="#" id="avSkip" style="color:inherit;font-weight:700">Skip for now</a></p>
     </div></div>`;
-    const paint = ()=>{ $('avBig').textContent = AVATARS[idx]; };
-    $('avPrev').addEventListener('click', ()=>{ idx=(idx-1+AVATARS.length)%AVATARS.length; paint(); });
-    $('avNext').addEventListener('click', ()=>{ idx=(idx+1)%AVATARS.length; paint(); });
-    $('avGo').addEventListener('click', ()=>{ setPref('avatarId', AVATARS[idx]); finish(); });
+    const paint = ()=>{ const m=list[idx]; $('avBig').innerHTML = `${avatarHtml(m.id,'lg')}<b>${esc(m.name)}</b><span>${esc(m.desc)}</span>`; };
+    paint();
+    $('avPrev').addEventListener('click', ()=>{ idx=(idx-1+list.length)%list.length; paint(); });
+    $('avNext').addEventListener('click', ()=>{ idx=(idx+1)%list.length; paint(); });
+    $('avGo').addEventListener('click', ()=>{ setPref('avatarId', list[idx].id); finish(); });
     $('avSkip').addEventListener('click', e=>{ e.preventDefault(); finish(); });
   }
   function drawName(){
@@ -2964,7 +3027,7 @@ async function loadParentStudents(){
     if(!links || !links.length){ el.innerHTML = '<p class="auth-note">No linked students yet. Ask your child for their code (⚙ Display &amp; reading → Parent access on their account) and enter it above to connect.</p>'; return; }
     const ids = links.map(l=>l.student_user_id);
     const [{ data:profiles, error:pErr }, { data:progress, error:prErr }] = await Promise.all([
-      sbClient.from('profiles').select('user_id,display_name,streak_current,streak_best'),
+      sbClient.from('profiles').select('user_id,display_name,streak_current,streak_best,prefs'),   /* F44 Phase 6 — prefs.avatarId for the card */
       sbClient.from('progress').select('user_id,lesson_id,steps,updated_at')
     ]);
     if(pErr || prErr) throw (pErr||prErr);
@@ -3001,7 +3064,7 @@ function parentStudentCardHtml(sid, profiles, progress){
   return `<div class="ad-panel" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
       <div>
-        <h4 style="margin:0 0 4px;display:flex;align-items:center;gap:8px">${esc((prof&&prof.display_name)||'Student')} <span class="chip time" style="background:var(--green-bg);color:var(--green);border-color:var(--green-line)">✓ Connected</span></h4>
+        <h4 style="margin:0 0 4px;display:flex;align-items:center;gap:8px">${avatarHtml(prof&&prof.prefs&&prof.prefs.avatarId,'sm')} ${esc((prof&&prof.display_name)||'Student')} <span class="chip time" style="background:var(--green-bg);color:var(--green);border-color:var(--green-line)">✓ Connected</span></h4>
         <p class="ad-note" style="margin:0 0 10px">Last active: ${lastActive ? new Date(lastActive).toLocaleDateString('en-GB') : 'never'} &nbsp;·&nbsp; Streak: ${(prof&&prof.streak_current)||0} day${((prof&&prof.streak_current)||0)===1?'':'s'} (best ${(prof&&prof.streak_best)||0})</p>
       </div>
       <button class="btn ghost ad-mini parent-unlink" data-sid="${esc(sid)}" style="color:var(--red);border-color:var(--red-line);flex-shrink:0">Unlink</button>
@@ -3159,7 +3222,7 @@ async function renderLeaderboard(){
        hardened; rank is a light, clean addition per the brief ("do not overload the
        leaderboard"), not a second competing ranking. */
     el.innerHTML = (rows&&rows.length)
-      ? `<ul class="tch-list">${rows.map((r,i)=>`<li class="${authUser&&r.user_id===authUser.id?'lb-me':''}" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><span>#${i+1} ${esc(r.display_name||'Student')}${r.user_id===authUser.id?' (you)':''}</span><span style="display:flex;align-items:center;gap:8px"><span class="chip time" style="background:var(--blue-soft);color:var(--blue);border-color:transparent">${esc(rankName(rankNumber(r.energy_total)))}</span><b>${r.points||0}</b></span></li>`).join('')}</ul>${joinCta}`
+      ? `<ul class="tch-list">${rows.map((r,i)=>`<li class="${authUser&&r.user_id===authUser.id?'lb-me':''}" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:8px">#${i+1} ${avatarHtml(r.avatar_id,'sm')} ${esc(r.display_name||'Student')}${r.user_id===authUser.id?' (you)':''}</span><span style="display:flex;align-items:center;gap:8px"><span class="chip time" style="background:var(--blue-soft);color:var(--blue);border-color:transparent">${esc(rankName(rankNumber(r.energy_total)))}</span><b>${r.points||0}</b></span></li>`).join('')}</ul>${joinCta}`
       : `<p class="auth-note">No one’s on the leaderboard yet.</p>${joinCta}`;
     const lp=$('lbOpenPrefs'); if(lp) lp.addEventListener('click', e=>{ e.preventDefault(); openPrefs(); });
   }catch(e){ el.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the leaderboard.</p>'; }
@@ -4001,7 +4064,7 @@ function renderAuthBox(){
     /* F44 Phase 5 — students only: a teacher/parent account never accrues Energy, so showing
        "Novice 0/100" for those roles would be meaningless clutter, not informative. */
     const energyHtml = (authProfile && authProfile.role==='student') ? energyMeterHtml(authProfile.energy_total||0) : '';
-    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarGlyph(prefs.avatarId)} ${esc(displayName())}</span>${energyHtml}${tch}${par}${qa}${lb}${pl}<button class="auth-link" id="authOut">Sign out</button>`;
+    box.innerHTML = `<span class="auth-nick" title="Signed in">${avatarHtml(prefs.avatarId,'sm')} ${esc(displayName())}</span>${energyHtml}${tch}${par}${qa}${lb}${pl}<button class="auth-link" id="authOut">Sign out</button>`;
     const t=$('authTeach'); if(t) t.addEventListener('click', ()=>{ location.hash='#/teacher'; });
     const pa=$('authParent'); if(pa) pa.addEventListener('click', ()=>{ location.hash='#/parent'; });
     const qb=$('authQanda'); if(qb) qb.addEventListener('click', ()=>{ location.hash='#/qanda'; });
@@ -5173,7 +5236,7 @@ function renderMountainSummit(mm){
   const el=$('mmRight');
   el.innerHTML = `${mmProgressBarHtml(mm)}
   <div class="mm-qcard mm-summit">
-    <div class="em">${avatarGlyph(prefs.avatarId)} 🏆</div>
+    <div class="em" style="display:flex;align-items:center;justify-content:center;gap:8px">${avatarHtml(prefs.avatarId,'md')} 🏆</div>
     <h2>Congratulations! You've reached the summit.</h2>
     <p style="font-weight:800;font-size:16px;margin:6px 0">MASTERY 🏆</p>
     <p>You didn't just use the method.<br>You explained the meaning behind it.<br>That's mathematical mastery.</p>
@@ -5698,7 +5761,7 @@ function buildAdminForm(){
   const f = $('adForm');
 
   if(L.comingSoon){
-    f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
+    f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + mathematiciansPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
       ${inp('Lesson title','ad-title',L.title)}
       <div class="ad-steps" style="margin-top:10px;background:#fef9c3;border-color:#facc15">This lesson is a <b>“coming soon” placeholder</b>. Untick the box below to turn it into a full lesson — video, quiz, worksheet and generator editors will appear.</div>
       <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0;font-size:13px"><input type="checkbox" id="ad-soon" checked> Keep as a “coming soon” placeholder &nbsp;—&nbsp; <b>untick to start adding content</b></label></div>
@@ -5710,7 +5773,7 @@ function buildAdminForm(){
   const lessonIds = Object.keys(LESSONS);
   const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
 
-  f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + importPanel() + `
+  f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + mathematiciansPanel() + importPanel() + `
   <div class="ad-panel"><h4>📋 Basics</h4>
     ${inp('Lesson title','ad-title',L.title)}
     <div class="ad-grid2">
@@ -6148,6 +6211,12 @@ function collectAdminForm(){
   if(rq('mkt-pricing-intro')) MARKETING.pricingIntro = rq('mkt-pricing-intro').value.trim();
   if(rq('mkt-tutorial-url')) MARKETING.tutorialVideoUrl = rq('mkt-tutorial-url').value.trim();
 
+  /* F44 Phase 6 — Famous Mathematician avatars panel (also present on every editor screen) */
+  f.querySelectorAll('.ma-name').forEach(inp=>{ const mi=+inp.dataset.mi; if(MATHEMATICIANS[mi]) MATHEMATICIANS[mi].name = inp.value; });
+  f.querySelectorAll('.ma-desc').forEach(inp=>{ const mi=+inp.dataset.mi; if(MATHEMATICIANS[mi]) MATHEMATICIANS[mi].desc = inp.value; });
+  f.querySelectorAll('.ma-image').forEach(inp=>{ const mi=+inp.dataset.mi; if(MATHEMATICIANS[mi]) MATHEMATICIANS[mi].image = inp.value.trim(); });
+  f.querySelectorAll('.ma-active').forEach(inp=>{ const mi=+inp.dataset.mi; if(MATHEMATICIANS[mi]) MATHEMATICIANS[mi].active = inp.checked; });
+
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
     if(g('ad-soon') && !g('ad-soon').checked){ delete L.comingSoon; Object.assign(L, {...BLANK_LESSON(), ...L}); }
@@ -6279,7 +6348,7 @@ function onFormClick(e){
   collectAdminForm();
   const L = LESSONS[adminSel];
   const act = b.dataset.act;
-  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2, ri=+b.dataset.rs;
+  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2, ri=+b.dataset.rs, mi=+b.dataset.mi;
 
   if(act==='addVideo') L.videos.push({title:'Video '+(L.videos.length+1), url:'', notes:null});
   if(act==='delVideo') L.videos.splice(vi,1);
@@ -6316,6 +6385,13 @@ function onFormClick(e){
   /* resource actions (F40) */
   if(act==='addResource') RESOURCES.push({ id:'r'+Date.now(), type:'formula', title:'', qualification:'', board:'', tier:'', topics:[] });
   if(act==='delResource') RESOURCES.splice(ri,1);
+
+  /* Famous Mathematician avatar actions (F44 Phase 6) — array position IS display order,
+     same reorder-by-splice pattern already used for quiz questions (qUp/qDown above). */
+  if(act==='addMathematician') MATHEMATICIANS.push({ id:'m'+Date.now(), name:'New Mathematician', desc:'', image:'', active:true });
+  if(act==='delMathematician') MATHEMATICIANS.splice(mi,1);
+  if(act==='maUp' && mi>0){ const t=MATHEMATICIANS[mi-1]; MATHEMATICIANS[mi-1]=MATHEMATICIANS[mi]; MATHEMATICIANS[mi]=t; }
+  if(act==='maDown' && mi<MATHEMATICIANS.length-1){ const t=MATHEMATICIANS[mi+1]; MATHEMATICIANS[mi+1]=MATHEMATICIANS[mi]; MATHEMATICIANS[mi]=t; }
 
   saveDraft();
   buildAdminForm();
@@ -6378,6 +6454,35 @@ function resourceRowHtml(r, ri){
   </div>`;
 }
 
+/* ---------- F44 Phase 6 — Famous Mathematician avatars, same array-editor pattern as
+   resourcesPanel() above: activate/deactivate/reorder/edit description. `id` is deliberately
+   NOT editable here — it's the value already stored in existing students' prefs.avatarId, so
+   changing it would silently orphan their choice back to the default. Image is a path a
+   teacher types in by hand (e.g. assets/mathematicians/ada-lovelace.png) after dropping the
+   file into the repo — no in-browser upload, matching every other illustration asset this
+   session and the brief's own "do not overengineer this" note. */
+function mathematiciansPanel(){
+  return `<div class="ad-panel"><h4>🧮 Famous Mathematician avatars <span class="ad-note">(students pick one at signup and can change it any time in Settings)</span></h4>
+    <div id="adMathematicians">${MATHEMATICIANS.map((m,mi)=>mathematicianRowHtml(m,mi)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addMathematician">＋ Add mathematician</button>
+  </div>`;
+}
+function mathematicianRowHtml(m, mi){
+  return `<div class="ad-q" data-mi="${mi}">
+    <div class="ad-row" style="align-items:center">
+      ${avatarHtml(m.id,'md')}
+      <input class="ad-in ma-name" data-mi="${mi}" value="${esc(m.name)}" placeholder="Name" style="flex:1">
+      <label class="ad-lb" style="margin:0;display:flex;align-items:center;gap:4px;white-space:nowrap;font-weight:600"><input type="checkbox" class="ma-active" data-mi="${mi}" ${m.active!==false?'checked':''}> Active</label>
+      <button class="btn ghost ad-mini" data-act="maUp" data-mi="${mi}" title="Move up">↑</button>
+      <button class="btn ghost ad-mini" data-act="maDown" data-mi="${mi}" title="Move down">↓</button>
+      <button class="btn ghost ad-mini" data-act="delMathematician" data-mi="${mi}" style="color:var(--red);border-color:var(--red-line)">🗑</button>
+    </div>
+    <label class="ad-lb" style="margin-top:6px">Short description <span class="ad-note">(shown at signup, e.g. “Early pioneer of computer programming”)</span></label>
+    <input class="ad-in ma-desc" data-mi="${mi}" value="${esc(m.desc||'')}">
+    <label class="ad-lb" style="margin-top:6px">Image path <span class="ad-note">(optional — blank shows a colour+initial placeholder; drop the file into assets/mathematicians/ in the repo, then type its path here)</span></label>
+    <input class="ad-in ma-image" data-mi="${mi}" value="${esc(m.image||'')}" placeholder="assets/mathematicians/${esc(m.id)}.png">
+  </div>`;
+}
 /* ---------- F41/F44 — public marketing page copy, editable from the Teacher Editor. Same
    "global content, present on every editor screen" treatment as weeksPanel()/resourcesPanel()
    above. Uses the shared rich-text toolbar (richToolbarHtml(), rendered once above #adForm)
@@ -6573,12 +6678,11 @@ function downloadContent(){
    signed-in user's profiles.prefs so they follow across devices. Light + standard font is the
    default, so nothing changes unless a student opts into an aid. */
 const PREFS_KEY = 'mm-prefs';
-/* F36 — student avatars. Emoji-based preset set (not the full illustrated-avatar builder from
-   Ryan's mockup — that needs real art assets and is a separate follow-up); stored as a prefs key
-   so it reuses the existing prefs sync/localStorage plumbing with zero new code paths. */
-const AVATARS = ['🦊','🦉','🐼','🐧','🐨','🦁','🐸','🐢','🦖','🐬'];
-function avatarGlyph(id){ return AVATARS.includes(id) ? id : AVATARS[0]; }
-const PREF_DEFAULTS = { theme:'light', font:'default', textSize:1, spacing:0, motion:'auto', focus:false, hideTimers:false, oneAtATime:false, overlay:'none', avatarId:AVATARS[0] };
+/* F36's emoji preset (AVATARS/avatarGlyph) is gone — F44 Phase 6 replaced it with the Famous
+   Mathematician system (MATHEMATICIANS/avatarHtml(), defined near contentPayload() above).
+   avatarId now stores a mathematician id string; still just a prefs key, so it reuses the
+   exact same sync/localStorage plumbing with zero new code paths there. */
+const PREF_DEFAULTS = { theme:'light', font:'default', textSize:1, spacing:0, motion:'auto', focus:false, hideTimers:false, oneAtATime:false, overlay:'none', avatarId:'ada-lovelace' };
 let prefs = (function(){ try{ return Object.assign({}, PREF_DEFAULTS, JSON.parse(localStorage.getItem(PREFS_KEY))||{}); }catch(e){ return Object.assign({}, PREF_DEFAULTS); } })();
 const ZOOM=[1,1.12,1.26], LN=[1.5,1.75,2.05], LS=['normal','.02em','.05em'];
 function ensureReadableFont(){                     /* lazy-load Atkinson Hyperlegible only when chosen */
@@ -6636,7 +6740,9 @@ const PREF_CONTROLS = [
 ];
 function renderPrefs(){
   const av=$('avatarBody');
-  if(av) av.innerHTML = AVATARS.map(a=>`<button data-avatar="${a}" class="${prefs.avatarId===a?'on':''}" title="Use this avatar">${a}</button>`).join('');
+  /* F44 Phase 6 — data-avatar carries the mathematician id now (was an emoji character);
+     the click handler below reads it back unchanged, so no wiring changes needed there. */
+  if(av) av.innerHTML = activeMathematicians().map(m=>`<button data-avatar="${esc(m.id)}" class="mm-avatar-pick ${prefs.avatarId===m.id?'on':''}" title="${esc(m.name)} — ${esc(m.desc)}">${avatarHtml(m.id,'md')}${esc(m.name)}</button>`).join('');
   const b=$('prefsBody'); if(!b) return;
   b.innerHTML = PREF_CONTROLS.map(c=>`
     <div class="pref-row"${c.help?` title="${esc(c.help)}"`:''}><span class="pref-lb">${c.lb}</span>
