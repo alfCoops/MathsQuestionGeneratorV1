@@ -1518,7 +1518,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-04T21:15:29Z', ref:'d75289d' };
+const BUILD = { at:'2026-09-04T21:20:45Z', ref:'957c3c8' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2050,16 +2050,18 @@ function parseHash(){
   if(/^#\/?unsubscribe\b/.test(h)){ const qs=(h.split('?')[1]||''); return { view:'unsubscribe', token:new URLSearchParams(qs).get('token') }; }
   if(/^#\/?courses\b/.test(h)) return { view:'courses' };
   /* F41 — public marketing pages. "home" only wins for a signed-OUT visitor at the truly
-     empty hash (or explicit #/home) — a signed-in visitor at the bare URL still lands on
-     #/courses exactly as before, so nothing changes for existing users/bookmarks. */
+     empty hash (or explicit #/home) — SIGNED-IN visitors land here too now (2026-09-04,
+     Ryan's ask), not just signed-out ones; renderMktNav() already shows "My Courses" instead
+     of "Log in"/"Create Free Account" once authUser is set, so the one extra click to reach
+     the dashboard is the intended trade-off, not an oversight. */
   if(/^#\/?how-it-works\b/.test(h)) return { view:'how-it-works' };
   if(/^#\/?pricing\b/.test(h))      return { view:'pricing' };
   if(/^#\/?about\b/.test(h))        return { view:'about' };
-  /* sbClient check (not just !authUser): in a no-backend/local-only deployment (CLAUDE.md
-     rule 2), EVERY visitor is permanently signed-out — there's no accounts system to sign up
-     into, so the marketing page's Log in/Create Account CTAs wouldn't make sense there. That
-     config keeps its original behaviour (empty hash → courses dashboard) unchanged. */
-  if(/^#?\/?(home)?$/.test(h) && !authUser && sbClient) return { view:'home' };   // matches '', '#', '#/' and '#/home'
+  /* sbClient check: in a no-backend/local-only deployment (CLAUDE.md rule 2), there's no
+     accounts system to sign up into, so the marketing page's Log in/Create Account CTAs
+     wouldn't make sense there — that config keeps its original behaviour (empty hash →
+     courses dashboard) unchanged. */
+  if(/^#?\/?(home)?$/.test(h) && sbClient) return { view:'home' };   // matches '', '#', '#/' and '#/home'
   let m = h.match(/^#\/?([\w-]+)\/([\w-]+)(?:\/([\w-]+))?/);   // F7 — optional /section for resume
   if(m) return { view:'lesson', courseId:m[1], lessonId:m[2], section:m[3]||'' };
   m = h.match(/^#\/?([\w-]+)/);
