@@ -9,7 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy:#14263c; --blue:#2e7d32; --blue-soft:#eaf4ec;
+    /* --blue/--blue-soft were a legacy mislabel: #2e7d32/#eaf4ec are GREEN
+       (identical to --mm-green), not blue. Repointed to real MasterMaths
+       blue — 23 of the 25 existing var(--blue) rules already mean
+       "structural/selected/navigational/focus state", so this alone brings
+       the brand's blue identity into the nav, focus rings, tabs and current-
+       step indicators. The 2 rules that actually mean "success/primary
+       action" (.btn.solid, .btn.complete) are explicitly pinned to --green
+       below instead of following the token. --blue-mid is new: medium blue
+       for illustrations/decorative/progress-bar use. */
+    --navy:#14263c; --blue:#1d4ed8; --blue-soft:#eff6ff; --blue-mid:#3b82f6;
     --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
     --bg:#ffffff; --card:#fff; --surf2:#f8fafc; --text2:#334155;
     --ff:'Inter',system-ui,sans-serif;
@@ -321,7 +330,10 @@
   .time-chip:empty{display:none}
   @media(max-width:560px){.time-chip{display:none}}
   .btn{font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer;border:1.5px solid transparent;transition:.15s;white-space:nowrap}
-  .btn.solid{background:var(--blue);color:#fff} .btn.solid:hover{background:#245c28}
+  /* Explicitly pinned to --green, not --blue — a primary CTA is a "positive
+     action" per the MasterMaths colour hierarchy, not a structural/nav
+     element, so it doesn't follow --blue's repointing to true blue above. */
+  .btn.solid{background:var(--green);color:#fff} .btn.solid:hover{background:#15803d}
   .btn.o-blue{border-color:var(--blue);color:var(--blue);background:var(--card)} .btn.o-blue:hover{background:var(--blue-soft)}
   .btn.o-orange{border-color:var(--orange);color:var(--orange);background:var(--card)} .btn.o-orange:hover{background:var(--orange-bg)}
   .btn.o-purple{border-color:var(--purple);color:var(--purple);background:var(--card)} .btn.o-purple:hover{background:var(--purple-bg)}
@@ -628,7 +640,7 @@
   .ws-foot .tip{display:block;font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:0;margin-top:5px}
 
   .footer-nav{display:flex;justify-content:space-between;gap:10px;margin-top:18px}
-  .btn.complete{background:var(--blue);color:#fff;padding:11px 20px;font-size:13px}
+  .btn.complete{background:var(--green);color:#fff;padding:11px 20px;font-size:13px}   /* pinned green — see .btn.solid comment above */
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;font-weight:600;font-size:13px;padding:11px 20px;border-radius:11px;transition:.3s;opacity:0;z-index:99}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
@@ -695,7 +707,7 @@
   .v-prog.show{display:block}
   .v-prog-bar{height:100%;width:0;background:var(--blue);transition:width .2s}
   .ad-grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-  .ad-steps{background:var(--blue-soft);border:1px solid #cbe0cf;border-radius:11px;padding:11px 14px;font-size:12.5px;color:#1f3a24}
+  .ad-steps{background:var(--blue-soft);border:1px solid #bfdbfe;border-radius:11px;padding:11px 14px;font-size:12.5px;color:#1e3a6e}
   .ad-steps code{background:var(--card);padding:1px 5px;border-radius:5px;font-size:11.5px}
   .draft-banner{background:#fef9c3;border:1px solid #facc15;border-radius:11px;padding:10px 13px;font-size:12.5px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
   .teacher-link{margin-top:8px;background:none;border:none;color:#6e7d95;font-size:11px;cursor:pointer;text-align:left;padding:3px 6px;font-family:inherit}
@@ -709,13 +721,13 @@
   html[data-theme="dark"]{
     --bg:#0f1720; --card:#1b2431; --surf2:#161f2b; --ink:#e9eef6; --text2:#c6d2e0;
     --muted:#93a4b8; --line:#2c3846; --navy:#0b1420;
-    --blue-soft:#14311c; --green-bg:#112419; --green-line:#1f4d33;
+    --blue-soft:#132a45; --green-bg:#112419; --green-line:#1f4d33;
     --purple-bg:#221a31; --purple-line:#3c2a58; --orange-bg:#2a1c11; --orange-line:#57391d;
     --red-bg:#291414; --red-line:#582626; color-scheme:dark;
   }
   html[data-theme="hc"]{
     --bg:#fff; --card:#fff; --surf2:#fff; --ink:#000; --text2:#000; --muted:#141414;
-    --line:#000; --navy:#000; --blue:#0a3f14; --green:#0a6b30;
+    --line:#000; --navy:#000; --blue:#0b3a8f; --green:#0a6b30;
     --blue-soft:#fff; --green-bg:#fff; --purple-bg:#fff; --orange-bg:#fff; --red-bg:#fff;
     --green-line:#000; --red-line:#000; --purple-line:#000; --orange-line:#000;
   }
@@ -805,7 +817,7 @@
   .mkt-brand small{display:block;font-weight:600;color:var(--muted);font-size:10.5px;margin-top:1px}
   .mkt-links{display:flex;gap:20px;margin-left:18px;flex:1}
   .mkt-links a{font-size:13.5px;font-weight:600;color:var(--text2);text-decoration:none}
-  .mkt-links a:hover{color:var(--green)}
+  .mkt-links a:hover{color:var(--blue)}
   .mkt-cta{display:flex;align-items:center;gap:10px;flex-shrink:0}
   .mkt-hero{display:flex;align-items:center;gap:36px;padding:56px 28px;max-width:1100px;margin:0 auto;flex-wrap:wrap}
   .mkt-hero>div{flex:1;min-width:280px}
@@ -2186,7 +2198,7 @@ function renderHome(){
         <div class="mkt-feat"><div class="ic">📈</div><b>Track Progress</b><span>See how you're doing and stay motivated every step of the way.</span></div>
       </div>
     </div>
-    <div class="mkt-section" style="background:var(--surf2);max-width:none">
+    <div class="mkt-section" style="background:var(--blue-soft);max-width:none">
       <div style="max-width:1100px;margin:0 auto">
         <h2>Loved by students and parents</h2>
         ${mktTestisHtml()}
