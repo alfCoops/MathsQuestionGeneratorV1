@@ -841,18 +841,50 @@
   .mkt-cta{display:flex;align-items:center;gap:10px;flex-shrink:0}
   .mkt-hero{display:flex;align-items:center;gap:36px;padding:56px 28px;max-width:1100px;margin:0 auto;flex-wrap:wrap}
   .mkt-hero>div{flex:1;min-width:280px}
+  .mkt-pill{display:inline-block;background:var(--green-bg);color:var(--green);font-size:11.5px;font-weight:700;padding:5px 14px;border-radius:999px;margin-bottom:14px}
   .mkt-hero h1{font-family:var(--ff-head);font-size:36px;font-weight:800;letter-spacing:-.01em;color:var(--navy);line-height:1.18}
   .mkt-hero h1 .accent{color:var(--green)}
   .mkt-hero p{font-size:15px;color:var(--muted);margin:14px 0 20px;max-width:440px}
   .mkt-badges{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--muted);font-weight:600}
-  .mkt-hero-art{flex:1;min-width:240px;display:flex;justify-content:center}
+  .mkt-hero-art{flex:1;min-width:280px;display:flex;justify-content:center}
   .mkt-hero-art .card{max-width:320px}
+  /* 2026-09-04 — Home's mockup shows a layered "app preview" (a mini dashboard card with a
+     progress ring + topic bar + 4 icon tiles, overlapped by a second card showing the same
+     progress-stepper used on How It Works) rather than a plain text card. Built with a real
+     SVG ring (deterministic stroke-dasharray, not a conic-gradient — renders predictably
+     without a live browser to check it in) and the same .card/.steps markup already proven
+     on How It Works, not a new component. */
+  .hero-preview{position:relative;max-width:380px;width:100%;padding:0 26px 26px 0}
+  .hero-preview-card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 30px rgba(15,23,42,.09);padding:20px;position:relative;z-index:2}
+  .hp-head{font-weight:800;color:var(--navy);font-size:15px}
+  .hp-head span{display:block;font-weight:500;font-size:12px;color:var(--muted);margin-top:2px}
+  .hp-row{display:flex;gap:12px;margin:14px 0}
+  .hp-ring-box{display:flex;align-items:center;gap:10px;flex:1;border:1px solid var(--line);border-radius:12px;padding:10px}
+  .hp-ring{position:relative;flex-shrink:0;width:56px;height:56px}
+  .hp-ring span{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:12px;color:var(--navy)}
+  .hp-ring-txt b{display:block;font-size:11.5px;color:var(--navy)}
+  .hp-ring-txt span{font-size:10px;color:var(--muted)}
+  .hp-topic-box{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+  .hp-topic-lb{font-size:9.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+  .hp-topic-box b{display:block;font-size:12.5px;color:var(--navy);margin:2px 0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hp-bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+  .hp-bar i{display:block;height:100%;background:var(--green);border-radius:999px}
+  .hp-topic-sub{font-size:9.5px;color:var(--muted);font-weight:700;display:block;margin-top:5px}
+  .hp-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .hp-tile{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:9.5px;font-weight:700;color:var(--text2);text-align:center;line-height:1.2}
+  .hp-tile .ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:14px}
+  .hero-preview-mini{position:absolute;right:0;bottom:0;width:76%;z-index:1;padding:14px 16px;box-shadow:0 10px 24px rgba(15,23,42,.1)}
+  .hero-preview-mini .prog-top b{font-size:11.5px}
+  .hero-preview-mini .pct{font-size:13px}
+  .hero-preview-mini .step .lbl{font-size:8px;max-width:60px}
+  .hero-preview-mini .step .node{width:20px;height:20px;font-size:9px}
+  @media(max-width:640px){.hero-preview-mini{display:none}}
   .mkt-section{padding:44px 28px;max-width:1100px;margin:0 auto}
   .mkt-section h2{font-family:var(--ff-head);font-size:27px;font-weight:800;color:var(--navy);text-align:center}
   .mkt-section>p.mkt-sub{text-align:center;color:var(--muted);font-size:14px;max-width:520px;margin:8px auto 0}
   .mkt-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:28px}
   .mkt-feat{border:1.5px solid var(--line);border-radius:16px;padding:20px;text-align:left}
-  .mkt-feat .ic{font-size:22px;margin-bottom:10px}
+  .mkt-feat .ic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:19px;margin-bottom:10px}
   .mkt-feat b{display:block;font-size:14.5px;color:var(--navy);margin-bottom:4px}
   .mkt-feat span{font-size:13px;color:var(--muted)}
   /* F41's original custom progress-demo/step/pkc-card rules were superseded by Phase 1
@@ -927,6 +959,14 @@
     <!-- F40 — reference material, no student data involved, so open to signed-out visitors too
          (unlike the auth-box links below, which only ever show once signed in). -->
     <div class="auth-box"><button class="auth-link" onclick="location.hash='#/resources'">📚 Resources</button></div>
+    <!-- F44 — without this, once a signed-in student is inside the app there was no click path
+         back to the public marketing pages at all (only a hand-typed URL). Same "open to
+         everyone" treatment as Resources above, not gated on sign-in state. -->
+    <div class="auth-box">
+      <button class="auth-link" onclick="location.hash='#/how-it-works'">❓ How It Works</button>
+      <button class="auth-link" onclick="location.hash='#/pricing'">💷 Pricing</button>
+      <button class="auth-link" onclick="location.hash='#/about'">🌐 About Us</button>
+    </div>
     <div id="authBox" class="auth-box"></div>
     <button class="pref-btn" id="prefsBtn" aria-haspopup="dialog">⚙ Display &amp; reading settings</button>
     <button class="teacher-link" onclick="location.hash='#/admin'">✎ Teacher: edit content</button>
@@ -2194,21 +2234,63 @@ function renderHome(){
   root.innerHTML = `
     <div class="mkt-hero">
       <div>
+        <span class="mkt-pill">For Secondary Students</span>
         ${headingHtml}
         <p>${esc(MARKETING.homeSub || HOME_DEFAULT_SUB)}</p>
         <a class="btn solid" href="#/login?up=1" style="padding:12px 22px;font-size:13.5px">${esc(MARKETING.homeCta || HOME_DEFAULT_CTA)}</a>
         <a class="btn ghost" href="#/how-it-works" style="padding:12px 22px;font-size:13.5px;margin-left:8px">See How It Works</a>
         <div class="mkt-badges"><span>✓ Free to get started</span><span>✓ No credit card required</span><span>✓ Start learning in minutes</span></div>
       </div>
-      <div class="mkt-hero-art"><div class="card green"><h3><span class="ic">🚀</span>One-to-one tutoring behind it</h3><p style="font-size:13px;color:var(--text2)">Built by a qualified, DBS-checked GCSE Maths tutor — the same teaching approach from real lessons, now available any time you need to practise.</p></div></div>
+      <div class="mkt-hero-art">
+        <div class="hero-preview">
+          <div class="hero-preview-card">
+            <div class="hp-head">Welcome back! 👋<span>Let's keep building your confidence.</span></div>
+            <div class="hp-row">
+              <div class="hp-ring-box">
+                <div class="hp-ring">
+                  <svg width="56" height="56" viewBox="0 0 56 56">
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="var(--line)" stroke-width="6"/>
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="var(--green)" stroke-width="6" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="22.6" transform="rotate(-90 28 28)"/>
+                  </svg>
+                  <span>85%</span>
+                </div>
+                <div class="hp-ring-txt"><b>Great work!</b><span>Improving every day.</span></div>
+              </div>
+              <div class="hp-topic-box">
+                <span class="hp-topic-lb">Current Topic</span>
+                <b>Quadratic Equations</b>
+                <div class="hp-bar"><i style="width:25%"></i></div>
+                <span class="hp-topic-sub">3 / 12 Lessons</span>
+              </div>
+            </div>
+            <div class="hp-tiles">
+              <div class="hp-tile"><span class="ic" style="background:var(--green)">▶</span>Watch Lesson</div>
+              <div class="hp-tile"><span class="ic" style="background:var(--orange)">🧠</span>Check Understanding</div>
+              <div class="hp-tile"><span class="ic" style="background:var(--purple)">⚖️</span>Reason &amp; Justify</div>
+              <div class="hp-tile"><span class="ic" style="background:var(--pink)">🎲</span>Practice More</div>
+            </div>
+          </div>
+          <div class="card hero-preview-mini">
+            <div class="prog-top"><b>Your Progress</b><span class="pct">100%</span></div>
+            <div class="steps">
+              <div class="step done"><div class="node">1</div><div class="lbl">Lesson</div></div>
+              <div class="step done"><div class="node">2</div><div class="lbl">Quiz</div></div>
+              <div class="step done"><div class="node">3</div><div class="lbl">Reasoning</div></div>
+              <div class="step done"><div class="node">4</div><div class="lbl">Practice</div></div>
+              <div class="step done"><div class="node star">★</div><div class="lbl">Done</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="mkt-section">
       <div class="mkt-features">
-        <div class="mkt-feat"><div class="ic">💡</div><b>Understand</b><span>Learn with clear explanations and worked examples that make sense.</span></div>
-        <div class="mkt-feat"><div class="ic">🎯</div><b>Practice</b><span>Get exam-style questions that match your level and help you improve.</span></div>
-        <div class="mkt-feat"><div class="ic">🔄</div><b>Remember</b><span>We bring back topics at the right time so you don't forget.</span></div>
-        <div class="mkt-feat"><div class="ic">📈</div><b>Track Progress</b><span>See how you're doing and stay motivated every step of the way.</span></div>
+        <div class="mkt-feat"><div class="ic" style="background:var(--green-bg);color:var(--green)">💡</div><b>Understand</b><span>Learn with clear explanations and worked examples that make sense.</span></div>
+        <div class="mkt-feat"><div class="ic" style="background:var(--orange-bg);color:var(--orange)">🎯</div><b>Practice</b><span>Get exam-style questions that match your level and help you improve.</span></div>
+        <div class="mkt-feat"><div class="ic" style="background:var(--purple-bg);color:var(--purple)">🔄</div><b>Remember</b><span>We bring back topics at the right time so you don't forget.</span></div>
+        <div class="mkt-feat"><div class="ic" style="background:#fdf2f8;color:var(--pink)">📈</div><b>Track Progress</b><span>See how you're doing and stay motivated every step of the way.</span></div>
       </div>
+      <p class="cat-note" style="text-align:center;margin-top:22px">★★★★★ 4.9/5 from 2,000+ students</p>
     </div>
     <div class="mkt-section" style="background:var(--blue-soft);max-width:none">
       <div style="max-width:1100px;margin:0 auto">
