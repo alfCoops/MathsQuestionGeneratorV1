@@ -846,6 +846,16 @@
   .mkt-research .rh{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--green);font-size:14.5px}
   .mkt-research p{font-size:12.5px;color:var(--text2);margin-top:6px;max-width:340px}
   .mkt-research-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 20px;font-size:12.5px;font-weight:600;color:var(--text2)}
+  /* Points & badges section — describes the REAL, live system (points formula in
+     recompute_my_points(), badges in the BADGES array) only. No energy bar/tier claims — that
+     part of F19 isn't built yet, see DEVELOPMENT-PLAN.md. */
+  .mkt-points{border:1.5px solid var(--line);border-radius:16px;padding:22px 24px;margin-top:22px}
+  .mkt-points p{font-size:12.5px;color:var(--text2);margin-top:6px;max-width:560px}
+  .mkt-badges-preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px}
+  .mkt-badge-chip{border:1.5px solid var(--line);border-radius:12px;padding:12px;text-align:center;background:var(--surf2)}
+  .mkt-badge-chip .ic{font-size:22px;display:block;margin-bottom:6px}
+  .mkt-badge-chip b{display:block;font-size:12px;color:var(--navy)}
+  .mkt-badge-chip span{font-size:10.5px;color:var(--muted)}
   .mkt-testis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:26px}
   .mkt-testi{border:1.5px solid var(--line);border-radius:16px;padding:18px 20px;font-size:13.5px;color:var(--text2)}
   .mkt-testi .stars{color:var(--gold);font-size:13px;margin-bottom:8px}
@@ -2213,6 +2223,14 @@ function renderHowItWorks(){
 
       <div class="mkt-steps">
         ${steps.map((s,i)=>`<div class="mkt-step"><div class="num">${i+1}</div><div class="mkt-step-icon" style="background:${HIW_STEP_STYLE[i].bg};color:${HIW_STEP_STYLE[i].fg}">${esc(s.ic)}</div><div style="flex:1"><b>${i+1}. ${esc(s.title)}</b><span class="mkt-step-sub" style="color:${HIW_STEP_STYLE[i].fg}">${esc(s.sub)}</span><span>${esc(s.body)}</span></div><span class="chip time" style="flex-shrink:0">${esc(s.t)}</span></div>`).join('')}
+      </div>
+
+      <div class="mkt-points">
+        <div class="rh" style="color:var(--gold)">🏅 Earn Points &amp; Badges</div>
+        <p>Every lesson you finish, quiz you pass and day you keep your streak going earns you points — shown on an optional leaderboard only if you choose to. Hit a milestone and you'll unlock a badge to go with it.</p>
+        <div class="mkt-badges-preview">
+          ${BADGES.map(b=>`<div class="mkt-badge-chip"><span class="ic">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}
+        </div>
       </div>
 
       <div class="mkt-research">
