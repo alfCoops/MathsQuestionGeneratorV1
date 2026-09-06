@@ -1603,7 +1603,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-06T16:53:52Z', ref:'4dbd6fc' };
+const BUILD = { at:'2026-09-06T19:24:18Z', ref:'5433017' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2347,14 +2347,14 @@ function mktCtaStripHtml(){
    not need an unnecessarily complicated CMS") — a custom heading loses the default's 3-line
    colour-split treatment and renders as one plain line; the fancy default only shows while
    the field is empty. */
-const HOME_DEFAULT_SUB = 'MasterMaths helps you develop strong mathematical understanding and clear thinking — so you can solve any GCSE question with confidence.';
+const HOME_DEFAULT_SUB = 'MasterMaths helps you develop strong mathematical understanding and clear thinking — so you can solve any question with confidence.';   /* 2026-09-06 — "GCSE" wasn't in Ryan's mockup text; removed to match exactly */
 const HOME_DEFAULT_CTA = 'Start Free Today →';
 function renderHome(){
   document.title = 'MasterMaths Tutoring — GCSE Maths';
   const root = marketingChrome();
   const headingHtml = MARKETING.homeHeading
     ? `<h1>${esc(MARKETING.homeHeading)}</h1>`
-    : `<h1>Build understanding.<br>Think clearly.<br><span class="accent">Solve confidently.</span></h1>`;
+    : `<h1>Build understanding.<br>Think clearly. Solve <span class="accent">confidently.</span></h1>`;   /* 2026-09-06 — mockup has "Solve" navy and only "confidently." green, wrapping naturally onto its own line at this column width, not a forced 3rd line that's entirely green */
   root.innerHTML = `
     <div class="mkt-hero">
       <div>
