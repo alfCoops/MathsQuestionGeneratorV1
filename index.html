@@ -843,7 +843,7 @@
   .mkt-nav{display:flex;align-items:center;gap:22px;padding:14px 28px;border-bottom:1px solid var(--line);background:var(--card)}
   .mkt-brand{display:flex;align-items:center;gap:10px;font-family:var(--ff-head);font-weight:700;color:var(--navy);font-size:16.5px;text-decoration:none;flex-shrink:0}
   .mkt-brand small{display:block;font-weight:600;color:var(--muted);font-size:10.5px;margin-top:1px}
-  .mkt-links{display:flex;gap:20px;margin-left:18px;flex:1}
+  .mkt-links{display:flex;gap:20px;flex:1;justify-content:center}   /* 2026-09-06 — was packed left against the logo; brief asks for centred nav links */
   .mkt-links a{font-size:13.5px;font-weight:600;color:var(--text2);text-decoration:none}
   .mkt-links a:hover{color:var(--blue)}
   .mkt-cta{display:flex;align-items:center;gap:10px;flex-shrink:0}
@@ -1603,7 +1603,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-06T19:24:18Z', ref:'5433017' };
+const BUILD = { at:'2026-09-06T19:28:54Z', ref:'1b7a7a0' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
