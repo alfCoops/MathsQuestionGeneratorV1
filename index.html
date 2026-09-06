@@ -886,6 +886,19 @@
   .hero-preview-mini .pct{font-size:13px}
   .hero-preview-mini .step .lbl{font-size:8px;max-width:60px}
   .hero-preview-mini .step .node{width:20px;height:20px;font-size:9px}
+  /* 2026-09-06 — a peek of real lesson-item cards below the stepper, matching the mockup's
+     fuller "card behind a card" composition instead of just the stepper on its own. Reuses
+     the actual .act-head/.ico classes (not a bespoke lookalike) at a scaled-down size —
+     buttons/chevron omitted since this is decorative, not clickable. */
+  .hero-preview-mini .act-head{gap:8px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);cursor:default}
+  .hero-preview-mini .ico{width:30px;height:30px}
+  .hero-preview-mini .ico .glyph{width:20px;height:20px;font-size:10px}
+  .hero-preview-mini .ico2{display:none}
+  .hero-preview-mini .txt{padding-top:0}
+  .hero-preview-mini .txt b{font-size:10px}
+  .hero-preview-mini .txt span{font-size:8px}
+  .hero-preview-mini .txt span.act-sub{margin:0}
+  .hero-preview-mini .time-chip{font-size:7.5px;padding:2px 6px;margin-top:0}
   @media(max-width:640px){.hero-preview-mini{display:none}}
   .mkt-section{padding:44px 28px;max-width:1100px;margin:0 auto}
   .mkt-section h2{font-family:var(--ff-head);font-size:27px;font-weight:800;color:var(--navy);text-align:center}
@@ -1583,7 +1596,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-04T22:04:25Z', ref:'473d1d5+' };
+const BUILD = { at:'2026-09-06T16:51:19Z', ref:'4af01bb+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2382,6 +2395,16 @@ function renderHome(){
               <div class="step done"><div class="node">3</div><div class="lbl">Reasoning</div></div>
               <div class="step done"><div class="node">4</div><div class="lbl">Practice</div></div>
               <div class="step done"><div class="node star">★</div><div class="lbl">Done</div></div>
+            </div>
+            <div class="act-head">
+              <div class="ico" style="--ic:var(--blue);--icbg:var(--blue-soft)"><span class="glyph">▶</span></div>
+              <div class="txt"><b>1. Watch Lesson &amp; Read Notes</b></div>
+              <span class="time-chip">✓ Started</span>
+            </div>
+            <div class="act-head">
+              <div class="ico" style="--ic:var(--orange);--icbg:var(--orange-bg)"><span class="glyph">🧠</span></div>
+              <div class="txt"><b>2. Diagnostic Quiz</b></div>
+              <span class="time-chip">✓ Passed</span>
             </div>
           </div>
         </div>
