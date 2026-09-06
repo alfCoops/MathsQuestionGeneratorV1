@@ -944,6 +944,13 @@
   .mkt-price-card .amt span{font-size:13px;font-weight:600;color:var(--muted)}
   .mkt-price-card ul.ticks{margin:16px 0}
   .mkt-price-card .btn{width:100%;justify-content:center;text-align:center;margin-top:6px}
+  /* 2026-09-06 — hover lift across every card-style element on the marketing pages (feature
+     cards, pricing cards, How It Works step cards, testimonials, badge chips). .pop keeps its
+     own tinted glow on hover instead of the generic shadow, so the "Most Popular" plan doesn't
+     lose its green highlight when hovered. */
+  .mkt-feat,.mkt-price-card,.hiw-card,.mkt-testi,.mkt-badge-chip{transition:transform .18s ease,box-shadow .18s ease}
+  .mkt-feat:hover,.mkt-price-card:hover,.hiw-card:hover,.mkt-testi:hover,.mkt-badge-chip:hover{transform:translateY(-5px);box-shadow:0 12px 26px rgba(15,23,42,.1)}
+  .mkt-price-card.pop:hover{box-shadow:0 14px 30px rgba(20,108,67,.22)}
   .mkt-cta-strip{background:var(--green);color:#fff;border-radius:18px;padding:26px 30px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:44px auto 0;max-width:1100px}
   .mkt-cta-strip p{margin:0;font-weight:700}
   .mkt-cta-strip .btn.solid{background:#fff;color:var(--green)}
@@ -1596,7 +1603,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-06T16:51:19Z', ref:'4af01bb+' };
+const BUILD = { at:'2026-09-06T16:53:52Z', ref:'4dbd6fc' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
