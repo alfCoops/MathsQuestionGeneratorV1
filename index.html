@@ -1603,7 +1603,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-06T19:45:23Z', ref:'5cb925b+' };
+const BUILD = { at:'2026-09-08T15:45:25Z', ref:'1f07a54+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2271,7 +2271,7 @@ function renderMktNav(){
   const signedIn = !!authUser;
   const cta = signedIn
     ? `<a class="btn ghost" href="#/courses">My Courses</a>`
-    : `<a class="btn ghost" href="#/login">Log in</a><a class="btn solid" href="#/login?up=1">Create Free Account</a>`;
+    : `<a class="btn solid" href="#/login?up=1">Create Free Account</a>`;   /* 2026-09-08 — reference has one CTA button; "Log in" sits as a plain nav link instead, see .mkt-links below */
   $('mktRoot').innerHTML = `
     <nav class="mkt-nav">
       <a href="#/" class="mkt-brand"><img class="mkt-logo" src="assets/mm-logo.png" alt="MasterMaths Tutoring"><span>MasterMaths<small>Tutoring</small></span></a>
@@ -2280,6 +2280,7 @@ function renderMktNav(){
         <a href="#/login">Learn</a>
         <a href="#/pricing">Pricing</a>
         <a href="#/about">About Us</a>
+        ${signedIn ? '' : '<a href="#/login">Log in</a>'}
       </div>
       <div class="mkt-cta">${cta}</div>
     </nav>
