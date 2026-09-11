@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T13:06:33Z', ref:'478210b' };
+const BUILD = { at:'2026-09-11T13:08:14Z', ref:'ecc999c' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2908,7 +2908,7 @@ async function loadTeacherData(){
     const [p,pr,qr] = await Promise.all([
       sbClient.from('profiles').select('user_id,display_name,role,comp_access,streak_emails_opt_in'),
       sbClient.from('progress').select('user_id,course_id,lesson_id,steps'),
-      sbClient.from('quiz_results').select('user_id,topic,misconception,correct')
+      sbClient.from('quiz_results').select('user_id,course_id,lesson_id,topic,misconception,correct,objective_id,scaffold_level,answered_at')
     ]);
     if(p.error||pr.error||qr.error) throw (p.error||pr.error||qr.error);
     return { profiles:(p.data||[]), progress:(pr.data||[]), quiz:(qr.data||[]) };
@@ -2941,13 +2941,37 @@ function teacherStudentsHtml(d){
     <tbody>${rows}</tbody></table>
     <p class="tch-foot">${students.length} student${students.length===1?'':'s'} · ${need} need attention · ${optIn} opted in to reminder emails.</p>`;
 }
+/* F19 Milestone 1 — per-attempt breakdown for the adaptive quiz specifically (objective_id is
+   only ever set on rows the new engine writes; the static quiz's rows have it null and are
+   simply excluded here — this table answers Ryan's "why", not just "what score", per attempt). */
+function teacherObjectiveAttemptsHtml(d){
+  const rows = d.quiz.filter(r=>r.objective_id).slice().sort((a,b)=>String(b.answered_at||'').localeCompare(String(a.answered_at||''))).slice(0,50);
+  if(!rows.length) return '<p class="auth-note">No adaptive quiz attempts yet.</p>';
+  const nameFor = uid => { const p=d.profiles.find(x=>x.user_id===uid); return (p&&p.display_name) || '—'; };
+  const objFor = r => { const c=courseById(r.course_id); const o=c && (c.OBJECTIVES||[]).find(x=>x.id===r.objective_id); return o ? (o.label||o.topic||o.id) : r.objective_id; };
+  const trs = rows.map(r=>`<tr class="${r.correct?'':'tch-warn'}">
+      <td>${esc(nameFor(r.user_id))}</td>
+      <td>${esc(r.topic||'—')}</td>
+      <td>${esc(objFor(r))}</td>
+      <td>${r.correct?'✅ Correct':'❌ Incorrect'}</td>
+      <td>${r.misconception?esc(r.misconception):'—'}</td>
+      <td>${(!r.correct && r.scaffold_level!=null && +r.scaffold_level>0) ? 'Scaffold '+esc(r.scaffold_level) : '—'}</td>
+    </tr>`).join('');
+  return `<h3>Adaptive quiz attempts <span class="ad-note">(most recent 50)</span></h3>
+    <table class="tch-table">
+      <thead><tr><th>Student</th><th>Topic</th><th>Learning objective</th><th>Result</th><th>Misconception</th><th>Support needed</th></tr></thead>
+      <tbody>${trs}</tbody></table>`;
+}
 function teacherInsightsHtml(d){
-  const mc={}; d.quiz.forEach(r=>{ if(r.misconception) mc[r.misconception]=(mc[r.misconception]||0)+1; });
-  const mcTop = Object.keys(mc).map(k=>[k,mc[k]]).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  /* Ryan's own phrasing is "M03 — 14 STUDENTS", not "14 occurrences" — the same student
+     tripping on the same misconception 3 times must count once, not three times. */
+  const mc={}; d.quiz.forEach(r=>{ if(r.misconception) (mc[r.misconception]=mc[r.misconception]||new Set()).add(r.user_id); });
+  const mcTop = Object.keys(mc).map(k=>[k,mc[k].size]).sort((a,b)=>b[1]-a[1]).slice(0,12);
   const tp={}; d.quiz.forEach(r=>{ if(r.topic){ const t=tp[r.topic]||(tp[r.topic]={c:0,n:0}); t.n++; if(r.correct) t.c++; } });
   const tpArr = Object.keys(tp).map(k=>({topic:k,n:tp[k].n,rate:Math.round(100*tp[k].c/tp[k].n)})).filter(x=>x.n>=3).sort((a,b)=>a.rate-b.rate).slice(0,12);
-  return `<div class="tch-cols">
-    <div><h3>Most common misconceptions</h3>${mcTop.length?`<ul class="tch-list">${mcTop.map(m=>`<li><b>${m[1]}×</b> ${esc(m[0])}</li>`).join('')}</ul>`:'<p class="auth-note">No misconception data yet — students need to answer tagged questions.</p>'}</div>
+  return `${teacherObjectiveAttemptsHtml(d)}
+  <div class="tch-cols">
+    <div><h3>Most common misconceptions <span class="ad-note">(class-wide — every attempt tagged with one, adaptive or the static quiz alike)</span></h3>${mcTop.length?`<ul class="tch-list">${mcTop.map(m=>`<li><b>${esc(m[0])}</b> — ${m[1]} student${m[1]===1?'':'s'}</li>`).join('')}</ul>`:'<p class="auth-note">No misconception data yet — students need to answer tagged questions.</p>'}</div>
     <div><h3>Weakest topics <span class="ad-note">(≥3 attempts)</span></h3>${tpArr.length?`<ul class="tch-list">${tpArr.map(t=>`<li><b>${t.rate}%</b> ${esc(t.topic)} <span class="tch-dim">(${t.n})</span></li>`).join('')}</ul>`:'<p class="auth-note">No topic data yet.</p>'}</div>
   </div>`;
 }
