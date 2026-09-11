@@ -25,6 +25,7 @@ const LESSONS = {
   grade:'Grade: 1–3', duration:'30–45 minutes', prev:null, next:'1b',
   toolkit:['numberline','hundredsquare','counters'],   /* F18 — ordering, place value, multiplication facts */
   specRefs:['N1','N2','N3','N14','N15'],   /* Edexcel 1MA1: N1/N2 ordering+four-ops, N3 BIDMAS, N14 estimation, N15 rounding */
+  objectiveIds:['oo-1','oo-2','oo-3'],   /* F19 Milestone 1 — this lesson's Order-of-Operations content opts into the adaptive quiz engine; see DEFAULT_OBJECTIVES in index.html */
   success:[
     'Use and order positive and negative numbers (integers) and decimals; use the symbols &lt;, &gt; and understand the ≠ symbol.',
     'Add, subtract, multiply and divide positive and negative numbers (integers).',

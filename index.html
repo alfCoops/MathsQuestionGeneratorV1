@@ -1493,6 +1493,43 @@ function defaultToolkit(courses){
   }));
   return courses;
 }
+/* F19 Milestone 1 — same trap, same fix, for objectiveIds (see the specRefs note above).
+   Unlike specRefs/priorCheck/toolkit, objectiveIds never existed in mm-content.js at all
+   before this, so there's nothing authored to capture into a SEED dict — the seed IS the
+   hardcoded default below, applied only once per lesson id (a teacher's own edit, once
+   saved, always wins over this default). */
+const SEED_OBJECTIVE_IDS = {};
+COURSES.forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+  if(L && Array.isArray(L.objectiveIds) && L.objectiveIds.length) SEED_OBJECTIVE_IDS[id] = L.objectiveIds.slice();
+}));
+function defaultObjectiveIds(courses){
+  (courses||[]).forEach(c => Object.entries(c.LESSONS||{}).forEach(([id,L])=>{
+    if(L && !(Array.isArray(L.objectiveIds) && L.objectiveIds.length) && SEED_OBJECTIVE_IDS[id])
+      L.objectiveIds = SEED_OBJECTIVE_IDS[id].slice();
+  }));
+  return courses;
+}
+/* F19 Milestone 1 — 3 Order-of-Operations learning objectives (Ryan's own worked example).
+   A controlled id+label pair, not free text on each question — an AI-generated batch
+   mistagging/misspelling a free-text objective would silently break dashboard grouping
+   and adaptive routing across batches; a slug can't drift the same way. specRef anchors
+   each objective to the existing Edexcel-code system L.specRefs already uses (N3 =
+   BIDMAS/hierarchy of operations), so nothing about the existing practice_questions
+   spec-ref matching needs to change. Seeded only onto the one course that has Order-of-
+   Operations content today — a future second course (Higher tier, another board) starts
+   with none, not a copy of this one. */
+const DEFAULT_OBJECTIVES = [
+  { id:'oo-1', topic:'Order of Operations', label:'Apply multiplication and division before addition and subtraction', specRef:'N3' },
+  { id:'oo-2', topic:'Order of Operations', label:'Apply brackets before other operations', specRef:'N3' },
+  { id:'oo-3', topic:'Order of Operations', label:'Combine the full BIDMAS hierarchy, including with negative numbers', specRef:'N3' }
+];
+function defaultObjectives(courses){
+  (courses||[]).forEach(c=>{
+    if(c.id===DEFAULT_COURSE_ID && !(Array.isArray(c.OBJECTIVES) && c.OBJECTIVES.length))
+      c.OBJECTIVES = DEFAULT_OBJECTIVES.map(o=>Object.assign({},o));
+  });
+  return courses;
+}
 function courseById(id){ return COURSES.find(c=>c.id===id); }
 function currentCourse(){ return courseById(currentCourseId) || COURSES[0]; }
 function courseLabel(c){ return [c.qualification, c.board, c.tier].filter(Boolean).join(' · '); }
@@ -1559,7 +1596,7 @@ function avatarHtml(avatarId, sizeClass){
 function contentPayload(){ return { COURSES, SETTINGS:siteSettings, RESOURCES, MARKETING, MATHEMATICIANS }; }
 function applyContentData(d){
   if(d && (Array.isArray(d.COURSES) || (d.WEEKS && d.LESSONS))){
-    COURSES = defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))));
+    COURSES = defaultObjectives(defaultObjectiveIds(defaultToolkit(defaultPriorCheck(defaultSpecRefs(buildCourses(d))))));
     if(d.SETTINGS) siteSettings = Object.assign(siteSettings, d.SETTINGS);
     if(Array.isArray(d.RESOURCES)) RESOURCES = d.RESOURCES;   /* absent = keep whatever's already loaded (back-compat) */
     if(d.MARKETING) MARKETING = Object.assign({}, MARKETING_DEFAULTS, d.MARKETING);   /* absent = keep whatever's already loaded (back-compat) */
@@ -1603,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T11:52:34Z', ref:'3712878' };
+const BUILD = { at:'2026-09-11T12:43:28Z', ref:'05a6a75' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -5794,7 +5831,7 @@ function buildAdminForm(){
   const f = $('adForm');
 
   if(L.comingSoon){
-    f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + mathematiciansPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
+    f.innerHTML = weeksPanel() + objectivesPanel() + resourcesPanel() + marketingPanel() + mathematiciansPanel() + importPanel() + `<div class="ad-panel"><h4>📋 Basics</h4>
       ${inp('Lesson title','ad-title',L.title)}
       <div class="ad-steps" style="margin-top:10px;background:#fef9c3;border-color:#facc15">This lesson is a <b>“coming soon” placeholder</b>. Untick the box below to turn it into a full lesson — video, quiz, worksheet and generator editors will appear.</div>
       <div class="ad-row" style="margin-top:10px"><label class="ad-lb" style="margin:0;font-size:13px"><input type="checkbox" id="ad-soon" checked> Keep as a “coming soon” placeholder &nbsp;—&nbsp; <b>untick to start adding content</b></label></div>
@@ -5806,7 +5843,7 @@ function buildAdminForm(){
   const lessonIds = Object.keys(LESSONS);
   const linkSel = (id, cur) => `<select id="${id}" class="ad-in" style="width:auto"><option value="">— none —</option>${lessonIds.filter(x=>x!==adminSel).map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('')}</select>`;
 
-  f.innerHTML = weeksPanel() + resourcesPanel() + marketingPanel() + mathematiciansPanel() + importPanel() + `
+  f.innerHTML = weeksPanel() + objectivesPanel() + resourcesPanel() + marketingPanel() + mathematiciansPanel() + importPanel() + `
   <div class="ad-panel"><h4>📋 Basics</h4>
     ${inp('Lesson title','ad-title',L.title)}
     <div class="ad-grid2">
@@ -6250,6 +6287,14 @@ function collectAdminForm(){
   f.querySelectorAll('.ma-image').forEach(inp=>{ const mi=+inp.dataset.mi; if(MATHEMATICIANS[mi]) MATHEMATICIANS[mi].image = inp.value.trim(); });
   f.querySelectorAll('.ma-active').forEach(inp=>{ const mi=+inp.dataset.mi; if(MATHEMATICIANS[mi]) MATHEMATICIANS[mi].active = inp.checked; });
 
+  /* F19 Milestone 1 — learning objectives panel (per current course, also present on every
+     editor screen, same as the panels above). */
+  { const OBJECTIVES = currentCourse().OBJECTIVES || [];
+    f.querySelectorAll('.ob-topic').forEach(inp=>{ const oi=+inp.dataset.oi; if(OBJECTIVES[oi]) OBJECTIVES[oi].topic = inp.value; });
+    f.querySelectorAll('.ob-specref').forEach(inp=>{ const oi=+inp.dataset.oi; if(OBJECTIVES[oi]) OBJECTIVES[oi].specRef = inp.value; });
+    f.querySelectorAll('.ob-label').forEach(inp=>{ const oi=+inp.dataset.oi; if(OBJECTIVES[oi]) OBJECTIVES[oi].label = inp.value; });
+  }
+
   if(L.comingSoon){
     if(g('ad-title')) L.title = g('ad-title').value;
     if(g('ad-soon') && !g('ad-soon').checked){ delete L.comingSoon; Object.assign(L, {...BLANK_LESSON(), ...L}); }
@@ -6381,7 +6426,7 @@ function onFormClick(e){
   collectAdminForm();
   const L = LESSONS[adminSel];
   const act = b.dataset.act;
-  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2, ri=+b.dataset.rs, mi=+b.dataset.mi;
+  const vi=+b.dataset.vi, qi=+b.dataset.qi, si=+b.dataset.si, gi=+b.dataset.gi, qi2=+b.dataset.qi2, ri=+b.dataset.rs, mi=+b.dataset.mi, oi=+b.dataset.oi;
 
   if(act==='addVideo') L.videos.push({title:'Video '+(L.videos.length+1), url:'', notes:null});
   if(act==='delVideo') L.videos.splice(vi,1);
@@ -6425,6 +6470,16 @@ function onFormClick(e){
   if(act==='delMathematician') MATHEMATICIANS.splice(mi,1);
   if(act==='maUp' && mi>0){ const t=MATHEMATICIANS[mi-1]; MATHEMATICIANS[mi-1]=MATHEMATICIANS[mi]; MATHEMATICIANS[mi]=t; }
   if(act==='maDown' && mi<MATHEMATICIANS.length-1){ const t=MATHEMATICIANS[mi+1]; MATHEMATICIANS[mi+1]=MATHEMATICIANS[mi]; MATHEMATICIANS[mi]=t; }
+
+  /* F19 Milestone 1 — learning objective actions (per current course), same
+     reorder-by-splice pattern as the mathematician/quiz actions above. */
+  if(act==='addObjective' || act==='delObjective' || act==='obUp' || act==='obDown'){
+    const c = currentCourse(); const OBJECTIVES = (c.OBJECTIVES = c.OBJECTIVES || []);
+    if(act==='addObjective') OBJECTIVES.push({ id:'ob'+Date.now(), topic:'', label:'', specRef:'' });
+    if(act==='delObjective') OBJECTIVES.splice(oi,1);
+    if(act==='obUp' && oi>0){ const t=OBJECTIVES[oi-1]; OBJECTIVES[oi-1]=OBJECTIVES[oi]; OBJECTIVES[oi]=t; }
+    if(act==='obDown' && oi<OBJECTIVES.length-1){ const t=OBJECTIVES[oi+1]; OBJECTIVES[oi+1]=OBJECTIVES[oi]; OBJECTIVES[oi]=t; }
+  }
 
   saveDraft();
   buildAdminForm();
@@ -6498,6 +6553,31 @@ function mathematiciansPanel(){
   return `<div class="ad-panel"><h4>🧮 Famous Mathematician avatars <span class="ad-note">(students pick one at signup and can change it any time in Settings)</span></h4>
     <div id="adMathematicians">${MATHEMATICIANS.map((m,mi)=>mathematicianRowHtml(m,mi)).join('')}</div>
     <button class="btn ghost ad-mini" data-act="addMathematician">＋ Add mathematician</button>
+  </div>`;
+}
+/* ---------- F19 Milestone 1 — learning objectives panel (per course), same array-editor
+   pattern as mathematiciansPanel() above. `id` is deliberately not editable once created —
+   it's the value questions_review.objective_id / a lesson's L.objectiveIds point at, so
+   renaming it in place would silently orphan every existing reference to it. */
+function objectivesPanel(){
+  const OBJECTIVES = currentCourse().OBJECTIVES || [];
+  return `<div class="ad-panel"><h4>🎯 Learning objectives <span class="ad-note">(this course's set — tag AI-generated quiz questions and a lesson's objectiveIds against these; see F19)</span></h4>
+    <div id="adObjectives">${OBJECTIVES.map((o,oi)=>objectiveRowHtml(o,oi)).join('')}</div>
+    <button class="btn ghost ad-mini" data-act="addObjective">＋ Add objective</button>
+  </div>`;
+}
+function objectiveRowHtml(o, oi){
+  return `<div class="ad-q" data-oi="${oi}">
+    <div class="ad-row" style="align-items:center">
+      <span class="ad-note" style="font-family:monospace;white-space:nowrap">${esc(o.id)}</span>
+      <input class="ad-in ob-topic" data-oi="${oi}" value="${esc(o.topic||'')}" placeholder="Topic e.g. Order of Operations" style="max-width:220px">
+      <input class="ad-in ob-specref" data-oi="${oi}" value="${esc(o.specRef||'')}" placeholder="Spec ref e.g. N3" style="max-width:100px">
+      <button class="btn ghost ad-mini" data-act="obUp" data-oi="${oi}" title="Move up">↑</button>
+      <button class="btn ghost ad-mini" data-act="obDown" data-oi="${oi}" title="Move down">↓</button>
+      <button class="btn ghost ad-mini" data-act="delObjective" data-oi="${oi}" style="color:var(--red);border-color:var(--red-line)">🗑</button>
+    </div>
+    <label class="ad-lb" style="margin-top:6px">Objective statement <span class="ad-note">(shown on the teacher dashboard; passed to the generator so it writes questions for THIS objective, not a generic one)</span></label>
+    <input class="ad-in ob-label" data-oi="${oi}" value="${esc(o.label||'')}">
   </div>`;
 }
 function mathematicianRowHtml(m, mi){
