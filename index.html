@@ -1603,7 +1603,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-08T15:45:25Z', ref:'1f07a54+' };
+const BUILD = { at:'2026-09-11T11:52:34Z', ref:'3712878' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -1702,6 +1702,8 @@ async function authInit(){
 function friendlyAuthErr(e){
   const m = ((e&&e.message)||'').toLowerCase();
   if((e&&e.status===429) || m.indexOf('rate limit')>=0) return 'Too many attempts right now — please try again in a few minutes.';
+  if(m.indexOf('sending confirmation')>=0 || m.indexOf('sending recovery')>=0 || (m.indexOf('error sending')>=0 && m.indexOf('email')>=0))
+    return 'We couldn\'t send the confirmation email — that\'s a problem on our side, not with your email address. Please let your tutor know so they can fix it, then try again shortly.';   /* 2026-09-11 — Supabase's own built-in mailer, not a code bug; see EMAIL-SIGNUP-FIX.md */
   if(m.indexOf('already')>=0 && m.indexOf('regist')>=0) return 'That email already has an account — try signing in.';
   if(m.indexOf('invalid login')>=0 || m.indexOf('invalid credentials')>=0) return 'Email or password is incorrect.';
   if(m.indexOf('signup')>=0 || m.indexOf('not allowed')>=0) return 'Sign-ups are turned off at the moment.';
