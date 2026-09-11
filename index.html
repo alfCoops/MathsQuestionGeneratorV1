@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T12:58:47Z', ref:'4ff5f63' };
+const BUILD = { at:'2026-09-11T13:06:33Z', ref:'478210b' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -4553,7 +4553,7 @@ const SECTION_CARDS = { learn:'secLearn', quiz:'secQuiz', worksheet:'secWs', gen
 function resumeToSection(sec){
   const cardId = SECTION_CARDS[sec]; if(!cardId) return;
   const card = $(cardId); if(!card) return;
-  if(cardId==='secQuiz'){ openAct('secQuiz'); renderQuiz(); }
+  if(cardId==='secQuiz'){ openAct('secQuiz'); openQuiz(); }
   else if(cardId==='secGen'){ openAct('secGen'); }
   else if(cardId==='secLearn'){ openAct('secLearn'); }
   setTimeout(()=>{ try{ card.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }, 60);
@@ -4803,13 +4803,127 @@ function recordReasoningAnswer(lessonId, qIndex){
   recomputeMyPoints();
 }
 
-$('quizBtn').addEventListener('click', ()=>{ openAct('secQuiz'); renderQuiz(); });
+/* =========== F19 Milestone 1 — adaptive quiz UI, gated on cur.objectiveIds ================
+   Reuses the SAME #secQuiz/#qArea/#qNum/#qNext/#qExit DOM as the static quiz above — a
+   lesson is EITHER static or adaptive, never both, so openQuiz() is the one new dispatch
+   point every call site (quizBtn, resumeToSection) goes through. qPrev/qFlag have no meaning
+   for a live adaptive stream and are just hidden while aquiz.active, the same "hide what
+   doesn't apply" treatment PKC's own nav already gets above.
+   Unlike the static quiz (whole answer key already sits in the page, fine for one small
+   per-lesson set), correctness here is resolved ONLY by grade_quiz_answer() server-side — a
+   click posts the answer and renders whatever the RPC says, never comparing client-side
+   against anything this page already holds.
+   D1 (lesson 1a is free without an account): a signed-out visitor on an objectiveIds-flagged
+   lesson falls back to the ORIGINAL static cur.quiz untouched, rather than a sign-in wall —
+   openQuiz()'s own condition is the guard, so 1a keeps working exactly as before for anyone
+   without an account.
+   KNOWN, FLAGGED TRIM (not silently dropped): not resumable across a page reload this pass —
+   progress.quiz_state is reserved for exactly this in supabase/migrations.sql but wiring a
+   second sync path for it was cut from Milestone 1's scope; a reload starts the attempt over. */
+let aquiz = { active:false };
+const ADAPTIVE_START_COUNT = 3;   /* Milestone 1 default — make this content-configurable if/when Ryan wants per-course control */
+function openQuiz(){
+  if(cur.objectiveIds && cur.objectiveIds.length && sbClient && authUser) startAdaptiveQuiz();
+  else renderQuiz();
+}
+async function startAdaptiveQuiz(){
+  if(!sbClient || !authUser){ aquiz={active:false}; renderQuiz(); return; }   /* defensive — openQuiz() is the real gate */
+  $('qPrev').style.display='none'; $('qFlag').style.display='none';
+  $('qDiff').textContent=''; $('qSegs').innerHTML='';
+  $('qArea').innerHTML = `<p class="auth-note">Loading your quiz…</p>`;
+  const bank = await loadQuizBank(currentCourseId, cur.objectiveIds);
+  const startingQueue = pickStartingQuestions(bank, cur.objectiveIds, ADAPTIVE_START_COUNT);
+  aquiz = {
+    active:true, bank, served:new Set(), objectiveIds:cur.objectiveIds.slice(),
+    currentObjective:cur.objectiveIds[0], attemptId:uuid4(), qIndex:0,
+    startingQueue, lastWrong:false, lastMisconception:null, lastScaffoldLevel:0, lastGradeBand:0,
+    totalAnswered:0, totalCorrect:0, masteryByObjective:{}, current:null, answered:false
+  };
+  advanceAdaptiveQuiz();
+}
+function nextAdaptiveRow(){
+  if(aquiz.startingQueue.length){ const row=aquiz.startingQueue.shift(); aquiz.currentObjective=row.objective_id; return row; }
+  return pickNextQuizQuestion(aquiz);
+}
+function advanceAdaptiveQuiz(){
+  const row = nextAdaptiveRow();
+  if(!row){ renderAdaptiveQuizResult(); return; }
+  aquiz.current = row; aquiz.answered = false;
+  aquiz.served.add(row.id);   /* marked served the moment it's shown, not on answer, so leaving mid-question can't re-serve it either */
+  renderAdaptiveQuestion();
+}
+function renderAdaptiveQuestion(){
+  const item = (aquiz.current&&aquiz.current.item)||{};
+  $('qNum').textContent = `Question ${aquiz.qIndex+1}`;
+  const opts = Array.isArray(item.options) ? item.options : [];
+  /* quiz_bank passes payload straight through in SQL (see supabase/migrations.sql) — same
+     defensive re-sanitise on render as reviewItemHtml() already does for the same content,
+     never trusted as safe just because it came back from our own DB. */
+  $('qArea').innerHTML = `<div class="q-text">${sanitizeHtml(item.question_html||'')}</div>` +
+    opts.map((o,i)=>`<button class="q-opt" data-opt="${i}">${sanitizeHtml((o&&o.text)||'')}</button>`).join('');
+  $('qArea').querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>recordAdaptiveAnswer(+b.dataset.opt)));
+  renderMathIn($('qArea'));   /* F33 */
+  $('qNext').style.display=''; $('qNext').disabled=true; $('qNext').textContent='Choose an answer to continue';
+}
+async function recordAdaptiveAnswer(chosen){
+  if(aquiz.answered) return;
+  aquiz.answered = true;
+  $('qArea').querySelectorAll('[data-opt]').forEach(b=>b.disabled=true);
+  let res;
+  try{
+    const { data, error } = await sbClient.rpc('grade_quiz_answer', {
+      p_question_id: aquiz.current.id, p_chosen: chosen, p_attempt_id: aquiz.attemptId,
+      p_q_index: aquiz.qIndex, p_phase: aquiz.qIndex < ADAPTIVE_START_COUNT ? 'starting' : 'adaptive'
+    });
+    if(error) throw error;
+    res = data;
+  }catch(e){
+    aquiz.answered = false;
+    $('qArea').querySelectorAll('[data-opt]').forEach(b=>b.disabled=false);
+    toast('Couldn’t grade that — check your connection and try again.');
+    return;
+  }
+  aquiz.qIndex++; aquiz.totalAnswered++; if(res.correct) aquiz.totalCorrect++;
+  aquiz.lastWrong = !res.correct;
+  aquiz.lastMisconception = res.misconception_id || null;
+  aquiz.lastScaffoldLevel = res.scaffold_level || 0;
+  aquiz.lastGradeBand = aquiz.current.grade_band || aquiz.lastGradeBand;
+  if(res.objective_mastery_tier) aquiz.masteryByObjective[aquiz.currentObjective] = res.objective_mastery_tier;
+  recomputeMyPoints();   /* F24/F44 — an adaptive answer feeds points/Energy exactly like the static quiz's quiz_results rows already do */
+
+  const opts = (aquiz.current.item&&aquiz.current.item.options)||[];
+  opts.forEach((o,i)=>{ const b=$('qArea').querySelector(`[data-opt="${i}"]`); if(b && i===chosen) b.classList.add(res.correct?'picked-right':'picked-wrong'); });
+  $('qArea').insertAdjacentHTML('beforeend', `<div class="fb ${res.correct?'right':'wrong'}"><b>${res.correct?'✅ Correct!':'❌ Not quite.'}</b>${res.feedback?' '+sanitizeHtml(res.feedback):''}</div>`);
+  renderMathIn($('qArea'));
+  $('qNext').disabled=false; $('qNext').textContent='Next Question →';
+}
+function renderAdaptiveQuizResult(){
+  const TIER_LABEL = { not_started:'Not started', learning:'Learning', developing:'Developing', mastered:'Mastered' };
+  const c = currentCourse();
+  const objRows = aquiz.objectiveIds.map(oid=>{
+    const o = (c.OBJECTIVES||[]).find(x=>x.id===oid);
+    const tier = aquiz.masteryByObjective[oid] || 'not_started';
+    return `<li><b>${esc(o?(o.label||o.topic||o.id):oid)}</b> — ${esc(TIER_LABEL[tier]||tier)}</li>`;
+  }).join('');
+  $('qNum').textContent=''; $('qNext').style.display='none';
+  $('qArea').innerHTML = `<div class="quiz-result">
+    <div class="big" style="color:var(--green)">${aquiz.totalCorrect}/${aquiz.totalAnswered}</div>
+    <p>You answered ${aquiz.totalAnswered} question${aquiz.totalAnswered===1?'':'s'} across this lesson's learning objectives.</p>
+    <ul style="text-align:left;max-width:420px;margin:10px auto">${objRows}</ul>
+  </div>`;
+  aquiz.active = false;
+  completeStep('quiz');   /* Milestone 1 has no separate pass/fail rule yet — reaching the end of the adaptive loop is "done" */
+}
+
+$('quizBtn').addEventListener('click', ()=>{ openAct('secQuiz'); openQuiz(); });
 $('qExit').addEventListener('click', ()=> $('secQuiz').classList.remove('open'));
-$('qPrev').addEventListener('click', ()=>{ if(quiz.i>0){quiz.i--; renderQuiz();} });
+$('qPrev').addEventListener('click', ()=>{ if(aquiz.active) return; if(quiz.i>0){quiz.i--; renderQuiz();} });
 $('qNext').addEventListener('click', ()=>{
+  if(aquiz.active){ if(!aquiz.answered) return; advanceAdaptiveQuiz(); return; }
   if(quiz.i < cur.quiz.length-1){ quiz.i++; renderQuiz(); } else renderQuizResult();
 });
 $('qFlag').addEventListener('click', ()=>{
+  if(aquiz.active) return;
   quiz.flags.has(quiz.i)?quiz.flags.delete(quiz.i):quiz.flags.add(quiz.i);
   renderQuiz();
 });
