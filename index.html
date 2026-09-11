@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T12:57:15Z', ref:'e05d66d' };
+const BUILD = { at:'2026-09-11T12:58:47Z', ref:'4ff5f63' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -5066,6 +5066,88 @@ function renderQuizResult(){
     $('secLearn').classList.add('open'); if(typeof syncVideoFocus==='function') syncVideoFocus();
     $('secLearn').scrollIntoView({behavior:'smooth', block:'start'});
   });
+}
+
+/* =========== F19 Milestone 1 — adaptive quiz engine (headless — no UI wired to this yet,
+   see the plan at .claude/plans/jolly-sprouting-puzzle.md for the remaining steps).
+   THE SWAP POINT's sibling for the diagnostic quiz — CLAUDE.md names pickGeneratedQuestion()
+   (above, F12-lite) as "the swap point" for bank-driven selection; this is the same shape for
+   the quiz. Reads a per-attempt cached bank from the sanitised `quiz_bank` view (never carries
+   an answer key — see supabase/migrations.sql), picks without repeats, and on a wrong answer
+   climbs the SAME scaffold ladder before falling back. The pick functions are pure and plain
+   so they're testable against a fixture bank with no DB and no quiz UI existing yet. */
+let _quizBankCache = { key:null, rows:[] };
+async function loadQuizBank(courseId, objectiveIds){
+  const key = courseId + '|' + (objectiveIds||[]).slice().sort().join(',');
+  if(_quizBankCache.key === key) return _quizBankCache.rows;
+  let rows = [];
+  try{
+    if(sbClient && courseId && (objectiveIds||[]).length){
+      const { data, error } = await sbClient.from('quiz_bank').select('*')
+        .eq('course_id', courseId).in('objective_id', objectiveIds);
+      if(!error) rows = data||[];
+    }
+  }catch(e){ rows = []; }   /* FAIL-OPEN: bank unavailable → nothing to show yet (rule 2) */
+  _quizBankCache = { key, rows };
+  return rows;
+}
+function shuffleInPlace(arr){
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=arr[i]; arr[i]=arr[j]; arr[j]=t; }
+  return arr;
+}
+/* Pure: N starting questions, round-robin across objectives so no single objective hogs the
+   opening diagnostic — only from rows the TEACHER has explicitly flagged eligible_start
+   (never an AI decision, per Ryan's spec). */
+function pickStartingQuestions(bank, objectiveIds, count){
+  const byObjective = (objectiveIds||[]).map(oid =>
+    shuffleInPlace((bank||[]).filter(r => r.objective_id===oid && r.eligible_start && +r.scaffold_level===0)));
+  const picked = []; let round = 0;
+  while(picked.length < count && byObjective.some(list => list.length > round)){
+    byObjective.forEach(list => { if(picked.length < count && list[round]) picked.push(list[round]); });
+    round++;
+  }
+  return picked;
+}
+function firstMatch(rows, predicates){
+  for(const pred of predicates){ const hit=(rows||[]).find(pred); if(hit) return hit; }
+  return null;
+}
+/* Pure: the adaptive step. quizState = { bank, served:Set<id>, objectiveIds, currentObjective,
+   lastWrong, lastMisconception, lastScaffoldLevel, lastGradeBand }. Mutates
+   quizState.currentObjective when it advances past a finished objective — the caller owns
+   quizState, so that mutation is visible to whoever asked for the next question, same as
+   quiz.i/_servedIds are mutated in place by the existing static-quiz code above.
+   Returns a bank row, or null when the engine has nothing left across every in-scope
+   objective (the caller ends the attempt). */
+function pickNextQuizQuestion(quizState){
+  const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id));
+  const sameObj = () => fresh.filter(r => r.objective_id===quizState.currentObjective);
+
+  if(quizState.lastWrong){
+    const mis = quizState.lastMisconception, lvl = quizState.lastScaffoldLevel||0;
+    const next = firstMatch(sameObj(), [
+      r => r.target_misconception===mis && +r.scaffold_level===lvl+1,   /* 1. escalate the SAME ladder */
+      r => r.target_misconception===mis && +r.scaffold_level>lvl,       /* 2. any higher rung */
+      r => r.target_misconception===mis,                                /* 3. any rung, same misconception */
+      r => +r.scaffold_level===0,                                        /* 4. fresh diagnostic, objective stays */
+    ]);
+    if(next) return next;
+  } else {
+    /* correct: step difficulty up within the objective first, else any fresh L0 on it. */
+    const next = firstMatch(sameObj(), [
+      r => +r.scaffold_level===0 && (r.grade_band||0) > (quizState.lastGradeBand||0),
+      r => +r.scaffold_level===0,
+    ]);
+    if(next) return next;
+  }
+  /* Nothing left on the current objective either way — advance to the next in-scope
+     objective that still has fresh content, starting it at L0 (no grade_band/misconception
+     carried over from the objective just finished). */
+  const nextObjective = (quizState.objectiveIds||[]).find(oid =>
+    oid!==quizState.currentObjective && fresh.some(r => r.objective_id===oid && +r.scaffold_level===0));
+  if(!nextObjective) return null;
+  quizState.currentObjective = nextObjective;
+  return firstMatch(fresh.filter(r=>r.objective_id===nextObjective), [ r => +r.scaffold_level===0 ]);
 }
 
 /* =============================== worksheet =============================== */
