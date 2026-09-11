@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T12:43:28Z', ref:'05a6a75' };
+const BUILD = { at:'2026-09-11T12:47:40Z', ref:'4905d90' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3831,6 +3831,14 @@ function reviewTraceHtml(it){
   });
   return chips.length ? `<div class="rv-trace"><span class="rv-trace-lb">trace</span>${chips.join('')}</div>` : '';
 }
+/* F19 Milestone 1 — objective_id is a real column on questions_review, tagging a
+   kind='question' row against currentCourse()-shaped OBJECTIVES on the ROW'S OWN
+   course_id (not necessarily the course currently open in the editor). */
+function objectiveLabelFor(courseId, objectiveId){
+  if(!objectiveId) return '';
+  const c = courseById(courseId); const o = c && (c.OBJECTIVES||[]).find(x=>x.id===objectiveId);
+  return o ? (o.label || o.topic || o.id) : objectiveId;
+}
 function reviewItemHtml(it){
   const p=it.payload||{};
   const lvl = (p.scaffold_level!=null && +p.scaffold_level>0) ? +p.scaffold_level : 0;
@@ -3846,6 +3854,9 @@ function reviewItemHtml(it){
   }).join('') : '';
   return `<div class="rv-item" data-id="${esc(it.id)}">
     <div class="rv-meta">${lvl?`<span class="rv-lvl">L${esc(lvl)}</span>`:''}${reviewMetaHtml(it)}</div>
+    ${it.kind==='question' ? `<div class="rv-meta">${it.objective_id
+        ? `🎯 ${esc(objectiveLabelFor(it.course_id,it.objective_id))}`
+        : `<span style="color:var(--orange)">⚠ no learning objective tagged — edit to set one</span>`}${it.eligible_start?' · <b>Eligible as starting question</b>':''}</div>` : ''}
     <div class="rv-q">${sanitizeHtml(p.question_html||p.question||'<i>(no question text)</i>')}</div>
     ${renderScaffoldParts(p.scaffold)}
     ${opts?`<ul class="rv-opts">${opts}</ul>`:''}
@@ -3876,6 +3887,19 @@ function reviewEditFormHtml(it){
   /* F34 — import-only fields. Never shown for source:'ai' items, so the existing AI review
      flow (already well-tested) is completely unaffected. */
   const isImport = it.source==='import';
+  /* F19 Milestone 1 — quiz-bank-only fields. objective_id/eligible_start are real columns,
+     not payload, so reviewSaveEdit() writes them straight to the update() call rather than
+     through reviewEdit()'s payload-diff mechanism. Never shown for kind!=='question', so the
+     existing free-response/import review flows gain nothing to accidentally break. */
+  const isQuestion = it.kind==='question';
+  const objectiveFields = isQuestion ? (()=>{
+    const c = courseById(it.course_id); const objs = (c && c.OBJECTIVES) || [];
+    const opts = `<option value="">— none —</option>` + objs.map(o=>
+      `<option value="${esc(o.id)}" ${o.id===it.objective_id?'selected':''}>${esc(o.label||o.topic||o.id)}</option>`).join('');
+    return `<label class="ad-lb" style="margin-top:10px">Learning objective</label><select class="ad-in rvf-objective">${opts}</select>
+    <label class="ad-lb" style="margin:8px 0 0;display:flex;align-items:center;gap:6px;font-weight:600">
+      <input type="checkbox" class="rvf-eligible-start" ${it.eligible_start?'checked':''}> Eligible as a starting question</label>`;
+  })() : '';
   const importFields = isImport ? `
     <label class="ad-lb" style="margin-top:10px">Table <span class="ad-note">(raw HTML — e.g. &lt;table&gt;…&lt;/table&gt;; leave blank if none)</span></label><textarea class="ad-in ad-ta rvf-tables">${esc(p.tables_html||'')}</textarea>
     <label class="ad-lb">Question parts <span class="ad-note">(one per line, e.g. "(a) …")</span></label><textarea class="ad-in ad-ta rvf-parts">${esc((Array.isArray(p.parts)?p.parts:[]).join('\n'))}</textarea>
@@ -3887,6 +3911,7 @@ function reviewEditFormHtml(it){
     <label class="ad-lb">Mark scheme</label><textarea class="ad-in ad-ta rvf-ms">${esc(p.mark_scheme||'')}</textarea>
     <label class="ad-lb">Marks</label><input class="ad-in rvf-marks" type="number" value="${esc(p.marks!=null?p.marks:'')}" style="width:90px">
     <label class="ad-lb">Hints <span class="ad-note">(edit the wording; the stage order and any images are kept)</span></label>${hintRows}
+    ${objectiveFields}
     ${importFields}
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>
     <p class="ad-note" style="margin-top:6px">Options/distractors aren’t editable here yet — reject and regenerate if a distractor is wrong.</p>`;
@@ -3953,7 +3978,14 @@ async function reviewSaveEdit(it, box){
   if(partsEl) edits.parts = partsEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
   if(sourceEl) edits.source_info = sourceEl.value;
   const { newPayload, diff } = reviewEdit(it.payload, edits);
-  try{ const { error } = await sbClient.from('questions_review').update({ payload:newPayload, edited_diff:diff, status:'edited', approved_by:(authUser&&authUser.id)||null }).eq('id', it.id); if(error) throw error;
+  /* F19 Milestone 1 — real columns, not payload; only present in the form for kind='question'
+     (objectiveFields in reviewEditFormHtml), same "undefined if not offered" guard as the F34
+     import-only fields above. */
+  const update = { payload:newPayload, edited_diff:diff, status:'edited', approved_by:(authUser&&authUser.id)||null };
+  const objSel = box.querySelector('.rvf-objective'), startChk = box.querySelector('.rvf-eligible-start');
+  if(objSel) update.objective_id = objSel.value || null;
+  if(startChk) update.eligible_start = startChk.checked;
+  try{ const { error } = await sbClient.from('questions_review').update(update).eq('id', it.id); if(error) throw error;
     toast('Saved & marked edited ✓'); const el=document.querySelector('.rv-item[data-id="'+it.id+'"]'); if(el) el.remove(); reviewCheckEmpty();
   }catch(e){ toast('Couldn’t save the edit.'); }
 }
@@ -4080,7 +4112,7 @@ async function runGenerate(){
   if(!topic){ toast('Pick a topic first.'); return; }
   if(!(await genAuthHeaders())){ toast('Sign in as a teacher first.'); return; }
   _genBusy=true; const btn=$('genRun'); if(btn){ btn.disabled=true; btn.textContent='Starting…'; }
-  const body = genBatchBody({ courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value });
+  const body = genBatchBody({ courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value, kind:'generator' });   /* explicit — see F19's genQuizQuestionBatchBody() for why the default alone is no longer safe to rely on */
   const res = await genPOST('/v1/batch', body);
   if(!res.ok || !res.data || !res.data.job_id){
     genStatusMsg('err', res.ok ? 'The generator didn’t return a job id.' : genErrorMessage(res)); genDone(); return;
