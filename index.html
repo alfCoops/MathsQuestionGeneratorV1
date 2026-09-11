@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T12:47:40Z', ref:'4905d90' };
+const BUILD = { at:'2026-09-11T12:57:15Z', ref:'e05d66d' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -4008,6 +4008,18 @@ function genBatchBody(o){
   if(o.calculator) body.calculator = o.calculator;            /* optional; enum allowed|not-allowed */
   return body;
 }
+/* F19 Milestone 1 — a quiz-bank batch is a generator-batch request PLUS the learning
+   objective it must write for, per Ryan's own "key rule": generation stays scoped to a
+   specific exam-board+topic+objective, never a generic question. See
+   QUIZ-BATCH-ENDPOINT-SPEC.md for the contract this asks the separate generator-service
+   repo to honour — not built there yet, so a batch requested this way degrades the same
+   "unavailable, nothing broke" way /v1/import and /v1/grade already do until it is. */
+function genQuizQuestionBatchBody(o){
+  const body = genBatchBody(Object.assign({}, o, { kind:'question' }));
+  body.objective_id = o.objectiveId;
+  body.objective_label = o.objectiveLabel;
+  return body;
+}
 function genErrorMessage(res){
   /* Takes the genFetch RESULT (preferred — carries hadToken + the service's error body)
      or a bare status number from older call sites. Returns HTML for genStatusMsg. */
@@ -4091,8 +4103,20 @@ async function renderGenerateTab(body){
   catch(e){ const gf=$('genForm'); if(gf) gf.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t reach the generation service to load topics — it may be warming up. Reopen this tab in a moment.</p>'; return; }
   const list = (topics && topics.topics) || [];
   const gf=$('genForm'); if(!gf) return;
+  /* F19 Milestone 1 — a second question type, alongside the existing free-response practice
+     kind. The objective picker only makes sense for the quiz kind (a practice-bank item has
+     no objective_id column to write), so it's hidden until "Quiz diagnostic question" is
+     picked — see wireGenKindToggle() just below. */
+  const objs = (currentCourse().OBJECTIVES||[]);
   gf.innerHTML = `
     <div class="gen-grid2">
+      <label class="ad-lb">Question type
+        <select id="gen-kind" class="ad-in">
+          <option value="generator">📝 Free-response practice question</option>
+          <option value="question" ${objs.length?'':'disabled'}>🎯 Quiz diagnostic question (MCQ)${objs.length?'':' — add a learning objective first'}</option>
+        </select></label>
+      <label class="ad-lb" id="gen-objective-wrap" style="display:none">Learning objective <span class="ad-note">(the quiz-bank column this batch is tagged and written for)</span>
+        <select id="gen-objective" class="ad-in">${objs.map(o=>`<option value="${esc(o.id)}" data-label="${esc(o.label||o.topic||o.id)}">${esc(o.label||o.topic||o.id)}</option>`).join('')}</select></label>
       <label class="ad-lb">Topic <span class="ad-note">(the generator’s spec-grounded topics — number = spec statements)</span>
         <select id="gen-topic" class="ad-in">${list.map(t=>`<option value="${esc(t.topic)}">${esc(t.topic)} (${esc(t.statements)})</option>`).join('')}</select></label>
       <label class="ad-lb">Grade band
@@ -4104,15 +4128,27 @@ async function renderGenerateTab(body){
     </div>
     <button class="btn solid" id="genRun" style="margin-top:13px">🤖 Generate questions</button>
     <p class="ad-note" style="margin-top:6px">Tip: the lesson’s Spec references (Basics panel) tell you which topics fit — pick the matching slug here.</p>`;
+  $('gen-kind').addEventListener('change', ()=>{ $('gen-objective-wrap').style.display = $('gen-kind').value==='question' ? '' : 'none'; });
   $('genRun').addEventListener('click', runGenerate);
 }
 async function runGenerate(){
   if(_genBusy) return;
   const topic=$('gen-topic')&&$('gen-topic').value;
   if(!topic){ toast('Pick a topic first.'); return; }
+  const kind = ($('gen-kind')&&$('gen-kind').value) || 'generator';
+  let objectiveId='', objectiveLabel='';
+  if(kind==='question'){
+    const osel = $('gen-objective');
+    objectiveId = osel && osel.value;
+    objectiveLabel = osel && osel.selectedOptions[0] && osel.selectedOptions[0].dataset.label;
+    if(!objectiveId){ toast('Pick a learning objective first — add one in the Basics panel if the list is empty.'); return; }
+  }
   if(!(await genAuthHeaders())){ toast('Sign in as a teacher first.'); return; }
   _genBusy=true; const btn=$('genRun'); if(btn){ btn.disabled=true; btn.textContent='Starting…'; }
-  const body = genBatchBody({ courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value, kind:'generator' });   /* explicit — see F19's genQuizQuestionBatchBody() for why the default alone is no longer safe to rely on */
+  const common = { courseId:currentCourseId, topic, gradeBand:$('gen-grade').value, calculator:$('gen-calc').value, n:$('gen-n').value };
+  const body = kind==='question'
+    ? genQuizQuestionBatchBody(Object.assign({}, common, { objectiveId, objectiveLabel }))
+    : genBatchBody(Object.assign({}, common, { kind:'generator' }));   /* explicit — see F19's genQuizQuestionBatchBody() for why the default alone is no longer safe to rely on */
   const res = await genPOST('/v1/batch', body);
   if(!res.ok || !res.data || !res.data.job_id){
     genStatusMsg('err', res.ok ? 'The generator didn’t return a job id.' : genErrorMessage(res)); genDone(); return;
