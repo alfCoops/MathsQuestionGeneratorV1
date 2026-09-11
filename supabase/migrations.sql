@@ -687,3 +687,163 @@ drop policy if exists "teacher rw imports bucket" on storage.objects;
 create policy "teacher rw imports bucket" on storage.objects
   for all using (bucket_id = 'imports' and public.is_teacher())
   with check (bucket_id = 'imports' and public.is_teacher());
+
+
+-- ============================================================================
+-- F19 (Milestone 1) — Adaptive Diagnostic Quiz v2, live-delivery half.
+-- The AI-generation-and-review half of this already shipped in F32-x
+-- (questions_review already renders/groups MCQ options + misconception feedback
+-- + scaffold ladders — see index.html's §4 GENERATOR/SCAFFOLD CONTRACT comments).
+-- What's new here: tagging a question with a learning objective + whether it's
+-- eligible to open a quiz, a sanitised pre-answer view (quiz_bank), and a single
+-- grading RPC that is the ONLY place the answer key is ever resolved — a live
+-- bank spanning many objectives is a far bigger scrape target than the current
+-- single static per-lesson quiz (whose answer key already sits in the page),
+-- so unlike that quiz, this one never ships options[].correct/misconception to
+-- the browser ahead of an answer.
+-- ============================================================================
+alter table public.questions_review add column if not exists objective_id text;      -- e.g. 'oo-1'; NULL for kind != 'question'
+alter table public.questions_review add column if not exists eligible_start boolean not null default false;
+create index if not exists questions_review_objective_idx on public.questions_review (objective_id) where objective_id is not null;
+create index if not exists questions_review_start_idx on public.questions_review (objective_id, id) where eligible_start and status in ('approved','edited');
+
+-- Sanitised, pre-answer view — the MCQ analogue of practice_questions above, one
+-- security_invoker=false level stricter: practice_questions has no answer key to
+-- leak (free-response), this one does, so options[].correct/misconception/
+-- misconception_feedback, correct_feedback, mark_scheme, answer(_numeric) are all
+-- deliberately absent. authenticated-only (not anon) — grade_quiz_answer() below
+-- needs auth.uid() to attribute mastery/misconceptions, and Milestone 1 doesn't
+-- need to cover the signed-out free lesson.
+create or replace view public.quiz_bank
+with (security_invoker = false) as
+select
+  qr.id,
+  qr.course_id,
+  qr.lesson_id,
+  qr.objective_id,
+  qr.grade_band,
+  qr.variant_group,
+  qr.eligible_start,
+  coalesce((qr.payload->>'scaffold_level')::int, 0) as scaffold_level,
+  qr.payload->>'target_misconception' as target_misconception,
+  jsonb_build_object(
+    'question_html', qr.payload->'question_html',
+    'options', (select coalesce(jsonb_agg(jsonb_build_object('text', o->'text')), '[]'::jsonb)
+                from jsonb_array_elements(coalesce(qr.payload->'options','[]'::jsonb)) o),
+    'calculator', qr.payload->'calculator'
+  ) as item
+from public.questions_review qr
+where qr.status in ('approved','edited') and qr.kind = 'question';
+
+revoke all on public.quiz_bank from public;
+grant select on public.quiz_bank to authenticated;
+
+-- quiz_results gains the same F19 tags F11's own comment already reserved this
+-- table for — nullable, so the existing static quiz's inserts are unaffected.
+alter table public.quiz_results add column if not exists objective_id text;
+alter table public.quiz_results add column if not exists scaffold_level int;
+alter table public.quiz_results add column if not exists attempt_phase text check (attempt_phase in ('starting','adaptive','review'));
+
+-- Per-objective mastery, 4 tiers per D16 (Not Started/Learning/Developing/Mastered,
+-- 0/1-39/40-79/80-100) — runs ALONGSIDE the shipped lesson-level 🟢🟡🔴, not
+-- replacing it, per D16. Deny-by-default on writes: only a SELECT policy exists,
+-- so authenticated/anon can never write this table directly (RLS enabled + no
+-- matching policy = denied) — grade_quiz_answer() below writes it because
+-- SECURITY DEFINER functions run with their definer's privileges, bypassing RLS
+-- entirely, same mechanism recompute_my_points() already relies on for points/
+-- energy_total.
+create table if not exists public.objective_mastery (
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  course_id    text not null,
+  objective_id text not null,
+  score        int  not null default 0 check (score between 0 and 100),
+  tier         text not null default 'not_started' check (tier in ('not_started','learning','developing','mastered')),
+  updated_at   timestamptz not null default now(),
+  primary key (user_id, course_id, objective_id)
+);
+alter table public.objective_mastery enable row level security;
+drop policy if exists "own objective_mastery" on public.objective_mastery;
+drop policy if exists "teacher reads objective_mastery" on public.objective_mastery;
+create policy "own objective_mastery" on public.objective_mastery for select using (auth.uid() = user_id);
+create policy "teacher reads objective_mastery" on public.objective_mastery for select using (public.is_teacher());
+
+-- Per-misconception persistence — how many times, still active or retired.
+-- Same free-text misconception label already used by quiz_results.misconception
+-- and questions_review's per-option tags (no separate numeric-ID scheme —
+-- forking two identity systems for the same concept has no reconciliation path).
+-- Same deny-by-default write posture as objective_mastery above.
+create table if not exists public.student_misconceptions (
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  course_id         text not null,
+  objective_id      text not null,          -- objective where first observed
+  misconception_id  text not null,
+  miss_count        int not null default 1,
+  status            text not null default 'active' check (status in ('active','retired')),
+  first_seen        timestamptz not null default now(),
+  last_seen         timestamptz not null default now(),
+  primary key (user_id, course_id, objective_id, misconception_id)
+);
+alter table public.student_misconceptions enable row level security;
+drop policy if exists "own student_misconceptions" on public.student_misconceptions;
+drop policy if exists "teacher reads student_misconceptions" on public.student_misconceptions;
+create policy "own student_misconceptions" on public.student_misconceptions for select using (auth.uid() = user_id);
+create policy "teacher reads student_misconceptions" on public.student_misconceptions for select using (public.is_teacher());
+
+-- THE single place an MCQ answer is ever resolved. Re-checks kind/status itself
+-- (never trusts that the client only ever asks about a legitimately-served id).
+-- Grades + logs quiz_results + upserts mastery + upserts misconceptions in one
+-- transaction, rather than a separate recompute pass — avoids the kind of race
+-- recompute_my_points() needs a separate call site for.
+-- Mastery delta (+8 correct / -4 wrong, clamped 0-100) is a FIRST-PASS PLACEHOLDER,
+-- not Ryan's real weighted-scoring spec (§13 of his 31-07 doc) — tune once pilot
+-- data exists; the tier bands themselves (0/1-39/40-79/80-100) are D16, not a guess.
+create or replace function public.grade_quiz_answer(p_question_id bigint, p_chosen int, p_attempt_id uuid, p_q_index int, p_phase text default 'adaptive')
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  row record; opt jsonb; is_correct boolean; misc text; sc_level int;
+  new_score int; new_tier text;
+begin
+  select * into row from public.questions_review
+    where id = p_question_id and kind = 'question' and status in ('approved','edited');
+  if row is null then raise exception 'question not available'; end if;
+
+  opt := row.payload->'options'->p_chosen;
+  is_correct := coalesce((opt->>'correct')::boolean, false);
+  misc := case when not is_correct then opt->>'misconception' else null end;
+  sc_level := coalesce((row.payload->>'scaffold_level')::int, 0);
+
+  insert into public.quiz_results(user_id, course_id, lesson_id, attempt_id, q_index, q_id,
+      topic, misconception, grade_band, variant_group, objective_id, scaffold_level,
+      attempt_phase, chosen, correct)
+    values (auth.uid(), row.course_id, row.lesson_id, p_attempt_id, p_q_index, p_question_id::text,
+      row.payload->>'topic', misc, row.grade_band::text, row.variant_group, row.objective_id,
+      sc_level, p_phase, p_chosen, is_correct);
+
+  select coalesce(score,0) into new_score from public.objective_mastery
+    where user_id = auth.uid() and course_id = row.course_id and objective_id = row.objective_id;
+  new_score := greatest(0, least(100, coalesce(new_score,0) + (case when is_correct then 8 else -4 end)));
+  new_tier := case when new_score = 0 then 'not_started' when new_score < 40 then 'learning'
+                    when new_score < 80 then 'developing' else 'mastered' end;
+  insert into public.objective_mastery(user_id, course_id, objective_id, score, tier, updated_at)
+    values (auth.uid(), row.course_id, row.objective_id, new_score, new_tier, now())
+    on conflict (user_id, course_id, objective_id) do update
+      set score = excluded.score, tier = excluded.tier, updated_at = now();
+
+  if not is_correct and misc is not null then
+    insert into public.student_misconceptions(user_id, course_id, objective_id, misconception_id, miss_count, status, last_seen)
+      values (auth.uid(), row.course_id, row.objective_id, misc, 1, 'active', now())
+      on conflict (user_id, course_id, objective_id, misconception_id) do update
+        set miss_count = public.student_misconceptions.miss_count + 1, status = 'active', last_seen = now();
+  end if;
+
+  return jsonb_build_object(
+    'correct', is_correct,
+    'misconception_id', misc,
+    'feedback', coalesce(opt->>'misconception_feedback', row.payload->>'correct_feedback'),
+    'objective_mastery_tier', new_tier,
+    'scaffold_level', sc_level
+  );
+end; $$;
+revoke all on function public.grade_quiz_answer(bigint,int,uuid,int,text) from public;
+grant execute on function public.grade_quiz_answer(bigint,int,uuid,int,text) to authenticated;
