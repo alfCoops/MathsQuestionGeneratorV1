@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-11T13:08:14Z', ref:'ecc999c' };
+const BUILD = { at:'2026-09-16T20:50:36Z', ref:'6e23bd9+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3658,7 +3658,7 @@ function renderMathIn(el){
    learns from, so it's stored deliberately, not as an audit trail. Teacher-only via RLS. */
 /* F34 — tables_html/parts/source_info only ever appear on source:'import' items; harmless
    no-ops for AI items (before/after both undefined, no diff entry). */
-const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints','tables_html','parts','source_info'];
+const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints','tables_html','parts','source_info','options','correct_feedback'];
 async function loadReviewQueue(){
   try{
     const { data, error } = await sbClient.from('questions_review').select('*').eq('status','pending').order('created_at',{ascending:true});
@@ -3924,6 +3924,32 @@ function reviewEditFormHtml(it){
     <label class="ad-lb" style="margin:8px 0 0;display:flex;align-items:center;gap:6px;font-weight:600">
       <input type="checkbox" class="rvf-eligible-start" ${it.eligible_start?'checked':''}> Eligible as a starting question</label>`;
   })() : '';
+  /* 2026-09-16 — Ryan asked to edit distractors here too, not just reject-and-regenerate.
+     Same radio-for-correct + text + misconception layout as quizEditor()'s own options editor
+     (the per-lesson static quiz's authoring UI) for visual consistency, just plain inputs
+     instead of rich() since the rest of this form already is. */
+  const answerOptionsFields = isQuestion ? (()=>{
+    const rawOpts = Array.isArray(p.options) ? p.options : [];
+    let correctIdx = rawOpts.findIndex(o=>o&&o.correct);
+    if(correctIdx<0 && p.answer!=null) correctIdx = +p.answer;
+    const rows = rawOpts.map((o,oi)=>{
+      const text = (o&&typeof o==='object') ? (o.text||o.html||'') : String(o||'');
+      const misc = (o&&typeof o==='object') ? (o.misconception||'') : '';
+      const miscFb = (o&&typeof o==='object') ? (o.misconception_feedback||'') : '';
+      return `<div class="ad-row" style="margin-top:6px;align-items:flex-start">
+        <input type="radio" name="rvf-cor-${esc(it.id)}" class="rvf-opt-correct" value="${oi}" ${oi===correctIdx?'checked':''} title="correct answer" style="margin-top:11px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);margin-top:9px">${'ABCD'[oi]||oi}</span>
+        <div style="flex:1">
+          <input class="ad-in rvf-opt-text" data-oi="${oi}" value="${esc(text)}">
+          <input class="ad-in rvf-opt-misc" data-oi="${oi}" style="margin-top:4px;font-size:11.5px" value="${esc(misc)}" placeholder="↳ misconception if a student picks this wrong answer (optional)">
+          <input class="ad-in rvf-opt-miscfb" data-oi="${oi}" style="margin-top:4px;font-size:11.5px" value="${esc(miscFb)}" placeholder="↳ feedback shown to a student who makes this mistake">
+        </div>
+      </div>`;
+    }).join('');
+    return `<label class="ad-lb" style="margin-top:10px">Answer options <span class="ad-note">(mark the correct one; each wrong option can carry a misconception + what the student is told)</span></label>${rows}
+    <label class="ad-lb" style="margin-top:8px">Feedback for the correct answer</label>
+    <input class="ad-in rvf-correct-fb" value="${esc(p.correct_feedback||'')}">`;
+  })() : '';
   const importFields = isImport ? `
     <label class="ad-lb" style="margin-top:10px">Table <span class="ad-note">(raw HTML — e.g. &lt;table&gt;…&lt;/table&gt;; leave blank if none)</span></label><textarea class="ad-in ad-ta rvf-tables">${esc(p.tables_html||'')}</textarea>
     <label class="ad-lb">Question parts <span class="ad-note">(one per line, e.g. "(a) …")</span></label><textarea class="ad-in ad-ta rvf-parts">${esc((Array.isArray(p.parts)?p.parts:[]).join('\n'))}</textarea>
@@ -3935,10 +3961,10 @@ function reviewEditFormHtml(it){
     <label class="ad-lb">Mark scheme</label><textarea class="ad-in ad-ta rvf-ms">${esc(p.mark_scheme||'')}</textarea>
     <label class="ad-lb">Marks</label><input class="ad-in rvf-marks" type="number" value="${esc(p.marks!=null?p.marks:'')}" style="width:90px">
     <label class="ad-lb">Hints <span class="ad-note">(edit the wording; the stage order and any images are kept)</span></label>${hintRows}
+    ${answerOptionsFields}
     ${objectiveFields}
     ${importFields}
-    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>
-    <p class="ad-note" style="margin-top:6px">Options/distractors aren’t editable here yet — reject and regenerate if a distractor is wrong.</p>`;
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>`;
 }
 /* Pure: given the original payload and the edited field values, return {newPayload, diff}.
    diff has one entry per CHANGED field ({from,to}) — the generator's taste signal. */
@@ -3953,6 +3979,10 @@ function reviewEdit(payload, edits){
   if(edits.tables_html!==undefined){ before.tables_html=(p.tables_html||''); after.tables_html=edits.tables_html; newPayload.tables_html=edits.tables_html; }
   if(edits.parts!==undefined){ before.parts=(Array.isArray(p.parts)?p.parts:[]); after.parts=edits.parts; newPayload.parts=edits.parts; }
   if(edits.source_info!==undefined){ before.source_info=(p.source_info||''); after.source_info=edits.source_info; newPayload.source_info=edits.source_info; }
+  /* 2026-09-16 — only present when the form actually offered them (kind='question'), same
+     "undefined if not offered" guard as the F34 import-only fields above. */
+  if(edits.options!==undefined){ before.options=(Array.isArray(p.options)?p.options:[]); after.options=edits.options; newPayload.options=edits.options; }
+  if(edits.correct_feedback!==undefined){ before.correct_feedback=(p.correct_feedback||''); after.correct_feedback=edits.correct_feedback; newPayload.correct_feedback=edits.correct_feedback; }
   const diff={};
   RV_EDIT_FIELDS.forEach(k=>{ if((k in before) && JSON.stringify(before[k])!==JSON.stringify(after[k])) diff[k]={ from:before[k], to:after[k] }; });
   return { newPayload, diff };
@@ -4001,6 +4031,24 @@ async function reviewSaveEdit(it, box){
   if(tablesEl) edits.tables_html = tablesEl.value;
   if(partsEl) edits.parts = partsEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
   if(sourceEl) edits.source_info = sourceEl.value;
+  /* 2026-09-16 — only present in the form for kind='question' (answerOptionsFields in
+     reviewEditFormHtml); leaving these undefined for every other kind is exactly what keeps
+     reviewEdit() from touching them. One option is marked correct via the shared radio group
+     (name="rvf-cor-<id>"); the rest keep whatever misconception/feedback text is in their rows,
+     blank meaning "no misconception on this distractor" rather than the field being removed. */
+  const optTextEls = [...box.querySelectorAll('.rvf-opt-text')];
+  if(optTextEls.length){
+    const correctIdx = +((box.querySelector('.rvf-opt-correct:checked')||{}).value ?? -1);
+    edits.options = optTextEls.map((t,oi)=>{
+      const misc = box.querySelector(`.rvf-opt-misc[data-oi="${oi}"]`);
+      const miscFb = box.querySelector(`.rvf-opt-miscfb[data-oi="${oi}"]`);
+      const opt = { text: t.value };
+      if(oi===correctIdx) opt.correct = true;
+      else { if(misc && misc.value) opt.misconception = misc.value; if(miscFb && miscFb.value) opt.misconception_feedback = miscFb.value; }
+      return opt;
+    });
+    const cfEl = box.querySelector('.rvf-correct-fb'); if(cfEl) edits.correct_feedback = cfEl.value;
+  }
   const { newPayload, diff } = reviewEdit(it.payload, edits);
   /* F19 Milestone 1 — real columns, not payload; only present in the form for kind='question'
      (objectiveFields in reviewEditFormHtml), same "undefined if not offered" guard as the F34
