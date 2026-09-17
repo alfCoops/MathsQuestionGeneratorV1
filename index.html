@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-16T20:50:36Z', ref:'6e23bd9+' };
+const BUILD = { at:'2026-09-17T12:09:25Z', ref:'4aaa851' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -4970,6 +4970,15 @@ async function recordAdaptiveAnswer(chosen){
   $('qNext').disabled=false; $('qNext').textContent='Next Question →';
 }
 function renderAdaptiveQuizResult(){
+  $('qNum').textContent=''; $('qNext').style.display='none';
+  aquiz.active = false;
+  /* 2026-09-17 — a genuinely empty bank (no eligible_start rows for any in-scope objective
+     yet) must NOT look like "you took the quiz and passed" — that was silently marking the
+     step complete with 0/0 shown as a green pass. Nothing to grade means nothing happened. */
+  if(aquiz.totalAnswered===0){
+    $('qArea').innerHTML = `<p class="auth-note">No approved questions are available for this quiz yet — check back once your teacher has published some.</p>`;
+    return;
+  }
   const TIER_LABEL = { not_started:'Not started', learning:'Learning', developing:'Developing', mastered:'Mastered' };
   const c = currentCourse();
   const objRows = aquiz.objectiveIds.map(oid=>{
@@ -4977,13 +4986,11 @@ function renderAdaptiveQuizResult(){
     const tier = aquiz.masteryByObjective[oid] || 'not_started';
     return `<li><b>${esc(o?(o.label||o.topic||o.id):oid)}</b> — ${esc(TIER_LABEL[tier]||tier)}</li>`;
   }).join('');
-  $('qNum').textContent=''; $('qNext').style.display='none';
   $('qArea').innerHTML = `<div class="quiz-result">
     <div class="big" style="color:var(--green)">${aquiz.totalCorrect}/${aquiz.totalAnswered}</div>
     <p>You answered ${aquiz.totalAnswered} question${aquiz.totalAnswered===1?'':'s'} across this lesson's learning objectives.</p>
     <ul style="text-align:left;max-width:420px;margin:10px auto">${objRows}</ul>
   </div>`;
-  aquiz.active = false;
   completeStep('quiz');   /* Milestone 1 has no separate pass/fail rule yet — reaching the end of the adaptive loop is "done" */
 }
 
