@@ -1651,7 +1651,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T13:12:06Z', ref:'b67d80d' };
+const BUILD = { at:'2026-09-17T14:32:31Z', ref:'4db0159' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -4068,8 +4068,16 @@ function reviewItemHtml(it){
     const fb = (o&&typeof o==='object') ? (correct ? (p.correct_feedback||'') : (o.misconception_feedback||'')) : '';
     return `<li class="${correct?'rv-correct':''}">${sanitizeHtml(text)}${mis?`<span class="rv-mis">↳ ${esc(mis)}</span>`:''}${fb?`<span class="rv-fb">💬 ${sanitizeHtml(fb)}</span>`:''}</li>`;
   }).join('') : '';
+  /* 2026-09-17 — Ryan asked for it to be obvious, per card, which L1/L2 rung branches off
+     which original question — the ladder header above already names the target misconceptions
+     as a group, but a rung read on its own (scrolled past its header, or out of ladder context
+     entirely) gave no clue it was a branch at all. */
+  const branchNote = (lvl>0 && p.target_misconception)
+    ? `<div class="ad-note" style="color:var(--blue);font-weight:700;margin:2px 0 8px">↳ Branches from the original (L0) question above — shown after a student picks the answer tagged “${esc(p.target_misconception)}”</div>`
+    : '';
   return `<div class="rv-item" data-id="${esc(it.id)}">
-    <div class="rv-meta">${lvl?`<span class="rv-lvl">L${esc(lvl)}</span>`:''}${reviewMetaHtml(it)}</div>
+    <div class="rv-meta">${lvl?`<span class="rv-lvl">L${esc(lvl)}</span>`:`<span class="rv-lvl" style="background:var(--blue-soft);color:var(--blue)">Original</span>`}${reviewMetaHtml(it)}</div>
+    ${branchNote}
     ${it.kind==='question' ? `<div class="rv-meta">${it.objective_id
         ? `🎯 ${esc(objectiveLabelFor(it.course_id,it.objective_id))}`
         : `<span style="color:var(--orange)">⚠ no learning objective tagged — edit to set one</span>`}${it.eligible_start?' · <b>Eligible as starting question</b>':''}</div>` : ''}
