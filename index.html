@@ -1651,7 +1651,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T12:52:26Z', ref:'7d95a14' };
+const BUILD = { at:'2026-09-17T13:12:06Z', ref:'b67d80d' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -4085,7 +4085,9 @@ function reviewItemHtml(it){
     ${reviewFlagsHtml(it)}
     ${reviewTraceHtml(it)}
     <div class="rv-actions">
-      <button class="btn solid rv-approve" data-id="${esc(it.id)}">✓ Approve</button>
+      ${it.status==='pending'
+        ? `<button class="btn solid rv-approve" data-id="${esc(it.id)}">✓ Approve</button>`
+        : `<span class="mastery-badge confident" style="padding:6px 12px">✓ Live</span>`}
       <button class="btn o-blue rv-edit" data-id="${esc(it.id)}">✎ Edit</button>
       <button class="btn ghost rv-reject" data-id="${esc(it.id)}" style="color:var(--red);border-color:var(--red-line)">✕ Reject</button>
     </div>
