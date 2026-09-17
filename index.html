@@ -241,6 +241,19 @@
   .rv-ladder-hd{font-size:12px;font-weight:800;color:var(--mm-green);display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
   .rv-ladder-hd small{font-weight:600;color:var(--muted);font-size:11px}
   .rv-lvl{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:1px 9px;margin-right:6px}
+  /* 2026-09-17 — clickable branch diagram above a ladder's card list (Ryan asked to SEE the
+     branching, not just read a note). SVG lines are drawn/measured in JS (drawLadderDiagramLines,
+     same getBoundingClientRect technique as the mountain journey's leader lines) — this block is
+     just the box/layout chrome the JS measures against. */
+  .rv-diagram{position:relative;padding:14px 10px 6px;margin:8px 0 4px}
+  .rv-diagram-lines{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+  .rv-diagram-root{display:flex;justify-content:center;position:relative;z-index:1}
+  .rv-diagram-chains{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:30px;position:relative;z-index:1}
+  .rv-diagram-chain{display:flex;flex-direction:column;gap:22px;align-items:center;min-width:140px}
+  .rv-diagram-node{font:inherit;cursor:pointer;text-align:center;border-radius:11px;border:1.5px solid var(--nc,var(--blue));background:var(--card);color:var(--ink);padding:7px 10px;font-size:11px;line-height:1.3;max-width:170px;box-shadow:0 1px 4px rgba(15,23,42,.08);transition:transform .12s ease,box-shadow .12s ease}
+  .rv-diagram-node:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(15,23,42,.16)}
+  .rv-diagram-node b{display:block;font-size:10px;color:var(--nc,var(--blue));margin-bottom:2px}
+  .rv-diagram-node span{display:block;color:var(--muted);font-size:10px;margin-top:2px}
   /* F5 — continue banner */
   .continue-banner{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--green-line);background:var(--green-bg);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;margin-bottom:18px}
   .continue-banner:hover{border-color:var(--green);box-shadow:0 2px 10px rgba(20,108,67,.12)}
@@ -1651,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T14:32:31Z', ref:'4db0159' };
+const BUILD = { at:'2026-09-17T14:39:36Z', ref:'ea5b737' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3865,6 +3878,7 @@ async function renderReviewTab(body){
   $('rvmCancel').addEventListener('click', ()=>{ form.style.display='none'; });
   $('rvmSave').addEventListener('click', saveManualQuestion);
   wireReviewItems([...q.items, ...pub.items]);
+  wireLadderDiagrams(body);
   renderMathIn(body);              /* F33 delimiter contract — see renderMathIn */
 }
 /* Pure: order the queue so a LADDER READS AS A LADDER.
@@ -3910,6 +3924,81 @@ function groupReviewItems(items){
   });
   return groups.sort((a,b)=>a.order-b.order);
 }
+/* 2026-09-17 — Ryan asked to SEE the branching, not just read a note ("like a web diagram I
+   can click on"). Pure: turns a ladder's flat item list into a root (its L0 item(s)) + one
+   chain per misconception, each chain ordered L1→L2→… by scaffold_level. A click scrolls to
+   and briefly highlights the real, editable card below — this diagram is a map of the cards,
+   not a second copy of their content. */
+const RV_DIAGRAM_COLOURS = ['var(--blue)','var(--orange)','var(--purple)','var(--pink)','var(--mm-green)'];
+function ladderTree(items){
+  const l0 = items.filter(x=> +(((x.payload||{}).scaffold_level)||0)===0);
+  const rungs = items.filter(x=> +(((x.payload||{}).scaffold_level)||0)>0);
+  const byMisc = new Map();
+  rungs.forEach(r=>{
+    const m = (r.payload||{}).target_misconception || '(untargeted rung)';
+    if(!byMisc.has(m)) byMisc.set(m, []);
+    byMisc.get(m).push(r);
+  });
+  byMisc.forEach(list=> list.sort((a,b)=> +(((a.payload||{}).scaffold_level)||0) - +(((b.payload||{}).scaffold_level)||0)));
+  return { l0, chains: [...byMisc.entries()].map(([misc,list])=>({ misc, list })) };
+}
+function ladderDiagramNodeHtml(it, colour, misc){
+  const p = it.payload||{};
+  const lvl = +(((p.scaffold_level)||0));
+  const text = String(p.question_html||p.question||'').replace(/<[^>]*>/g,'').slice(0,42);
+  return `<button type="button" class="rv-diagram-node" data-jump="${esc(it.id)}" style="--nc:${colour}">
+    <b>${lvl>0?'L'+esc(lvl)+' · '+esc(misc||''):'Original question'}</b>${esc(text)}${text.length>=42?'…':''}
+  </button>`;
+}
+function ladderDiagramHtml(g){
+  const tree = ladderTree(g.items);
+  if(!tree.l0.length || !tree.chains.length) return '';   /* nothing to draw a branch FROM/TO */
+  const rootHtml = tree.l0.map(it=>ladderDiagramNodeHtml(it,'var(--blue)','')).join('');
+  const chainsHtml = tree.chains.map((chain,ci)=>{
+    const colour = RV_DIAGRAM_COLOURS[ci % RV_DIAGRAM_COLOURS.length];
+    return `<div class="rv-diagram-chain">${chain.list.map(it=>ladderDiagramNodeHtml(it,colour,chain.misc)).join('')}</div>`;
+  }).join('');
+  return `<div class="rv-diagram">
+    <svg class="rv-diagram-lines"></svg>
+    <div class="rv-diagram-root">${rootHtml}</div>
+    <div class="rv-diagram-chains">${chainsHtml}</div>
+  </div>`;
+}
+/* Draws/redraws every mounted diagram's connector lines. Called once after the review tab
+   renders and again on resize (guarded to a no-op when no diagram is on screen) — same
+   pattern as drawMountainLines()/its own resize listener above. */
+function drawLadderDiagramLines(diagramEl){
+  const svg = diagramEl.querySelector('.rv-diagram-lines');
+  const rect = diagramEl.getBoundingClientRect();
+  if(!rect.width || !rect.height) return;
+  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  const root = diagramEl.querySelector('.rv-diagram-root .rv-diagram-node');
+  if(!root) return;
+  let html = '';
+  diagramEl.querySelectorAll('.rv-diagram-chain').forEach(chain=>{
+    let prev = root;
+    [...chain.querySelectorAll('.rv-diagram-node')].forEach(node=>{
+      const colour = node.style.getPropertyValue('--nc') || 'var(--blue)';
+      const pr = prev.getBoundingClientRect(), nr = node.getBoundingClientRect();
+      const x1 = pr.left+pr.width/2-rect.left, y1 = pr.bottom-rect.top;
+      const x2 = nr.left+nr.width/2-rect.left, y2 = nr.top-rect.top;
+      html += `<path d="M ${x1} ${y1} C ${x1} ${(y1+y2)/2}, ${x2} ${(y1+y2)/2}, ${x2} ${y2}" stroke="${colour}" stroke-width="2" fill="none" opacity=".75"/>`;
+      prev = node;
+    });
+  });
+  svg.innerHTML = html;
+}
+function drawAllLadderDiagramLines(){ document.querySelectorAll('.rv-diagram').forEach(drawLadderDiagramLines); }
+window.addEventListener('resize', ()=>{ if(document.querySelector('.rv-diagram')) drawAllLadderDiagramLines(); });
+function wireLadderDiagrams(body){
+  body.querySelectorAll('.rv-diagram-node').forEach(b=>b.addEventListener('click',()=>{
+    const el = document.querySelector('.rv-item[data-id="'+b.dataset.jump+'"]'); if(!el) return;
+    el.scrollIntoView({ behavior:'smooth', block:'center' });
+    el.style.transition = 'background-color .3s'; el.style.backgroundColor = 'var(--blue-soft)';
+    setTimeout(()=>{ el.style.backgroundColor = ''; }, 1400);
+  }));
+  drawAllLadderDiagramLines();
+}
 function reviewGroupHtml(g){
   const inner = g.items.map(reviewItemHtml).join('');
   if(!g.isLadder) return inner;
@@ -3928,6 +4017,7 @@ function reviewGroupHtml(g){
       ${targets.length?`<small>targeting <b>${esc(targets.join(', '))}</b></small>`:''}
       <small>${esc(g.key)}</small></div>
     <p class="ad-note" style="margin:5px 0 0">Read top to bottom${targets.length>1?', one misconception at a time':''}: each rung should add real help over the one above it, not just reword it.</p>
+    ${ladderDiagramHtml(g)}
     ${inner}</div>`;
 }
 function reviewMetaHtml(it){
