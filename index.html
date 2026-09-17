@@ -1664,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T14:39:36Z', ref:'ea5b737' };
+const BUILD = { at:'2026-09-17T14:43:23Z', ref:'442f50a' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3942,21 +3942,44 @@ function ladderTree(items){
   byMisc.forEach(list=> list.sort((a,b)=> +(((a.payload||{}).scaffold_level)||0) - +(((b.payload||{}).scaffold_level)||0)));
   return { l0, chains: [...byMisc.entries()].map(([misc,list])=>({ misc, list })) };
 }
-function ladderDiagramNodeHtml(it, colour, misc){
+/* 2026-09-17 — Ryan asked which ANSWER on the parent leads to a given rung, not just which
+   misconception it targets. The option text is what a teacher scanning the diagram actually
+   recognises ("if picks '20'"), the misconception label is the mechanism behind it — show
+   both. Looks up the option on the PARENT item whose own .misconception matches this chain's
+   target — for an L1 rung that parent is the L0 root; for an L2 rung it's the L1 rung above it
+   (the ladder escalates from a wrong answer on the rung just climbed, same as it does from the
+   original). */
+function optionTextForMisconception(parentItem, misconception){
+  if(!parentItem || !misconception) return '';
+  const opts = (parentItem.payload||{}).options || [];
+  const match = opts.find(o=> o && o.misconception===misconception);
+  return match ? String(match.text||'').replace(/<[^>]*>/g,'') : '';
+}
+function ladderDiagramNodeHtml(it, colour, misc, triggerText){
   const p = it.payload||{};
   const lvl = +(((p.scaffold_level)||0));
   const text = String(p.question_html||p.question||'').replace(/<[^>]*>/g,'').slice(0,42);
+  const triggerLine = triggerText ? `<span style="color:${colour};font-weight:700">If picks “${esc(triggerText.slice(0,24))}”</span>` : '';
   return `<button type="button" class="rv-diagram-node" data-jump="${esc(it.id)}" style="--nc:${colour}">
+    ${triggerLine}
     <b>${lvl>0?'L'+esc(lvl)+' · '+esc(misc||''):'Original question'}</b>${esc(text)}${text.length>=42?'…':''}
   </button>`;
 }
 function ladderDiagramHtml(g){
   const tree = ladderTree(g.items);
   if(!tree.l0.length || !tree.chains.length) return '';   /* nothing to draw a branch FROM/TO */
-  const rootHtml = tree.l0.map(it=>ladderDiagramNodeHtml(it,'var(--blue)','')).join('');
+  const root = tree.l0[0];
+  const rootHtml = tree.l0.map(it=>ladderDiagramNodeHtml(it,'var(--blue)','',null)).join('');
   const chainsHtml = tree.chains.map((chain,ci)=>{
     const colour = RV_DIAGRAM_COLOURS[ci % RV_DIAGRAM_COLOURS.length];
-    return `<div class="rv-diagram-chain">${chain.list.map(it=>ladderDiagramNodeHtml(it,colour,chain.misc)).join('')}</div>`;
+    let parent = root;
+    const nodesHtml = chain.list.map(it=>{
+      const triggerText = optionTextForMisconception(parent, chain.misc);
+      const html = ladderDiagramNodeHtml(it, colour, chain.misc, triggerText);
+      parent = it;   /* the NEXT rung in this same chain escalates from a wrong answer on THIS rung, not the root */
+      return html;
+    }).join('');
+    return `<div class="rv-diagram-chain">${nodesHtml}</div>`;
   }).join('');
   return `<div class="rv-diagram">
     <svg class="rv-diagram-lines"></svg>
