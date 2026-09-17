@@ -852,3 +852,22 @@ begin
 end; $$;
 revoke all on function public.grade_quiz_answer(bigint,int,uuid,int,text) from public;
 grant execute on function public.grade_quiz_answer(bigint,int,uuid,int,text) to authenticated;
+
+
+-- ============================================================================
+-- F19 — manually-authored quiz questions. Found live: there was no way to add
+-- a brand-new kind='question' row through the app at all (Edit only ever
+-- changes an EXISTING row in place; the generator service that would insert
+-- fresh ones isn't built yet), which pushed Ryan into raw SQL every time he
+-- wanted a second question or a scaffold rung — exactly the kind of thing the
+-- app should not require SQL for. 'manual' is a new, separate source value
+-- (not reusing 'import' — a typed-from-scratch question and an uploaded-file
+-- extraction are different provenances worth keeping distinct) with its own
+-- insert policy, same scoping shape as the existing import policy.
+-- ============================================================================
+alter table public.questions_review drop constraint if exists questions_review_source_check;
+alter table public.questions_review add constraint questions_review_source_check check (source in ('ai','import','manual'));
+
+drop policy if exists "teacher inserts manual" on public.questions_review;
+create policy "teacher inserts manual" on public.questions_review
+  for insert with check (public.is_teacher() and source = 'manual');

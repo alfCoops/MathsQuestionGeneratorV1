@@ -1651,7 +1651,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T12:42:01Z', ref:'ae2427d' };
+const BUILD = { at:'2026-09-17T12:52:26Z', ref:'7d95a14' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3761,6 +3761,86 @@ function questionGroupsHtml(items){
         </div>`).join('')}
     </div>`).join('');
 }
+/* 2026-09-17 — found live: there was no way to add a brand-new kind='question' row through
+   the app at all (Edit only ever changes an EXISTING row; the generator service that would
+   insert fresh ones isn't built yet), which pushed Ryan into raw SQL every time he wanted a
+   second question or a scaffold rung for one already approved. Same option-editor markup as
+   answerOptionsFields (reviewEditFormHtml), plus the scaffold-ladder fields (scaffold level,
+   target misconception, variant group) that edit form STILL can't touch either — this is the
+   one place all of it is settable through the UI. */
+function manualQuestionFormHtml(){
+  const objs = (currentCourse().OBJECTIVES||[]);
+  const objOpts = `<option value="">— none —</option>` + objs.map(o=>`<option value="${esc(o.id)}">${esc(o.label||o.topic||o.id)}</option>`).join('');
+  const optRows = [0,1,2,3].map(oi=>`
+    <div class="ad-row" style="margin-top:6px;align-items:flex-start">
+      <input type="radio" name="rvm-cor" class="rvm-opt-correct" value="${oi}" ${oi===0?'checked':''} title="correct answer" style="margin-top:11px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted);margin-top:9px">${'ABCD'[oi]}</span>
+      <div style="flex:1">
+        <input class="ad-in rvm-opt-text" data-oi="${oi}" placeholder="Option ${'ABCD'[oi]} text">
+        <input class="ad-in rvm-opt-misc" data-oi="${oi}" style="margin-top:4px;font-size:11.5px" placeholder="↳ misconception if a student picks this wrong answer (optional)">
+        <input class="ad-in rvm-opt-miscfb" data-oi="${oi}" style="margin-top:4px;font-size:11.5px" placeholder="↳ feedback shown to a student who makes this mistake">
+      </div>
+    </div>`).join('');
+  return `<div class="ad-panel" id="rvManualForm" style="display:none">
+    <h4>✍️ Write a new quiz question</h4>
+    <label class="ad-lb">Question</label><textarea class="ad-in ad-ta rvm-q" placeholder="e.g. Work out: 20 ÷ 4 + 3"></textarea>
+    ${optRows}
+    <label class="ad-lb" style="margin-top:8px">Feedback for the correct answer</label>
+    <input class="ad-in rvm-correct-fb">
+    <div class="ad-grid2" style="margin-top:10px">
+      <div><label class="ad-lb">Grade band</label><input class="ad-in rvm-grade" type="number" min="1" max="9" value="3" style="width:90px"></div>
+      <div><label class="ad-lb">Scaffold level <span class="ad-note">(0 = a fresh diagnostic; 1+ = a rung climbed after a wrong answer)</span></label><input class="ad-in rvm-scaffold" type="number" min="0" max="9" value="0" style="width:90px"></div>
+    </div>
+    <label class="ad-lb" style="margin-top:8px">Targets this misconception <span class="ad-note">(only used when scaffold level is 1 or more — must match a misconception label above EXACTLY, so the engine can climb to this rung after that specific wrong answer)</span></label>
+    <input class="ad-in rvm-target-misc">
+    <label class="ad-lb" style="margin-top:8px">Reminder shown to the student on this rung <span class="ad-note">(optional — only shown at scaffold level 1+; never reveals the answer)</span></label>
+    <input class="ad-in rvm-reminder">
+    <label class="ad-lb" style="margin-top:8px">Ladder group <span class="ad-note">(same value on every rung + the diagnostic they escalate from, so the Review queue reads them as one ladder — optional, leave blank for a standalone question)</span></label>
+    <input class="ad-in rvm-variant">
+    <label class="ad-lb" style="margin-top:8px">Learning objective</label><select class="ad-in rvm-objective">${objOpts}</select>
+    <label class="ad-lb" style="margin:8px 0 0;display:flex;align-items:center;gap:6px;font-weight:600">
+      <input type="checkbox" class="rvm-eligible-start"> Eligible as a starting question</label>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn solid" id="rvmSave">Save — lands as Pending, same as an AI draft</button>
+      <button class="btn ghost" id="rvmCancel">Cancel</button>
+    </div>
+  </div>`;
+}
+async function saveManualQuestion(){
+  const q = f=>$('rvManualForm').querySelector(f);
+  const questionHtml = q('.rvm-q').value.trim();
+  if(!questionHtml){ toast('Write the question text first.'); return; }
+  const correctIdx = +((q('.rvm-opt-correct:checked')||{}).value ?? 0);
+  const optTexts = [...$('rvManualForm').querySelectorAll('.rvm-opt-text')].map(t=>t.value.trim());
+  if(optTexts.some(t=>!t)){ toast('Fill in all 4 answer options.'); return; }
+  const options = optTexts.map((text,oi)=>{
+    if(oi===correctIdx) return { text, correct:true };
+    const misc = $('rvManualForm').querySelector(`.rvm-opt-misc[data-oi="${oi}"]`).value.trim();
+    const miscFb = $('rvManualForm').querySelector(`.rvm-opt-miscfb[data-oi="${oi}"]`).value.trim();
+    const opt = { text }; if(misc) opt.misconception = misc; if(miscFb) opt.misconception_feedback = miscFb;
+    return opt;
+  });
+  const scaffoldLevel = +q('.rvm-scaffold').value || 0;
+  const payload = { question_html: questionHtml, options, correct_feedback: q('.rvm-correct-fb').value.trim(), scaffold_level: scaffoldLevel };
+  const targetMisc = q('.rvm-target-misc').value.trim();
+  if(scaffoldLevel>0 && targetMisc) payload.target_misconception = targetMisc;
+  const reminder = q('.rvm-reminder').value.trim();
+  if(scaffoldLevel>0 && reminder) payload.scaffold = { reminder };
+  const variantGroup = q('.rvm-variant').value.trim();
+  const objectiveId = q('.rvm-objective').value || null;
+  const insertRow = {
+    course_id: currentCourseId, lesson_id: (cur&&cur.id)||null, kind:'question', payload,
+    grade_band: +q('.rvm-grade').value || null, source:'manual', status:'pending',
+    objective_id: objectiveId, eligible_start: q('.rvm-eligible-start').checked
+  };
+  if(variantGroup) insertRow.variant_group = variantGroup;
+  try{
+    const { error } = await sbClient.from('questions_review').insert(insertRow);
+    if(error) throw error;
+    toast('✓ Added to the review queue as Pending.');
+    renderReviewTab($('tchBody'));
+  }catch(e){ toast('Couldn’t save — are you signed in as a teacher?'); }
+}
 async function renderReviewTab(body){
   body.innerHTML = '<p class="auth-note">Loading review queue…</p>';
   const [q, pub] = await Promise.all([loadReviewQueue(), loadPublishedQuestions()]);
@@ -3777,7 +3857,13 @@ async function renderReviewTab(body){
     ? `<h4 style="margin:22px 0 8px">🎯 Published quiz questions <span class="ad-note">(already live — reopen to fix the objective, starting-question flag, or a distractor; grouped by week and learning objective)</span></h4>`
       + questionGroupsHtml(pub.items)
     : '';
-  body.innerHTML = `<div id="rvPending">${pendingHtml}</div>${publishedHtml}`;
+  body.innerHTML = `<button class="btn o-blue ad-mini" id="rvmToggle" style="margin-bottom:12px">✍️ Write a new quiz question</button>`
+    + manualQuestionFormHtml()
+    + `<div id="rvPending">${pendingHtml}</div>${publishedHtml}`;
+  const toggleBtn = $('rvmToggle'), form = $('rvManualForm');
+  toggleBtn.addEventListener('click', ()=>{ form.style.display = form.style.display==='none' ? '' : 'none'; });
+  $('rvmCancel').addEventListener('click', ()=>{ form.style.display='none'; });
+  $('rvmSave').addEventListener('click', saveManualQuestion);
   wireReviewItems([...q.items, ...pub.items]);
   renderMathIn(body);              /* F33 delimiter contract — see renderMathIn */
 }
