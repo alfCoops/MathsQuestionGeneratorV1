@@ -1509,19 +1509,30 @@ function defaultObjectiveIds(courses){
   }));
   return courses;
 }
-/* F19 Milestone 1 — 3 Order-of-Operations learning objectives (Ryan's own worked example).
-   A controlled id+label pair, not free text on each question — an AI-generated batch
-   mistagging/misspelling a free-text objective would silently break dashboard grouping
-   and adaptive routing across batches; a slug can't drift the same way. specRef anchors
-   each objective to the existing Edexcel-code system L.specRefs already uses (N3 =
-   BIDMAS/hierarchy of operations), so nothing about the existing practice_questions
-   spec-ref matching needs to change. Seeded only onto the one course that has Order-of-
-   Operations content today — a future second course (Higher tier, another board) starts
-   with none, not a copy of this one. */
+/* F19 Milestone 1 — 2026-09-17: replaced the original 3 invented Order-of-Operations
+   objectives with lesson 1a's actual 7 success criteria (mm-content.js L.success), verbatim —
+   these are the REAL learning objectives Ryan already authored for this lesson, not a
+   placeholder subset. A controlled id+label pair, not free text on each question — an
+   AI-generated batch mistagging/misspelling a free-text objective would silently break
+   dashboard grouping and adaptive routing across batches; a slug can't drift the same way.
+   specRef anchors each objective to the existing Edexcel-code system L.specRefs already
+   uses (N1/N2/N3/N14/N15, matching lesson 1a's own specRefs field), so nothing about the
+   existing practice_questions spec-ref matching needs to change. Seeded only onto the one
+   course that has this content today — a future second course starts with none.
+   NOTE for whoever reads this next: Ryan's site already had cloud-published OBJECTIVES
+   (the old 3-item set) BEFORE this change — this code default only seeds a course that has
+   never published any OBJECTIVES at all (see defaultObjectives() below), so it does NOT
+   retroactively fix already-published cloud content. Ryan needs to add/edit these 7 himself
+   in the Teacher Editor's Learning objectives panel, then re-tick lesson 1a's checkboxes in
+   its Basics panel, then Save & publish. */
 const DEFAULT_OBJECTIVES = [
-  { id:'oo-1', topic:'Order of Operations', label:'Apply multiplication and division before addition and subtraction', specRef:'N3' },
-  { id:'oo-2', topic:'Order of Operations', label:'Apply brackets before other operations', specRef:'N3' },
-  { id:'oo-3', topic:'Order of Operations', label:'Combine the full BIDMAS hierarchy, including with negative numbers', specRef:'N3' }
+  { id:'lo-1', topic:'Ordering & Comparing', label:'Use and order positive and negative numbers (integers) and decimals; use the symbols <, > and understand the ≠ symbol.', specRef:'N1' },
+  { id:'lo-2', topic:'Four Operations', label:'Add, subtract, multiply and divide positive and negative numbers (integers).', specRef:'N2' },
+  { id:'lo-3', topic:'Multiplication & Division Facts', label:'Recall all multiplication facts to 10 × 10, and use them to derive quickly the corresponding division facts.', specRef:'N2' },
+  { id:'lo-4', topic:'Powers of 10', label:'Multiply or divide any number by powers of 10.', specRef:'N2' },
+  { id:'lo-5', topic:'Order of Operations (BIDMAS)', label:'Use brackets and the hierarchy of operations (not including powers).', specRef:'N3' },
+  { id:'lo-6', topic:'Rounding', label:'Round numbers to a given power of 10.', specRef:'N15' },
+  { id:'lo-7', topic:'Estimation & Inverse Operations', label:'Check answers by rounding and using inverse operations.', specRef:'N14' }
 ];
 function defaultObjectives(courses){
   (courses||[]).forEach(c=>{
@@ -1640,7 +1651,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T12:21:39Z', ref:'9199bb4' };
+const BUILD = { at:'2026-09-17T12:31:33Z', ref:'0f27ae9+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -5370,10 +5381,13 @@ function renderQuizResult(){
    an answer key — see supabase/migrations.sql), picks without repeats, and on a wrong answer
    climbs the SAME scaffold ladder before falling back. The pick functions are pure and plain
    so they're testable against a fixture bank with no DB and no quiz UI existing yet. */
-let _quizBankCache = { key:null, rows:[] };
+/* 2026-09-17 — found live: this used to cache by (courseId, objectiveIds) with no expiry.
+   startAdaptiveQuiz() only ever calls this ONCE per attempt, so the cache bought nothing —
+   it only ever served ONE purpose in practice: silently freezing "no approved questions yet"
+   as the answer for the rest of the tab's life, even after a teacher published new content
+   seconds later. Always fetch fresh; a quiz start is a rare enough action that this costs
+   nothing real. */
 async function loadQuizBank(courseId, objectiveIds){
-  const key = courseId + '|' + (objectiveIds||[]).slice().sort().join(',');
-  if(_quizBankCache.key === key) return _quizBankCache.rows;
   let rows = [];
   try{
     if(sbClient && courseId && (objectiveIds||[]).length){
@@ -5382,7 +5396,6 @@ async function loadQuizBank(courseId, objectiveIds){
       if(!error) rows = data||[];
     }
   }catch(e){ rows = []; }   /* FAIL-OPEN: bank unavailable → nothing to show yet (rule 2) */
-  _quizBankCache = { key, rows };
   return rows;
 }
 function shuffleInPlace(arr){
@@ -6326,6 +6339,12 @@ function buildAdminForm(){
       <label class="ad-lb" style="margin:0 0 4px">📐 Spec references <span class="ad-note">(Edexcel 1MA1 codes, comma-separated — e.g. N1, N2, N15. Grounds the AI generator and shows which spec points this lesson covers.)</span></label>
       <input id="ad-specrefs" class="ad-in" value="${esc((L.specRefs||[]).join(', '))}" placeholder="N1, N2, N15">
     </div>
+    <div style="margin-top:12px">
+      <label class="ad-lb" style="margin:0 0 4px">🎯 Learning objectives for this lesson's adaptive quiz <span class="ad-note">(F19 — tick which of this course's objectives this lesson's quiz draws approved questions from; add/edit the objectives themselves in the Learning objectives panel above. None ticked = this lesson keeps the original static quiz.)</span></label>
+      ${(currentCourse().OBJECTIVES||[]).length ? (currentCourse().OBJECTIVES||[]).map(o=>
+        `<label class="ad-lb" style="margin:4px 0 0;display:block;font-weight:400"><input type="checkbox" class="ad-objectiveids" value="${esc(o.id)}" ${(L.objectiveIds||[]).includes(o.id)?'checked':''}> ${esc(o.label||o.topic||o.id)}</label>`).join('')
+        : '<p class="ad-note">No learning objectives exist yet for this course — add some in the 🎯 Learning objectives panel above first.</p>'}
+    </div>
   </div>
 
   <div class="ad-panel"><h4>🎬 Videos &amp; Notes</h4><div id="adVideos">${L.videos.map((v,vi)=>videoEditor(v,vi)).join('')}</div>
@@ -6755,6 +6774,9 @@ function collectAdminForm(){
   const tk = [...f.querySelectorAll('.ad-toolkit:checked')].map(cb=>cb.value);
   if(tk.length) L.toolkit=tk; else delete L.toolkit;
   if(g('ad-specrefs')){ const sr=g('ad-specrefs').value.split(',').map(s=>s.trim()).filter(Boolean); if(sr.length) L.specRefs=sr; else delete L.specRefs; }   /* spec_refs (2b) */
+  /* F19 — objectiveIds absent/empty = this lesson keeps the original static quiz (openQuiz()'s own condition) */
+  const oids = [...f.querySelectorAll('.ad-objectiveids:checked')].map(cb=>cb.value);
+  if(oids.length) L.objectiveIds=oids; else delete L.objectiveIds;
   L.week = g('ad-week').value;
   L.strand = g('ad-strand').value;
   L.prev = g('ad-prev').value || null;
