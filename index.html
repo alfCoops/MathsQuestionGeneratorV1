@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T12:15:06Z', ref:'955b74b' };
+const BUILD = { at:'2026-09-17T12:21:39Z', ref:'9199bb4' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3678,17 +3678,93 @@ async function loadPublishedQuestions(){
     if(error) throw error; return { items:data||[] };
   }catch(e){ return { items:[], error:String(e&&e.message||e) }; }
 }
+/* 2026-09-17 — Ryan asked for the review queue to read in course order (Week → lesson →
+   learning objective), not created_at order, so it's obvious which topic each question
+   belongs to. Pure: every lesson in COURSES' own WEEKS order, in that order.
+
+   The lesson a question belongs to is DERIVED from its objective_id (via that objective's
+   OWN lesson — whichever lesson lists it in L.objectiveIds), never read off a separate
+   lesson_id field on the row. Two reasons: (1) a generated batch is requested for an
+   objective, not a lesson (see genQuizQuestionBatchBody()/QUIZ-BATCH-ENDPOINT-SPEC.md) — the
+   generator has no lesson_id to stamp, so trusting that column would leave every AI question
+   permanently "unplaced" even when perfectly tagged; (2) two independently-set fields for the
+   same fact (which week a question is for) can drift apart — exactly the class of bug that
+   just wiped this question's objective_id during an edit. Deriving it from objective_id alone
+   means there's only ever one fact to get right, and it's also what makes new weeks "just
+   work": adding Week 3A only means adding its OBJECTIVES + setting L.objectiveIds on lesson
+   3a — this lookup (and the quiz engine's own bank filter) pick it up with no new code. */
+function lessonOrderList(){
+  const list = [];
+  COURSES.forEach(c => (c.WEEKS||[]).forEach(w => (w.lessons||[]).forEach(id => {
+    if(c.LESSONS && c.LESSONS[id]) list.push({ id, courseId:c.id, weekLabel:w.label, lesson:c.LESSONS[id] });
+  })));
+  return list;
+}
+function objectiveToLesson(courseId, objectiveId){
+  if(!objectiveId) return null;
+  const c = courseById(courseId); if(!c) return null;
+  const entry = Object.entries(c.LESSONS||{}).find(([,L])=> Array.isArray(L.objectiveIds) && L.objectiveIds.includes(objectiveId));
+  return entry ? { id:entry[0], lesson:entry[1] } : null;
+}
+function groupQuestionsByWeekAndObjective(items){
+  const order = lessonOrderList();
+  const byLesson = new Map();
+  const noLesson = { label:'⚠ Not yet linked to a week/lesson', order:Infinity, byObjective:new Map() };
+  (items||[]).forEach(it=>{
+    const resolved = objectiveToLesson(it.course_id, it.objective_id);
+    const pos = resolved ? order.findIndex(x=>x.id===resolved.id && x.courseId===it.course_id) : -1;
+    const bucket = pos>=0
+      ? (byLesson.get(resolved.id) || (()=>{
+          const found=order[pos];
+          const b={ label:`${esc(found.weekLabel)} · ${esc(found.lesson.title||found.id)}`, order:pos, byObjective:new Map() };
+          byLesson.set(resolved.id, b); return b;
+        })())
+      : noLesson;
+    const c = courseById(it.course_id);
+    const obj = it.objective_id && c && (c.OBJECTIVES||[]).find(o=>o.id===it.objective_id);
+    const okey = it.objective_id || '__none__';
+    if(!bucket.byObjective.has(okey)) bucket.byObjective.set(okey,
+      { label: obj ? (obj.label||obj.topic||obj.id) : '⚠ No learning objective tagged yet', items:[] });
+    bucket.byObjective.get(okey).items.push(it);
+  });
+  const lessonGroups = [...byLesson.values()].sort((a,b)=>a.order-b.order);
+  if(noLesson.byObjective.size) lessonGroups.push(noLesson);
+  return lessonGroups.map(g=>({
+    label: g.label,
+    objectiveGroups: [...g.byObjective.entries()]
+      .sort((a,b)=>(a[0]==='__none__'?1:0)-(b[0]==='__none__'?1:0))
+      .map(([,v])=>v)
+  }));
+}
+/* Ladders (groupReviewItems) still apply WITHIN each objective bucket — a scaffold ladder
+   targets one objective already, so nesting it one level deeper doesn't split it apart. */
+function questionGroupsHtml(items){
+  if(!items || !items.length) return '';
+  return groupQuestionsByWeekAndObjective(items).map(g=>`
+    <div class="rv-week-group">
+      <h4 style="margin:18px 0 6px">${g.label}</h4>
+      ${g.objectiveGroups.map(og=>`
+        <div class="rv-obj-group" style="margin-left:10px;padding-left:10px;border-left:2px solid var(--line)">
+          <div class="ad-note" style="font-weight:700;margin:8px 0 4px">🎯 ${esc(og.label)}</div>
+          ${groupReviewItems(og.items).map(reviewGroupHtml).join('')}
+        </div>`).join('')}
+    </div>`).join('');
+}
 async function renderReviewTab(body){
   body.innerHTML = '<p class="auth-note">Loading review queue…</p>';
   const [q, pub] = await Promise.all([loadReviewQueue(), loadPublishedQuestions()]);
   if(q.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the review queue.</p>'; return; }
+  const pendingQuestions = q.items.filter(it=>it.kind==='question');
+  const pendingOther = q.items.filter(it=>it.kind!=='question');
   const pendingHtml = q.items.length
     ? `<p class="tch-foot" style="margin:0 0 12px">${q.items.length} item${q.items.length===1?'':'s'} awaiting your review. Approve keeps it; Edit saves your changes (and teaches the generator your taste); Reject drops it.</p>`
-      + groupReviewItems(q.items).map(reviewGroupHtml).join('')
+      + questionGroupsHtml(pendingQuestions)
+      + (pendingOther.length ? `<h4 style="margin:18px 0 6px">Other pending items</h4>` : '')
+      + groupReviewItems(pendingOther).map(reviewGroupHtml).join('')
     : '<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>';
   const publishedHtml = (!pub.error && pub.items.length)
-    ? `<h4 style="margin:22px 0 8px">🎯 Published quiz questions <span class="ad-note">(already live — reopen to fix the objective, starting-question flag, or a distractor)</span></h4>`
-      + pub.items.map(reviewItemHtml).join('')
+    ? `<h4 style="margin:22px 0 8px">🎯 Published quiz questions <span class="ad-note">(already live — reopen to fix the objective, starting-question flag, or a distractor; grouped by week and learning objective)</span></h4>`
+      + questionGroupsHtml(pub.items)
     : '';
   body.innerHTML = `<div id="rvPending">${pendingHtml}</div>${publishedHtml}`;
   wireReviewItems([...q.items, ...pub.items]);
