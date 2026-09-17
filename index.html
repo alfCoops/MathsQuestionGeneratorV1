@@ -1651,7 +1651,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T12:31:33Z', ref:'0f27ae9+' };
+const BUILD = { at:'2026-09-17T12:42:01Z', ref:'ae2427d' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -5043,7 +5043,12 @@ function renderAdaptiveQuestion(){
   /* quiz_bank passes payload straight through in SQL (see supabase/migrations.sql) — same
      defensive re-sanitise on render as reviewItemHtml() already does for the same content,
      never trusted as safe just because it came back from our own DB. */
+  /* renderScaffoldParts is the SINGLE canonical scaffold renderer (index.html, §4 SCAFFOLD
+     CONTRACT) — F8/F12/F19 all reuse it rather than re-implementing. Without this, a question
+     the engine routed to specifically for the misconception just made had no visible link
+     back to it — same plain question, different numbers. */
   $('qArea').innerHTML = `<div class="q-text">${sanitizeHtml(item.question_html||'')}</div>` +
+    renderScaffoldParts(item.scaffold) +
     opts.map((o,i)=>`<button class="q-opt" data-opt="${i}">${sanitizeHtml((o&&o.text)||'')}</button>`).join('');
   $('qArea').querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>recordAdaptiveAnswer(+b.dataset.opt)));
   renderMathIn($('qArea'));   /* F33 */

@@ -730,7 +730,12 @@ select
     'question_html', qr.payload->'question_html',
     'options', (select coalesce(jsonb_agg(jsonb_build_object('text', o->'text')), '[]'::jsonb)
                 from jsonb_array_elements(coalesce(qr.payload->'options','[]'::jsonb)) o),
-    'calculator', qr.payload->'calculator'
+    'calculator', qr.payload->'calculator',
+    -- 2026-09-17 — the scaffold parts (reminder/sub_question/partial_working/guided_choices)
+    -- are deliberately non-answer-revealing guidance (§4 SCAFFOLD CONTRACT, index.html) —
+    -- safe to ship pre-answer, and without this a routed-to scaffold rung looked identical
+    -- to a fresh question, with no visible link back to the mistake it's targeting.
+    'scaffold', qr.payload->'scaffold'
   ) as item
 from public.questions_review qr
 where qr.status in ('approved','edited') and qr.kind = 'question';
