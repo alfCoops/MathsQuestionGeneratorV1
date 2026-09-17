@@ -1640,7 +1640,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T12:09:25Z', ref:'4aaa851' };
+const BUILD = { at:'2026-09-17T12:15:06Z', ref:'955b74b' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3665,14 +3665,33 @@ async function loadReviewQueue(){
     if(error) throw error; return { items:data||[] };
   }catch(e){ return { items:[], error:String(e&&e.message||e) }; }
 }
+/* 2026-09-17 — found live: a kind='question' item has NO other way back into an editable view
+   once it leaves 'pending' (the review queue only ever shows pending rows), so a mistake in
+   its objective/eligible_start/options had nowhere to go but raw SQL to fix. Re-lists already-
+   published quiz questions, reusing the exact same reviewItemHtml/Edit/Approve/Reject wiring —
+   Reject is the deliberate way to pull an already-live question back out of the bank. Scoped to
+   kind='question' only; free-response/import items don't have this real-column-editing need. */
+async function loadPublishedQuestions(){
+  try{
+    const { data, error } = await sbClient.from('questions_review').select('*')
+      .eq('kind','question').in('status',['approved','edited']).order('created_at',{ascending:false});
+    if(error) throw error; return { items:data||[] };
+  }catch(e){ return { items:[], error:String(e&&e.message||e) }; }
+}
 async function renderReviewTab(body){
   body.innerHTML = '<p class="auth-note">Loading review queue…</p>';
-  const q = await loadReviewQueue();
+  const [q, pub] = await Promise.all([loadReviewQueue(), loadPublishedQuestions()]);
   if(q.error){ body.innerHTML = '<p class="auth-msg" style="display:block">Couldn’t load the review queue.</p>'; return; }
-  if(!q.items.length){ body.innerHTML = '<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>'; return; }
-  body.innerHTML = `<p class="tch-foot" style="margin:0 0 12px">${q.items.length} item${q.items.length===1?'':'s'} awaiting your review. Approve keeps it; Edit saves your changes (and teaches the generator your taste); Reject drops it.</p>`
-    + groupReviewItems(q.items).map(reviewGroupHtml).join('');
-  wireReviewItems(q.items);
+  const pendingHtml = q.items.length
+    ? `<p class="tch-foot" style="margin:0 0 12px">${q.items.length} item${q.items.length===1?'':'s'} awaiting your review. Approve keeps it; Edit saves your changes (and teaches the generator your taste); Reject drops it.</p>`
+      + groupReviewItems(q.items).map(reviewGroupHtml).join('')
+    : '<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>';
+  const publishedHtml = (!pub.error && pub.items.length)
+    ? `<h4 style="margin:22px 0 8px">🎯 Published quiz questions <span class="ad-note">(already live — reopen to fix the objective, starting-question flag, or a distractor)</span></h4>`
+      + pub.items.map(reviewItemHtml).join('')
+    : '';
+  body.innerHTML = `<div id="rvPending">${pendingHtml}</div>${publishedHtml}`;
+  wireReviewItems([...q.items, ...pub.items]);
   renderMathIn(body);              /* F33 delimiter contract — see renderMathIn */
 }
 /* Pure: order the queue so a LADDER READS AS A LADDER.
@@ -4061,7 +4080,13 @@ async function reviewSaveEdit(it, box){
     toast('Saved & marked edited ✓'); const el=document.querySelector('.rv-item[data-id="'+it.id+'"]'); if(el) el.remove(); reviewCheckEmpty();
   }catch(e){ toast('Couldn’t save the edit.'); }
 }
-function reviewCheckEmpty(){ if(_tchTab==='review' && !document.querySelector('.rv-item')){ const b=$('tchBody'); if(b) b.innerHTML='<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>'; } }
+/* Scoped to #rvPending only — approving/rejecting a PUBLISHED item (below the pending list)
+   must never blow away that whole list just because the pending queue happens to be empty. */
+function reviewCheckEmpty(){
+  if(_tchTab!=='review') return;
+  const pend = $('rvPending'); if(!pend) return;
+  if(!pend.querySelector('.rv-item')) pend.innerHTML = '<p class="auth-note">🎉 Nothing waiting — the review queue is empty.</p>';
+}
 
 /* =============================== F32 client — "Generate questions" (Phase-3 task 3) ===============================
    Calls the spec-grounded generation service with the signed-in TEACHER's Supabase access token
