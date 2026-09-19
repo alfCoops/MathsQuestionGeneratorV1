@@ -726,11 +726,6 @@ select
   qr.eligible_start,
   coalesce((qr.payload->>'scaffold_level')::int, 0) as scaffold_level,
   qr.payload->>'target_misconception' as target_misconception,
-  -- F19 Milestone 2 — 'instructional' (teaches/breaks the concept down, never by itself ends
-  -- remediation) vs 'verification' (a fresh, less-supported, independent check — only this
-  -- can end remediation). Untagged rungs (everything authored before this) default to
-  -- 'instructional' client-side, not here — this column is just the raw tag or null.
-  qr.payload->>'scaffold_kind' as scaffold_kind,
   jsonb_build_object(
     'question_html', qr.payload->'question_html',
     'options', (select coalesce(jsonb_agg(jsonb_build_object('text', o->'text')), '[]'::jsonb)
@@ -741,7 +736,15 @@ select
     -- safe to ship pre-answer, and without this a routed-to scaffold rung looked identical
     -- to a fresh question, with no visible link back to the mistake it's targeting.
     'scaffold', qr.payload->'scaffold'
-  ) as item
+  ) as item,
+  -- F19 Milestone 2 — 'instructional' (teaches/breaks the concept down, never by itself ends
+  -- remediation) vs 'verification' (a fresh, less-supported, independent check — only this
+  -- can end remediation). Untagged rungs (everything authored before this) default to
+  -- 'instructional' client-side, not here — this column is just the raw tag or null.
+  -- MUST stay the LAST column: `create or replace view` only allows appending new columns
+  -- at the end of the list, never inserting them in the middle (Postgres treats that as a
+  -- column rename, which it refuses) — found live when this was originally placed earlier.
+  qr.payload->>'scaffold_kind' as scaffold_kind
 from public.questions_review qr
 where qr.status in ('approved','edited') and qr.kind = 'question';
 
