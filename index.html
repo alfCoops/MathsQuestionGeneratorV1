@@ -1664,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-19T22:04:43Z', ref:'74731d8+' };
+const BUILD = { at:'2026-09-19T22:11:36Z', ref:'4c3d22c+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -5255,7 +5255,7 @@ function recordReasoningAnswer(lessonId, qIndex){
   recomputeMyPoints();
 }
 
-/* =========== F19 Milestone 1 — adaptive quiz UI, gated on cur.objectiveIds ================
+/* =========== F19 Milestone 2 — adaptive quiz UI, gated on cur.objectiveIds ================
    Reuses the SAME #secQuiz/#qArea/#qNum/#qNext/#qExit DOM as the static quiz above — a
    lesson is EITHER static or adaptive, never both, so openQuiz() is the one new dispatch
    point every call site (quizBtn, resumeToSection) goes through. qPrev/qFlag have no meaning
@@ -5271,9 +5271,24 @@ function recordReasoningAnswer(lessonId, qIndex){
    without an account.
    KNOWN, FLAGGED TRIM (not silently dropped): not resumable across a page reload this pass —
    progress.quiz_state is reserved for exactly this in supabase/migrations.sql but wiring a
-   second sync path for it was cut from Milestone 1's scope; a reload starts the attempt over. */
+   second sync path for it was cut from Milestone 1's scope; a reload starts the attempt over.
+
+   MILESTONE 2 — explicit state machine (Ryan's spec, .claude/plans/jolly-sprouting-puzzle.md):
+   main diagnostic questions and scaffold questions are counted and gated SEPARATELY.
+   aquiz.state is one of MAIN_QUESTION/REMEDIATION/VERIFICATION/REVIEW_QUESTION/
+   REVIEW_REMEDIATION/REVIEW_VERIFICATION/QUIZ_COMPLETE (MAIN_COMPLETE has no separate state —
+   resolveMain() folds straight back to MAIN_QUESTION or into the review phase, since nothing
+   needs to render in between). Every main question/review item resolves to exactly one of
+   three outcomes: 'completed' (correct first try), 'completed_after_support' (correct on a
+   VERIFICATION rung after remediation), or 'content_exhausted' — the bank had no next
+   rung/verification/review question to serve. content_exhausted is a DELIBERATE, honest
+   outcome, not a silent pass: an instructional-correct answer never ends remediation on its
+   own, and running out of content to check further is recorded as unresolved, never as
+   demonstrated mastery, per Ryan's explicit correction to an earlier draft of this feature.
+   Scoring is DEFERRED — see renderAdaptiveQuizResult(). */
 let aquiz = { active:false };
-const ADAPTIVE_START_COUNT = 3;   /* Milestone 1 default — make this content-configurable if/when Ryan wants per-course control */
+const ADAPTIVE_START_COUNT = 3;        /* how many of the FIRST main questions must come from teacher-flagged eligible_start rows */
+const ADAPTIVE_MAIN_QUESTION_COUNT = 10;   /* configured quiz length in MAIN questions — scaffold/review questions don't count against this. Aspirational: today's content is thin enough that most attempts will end early via content_exhausted, by design (see the plan). */
 function openQuiz(){
   if(cur.objectiveIds && cur.objectiveIds.length && sbClient && authUser) startAdaptiveQuiz();
   else renderQuiz();
@@ -5288,25 +5303,81 @@ async function startAdaptiveQuiz(){
   aquiz = {
     active:true, bank, served:new Set(), objectiveIds:cur.objectiveIds.slice(),
     currentObjective:cur.objectiveIds[0], attemptId:uuid4(), qIndex:0,
-    startingQueue, lastWrong:false, lastMisconception:null, lastScaffoldLevel:0, lastGradeBand:0,
+    startingQueue, lastMainGradeBand:0,
+    state:'MAIN_QUESTION', mainCount:0, mainTarget:ADAPTIVE_MAIN_QUESTION_COUNT,
+    currentMisconception:null, currentRungLevel:0, currentMainFirstTryCorrect:null,
+    mainOutcomes:[], mainQuestionsNeedingReview:[],
+    reviewQueue:[], reviewIndex:0, currentReviewNeed:null, reviewOutcomes:[],
     totalAnswered:0, totalCorrect:0, masteryByObjective:{}, current:null, answered:false
   };
   advanceAdaptiveQuiz();
 }
-function nextAdaptiveRow(){
-  if(aquiz.startingQueue.length){ const row=aquiz.startingQueue.shift(); aquiz.currentObjective=row.objective_id; return row; }
-  return pickNextQuizQuestion(aquiz);
-}
+/* The state machine's own "what to show next" dispatch — one branch per state, each calling
+   exactly the one pure picker that state needs. A picker returning null is NOT treated as
+   "nothing to do" here; it means content_exhausted for whatever's currently in flight, or (for
+   MAIN_QUESTION) that the main phase itself has run out of content and should end early. */
 function advanceAdaptiveQuiz(){
-  const row = nextAdaptiveRow();
-  if(!row){ renderAdaptiveQuizResult(); return; }
+  let row = null;
+  if(aquiz.state==='MAIN_QUESTION'){
+    if(aquiz.mainCount>=aquiz.mainTarget){ beginReviewOrFinish(); return; }
+    row = pickMainQuestion(aquiz);
+    if(!row){ beginReviewOrFinish(); return; }   /* main-level content genuinely exhausted — end the main phase honestly, don't hang */
+    aquiz.currentMisconception = null; aquiz.currentRungLevel = 0; aquiz.currentMainFirstTryCorrect = null;
+  } else if(aquiz.state==='REMEDIATION' || aquiz.state==='REVIEW_REMEDIATION'){
+    row = pickRemediationRung(aquiz);
+    if(!row){ (aquiz.state==='REMEDIATION' ? resolveMain : resolveReview)('content_exhausted'); return; }
+  } else if(aquiz.state==='VERIFICATION' || aquiz.state==='REVIEW_VERIFICATION'){
+    row = pickVerificationRung(aquiz);
+    if(!row){ (aquiz.state==='VERIFICATION' ? resolveMain : resolveReview)('content_exhausted'); return; }
+  } else if(aquiz.state==='REVIEW_QUESTION'){
+    aquiz.currentReviewNeed = aquiz.reviewQueue[aquiz.reviewIndex];
+    if(!aquiz.currentReviewNeed){ finishQuiz(); return; }
+    aquiz.currentObjective = aquiz.currentReviewNeed.objectiveId;
+    aquiz.currentMisconception = null; aquiz.currentRungLevel = 0;
+    row = pickReviewItem(aquiz, aquiz.currentReviewNeed);
+    if(!row){ resolveReview('content_exhausted'); return; }
+  } else { finishQuiz(); return; }
   aquiz.current = row; aquiz.answered = false;
   aquiz.served.add(row.id);   /* marked served the moment it's shown, not on answer, so leaving mid-question can't re-serve it either */
   renderAdaptiveQuestion();
 }
+/* Resolves the CURRENT main question with a final outcome, logs it, queues it for review if
+   it wasn't a clean first-try correct, and hands control back to MAIN_QUESTION so the next
+   advanceAdaptiveQuiz() call (on the student's own Next click) picks the next one. */
+function resolveMain(outcome){
+  const entry = { objectiveId:aquiz.currentObjective, misconception:aquiz.currentMisconception, outcome };
+  aquiz.mainOutcomes.push(entry);
+  if(outcome!=='completed') aquiz.mainQuestionsNeedingReview.push({ objectiveId:entry.objectiveId, misconception:entry.misconception });
+  aquiz.mainCount++;
+  aquiz.state = 'MAIN_QUESTION';
+}
+function resolveReview(outcome){
+  aquiz.reviewOutcomes.push({ objectiveId:aquiz.currentReviewNeed.objectiveId, misconception:aquiz.currentReviewNeed.misconception, outcome });
+  aquiz.reviewIndex++;
+  aquiz.state = 'REVIEW_QUESTION';
+}
+function beginReviewOrFinish(){
+  aquiz.reviewQueue = aquiz.mainQuestionsNeedingReview.slice();
+  aquiz.reviewIndex = 0;
+  if(aquiz.reviewQueue.length){ aquiz.state = 'REVIEW_QUESTION'; advanceAdaptiveQuiz(); }
+  else finishQuiz();
+}
+function finishQuiz(){ aquiz.state = 'QUIZ_COMPLETE'; renderAdaptiveQuizResult(); }
+/* Student-facing label makes the main/scaffold/review distinction visible, not just internal
+   bookkeeping — Ryan's own "make it clearer which is which" ask, this time on the student
+   side of the quiz rather than the teacher's review queue. */
+const AQUIZ_STATE_LABEL = {
+  MAIN_QUESTION:      n => `Question ${n} of ${aquiz.mainTarget}`,
+  REMEDIATION:         n => `Extra help — Question ${n}`,
+  VERIFICATION:        n => `Check your understanding — Question ${n}`,
+  REVIEW_QUESTION:     ()=> `Review question`,
+  REVIEW_REMEDIATION:  ()=> `Review — extra help`,
+  REVIEW_VERIFICATION: ()=> `Review — check your understanding`
+};
 function renderAdaptiveQuestion(){
   const item = (aquiz.current&&aquiz.current.item)||{};
-  $('qNum').textContent = `Question ${aquiz.qIndex+1}`;
+  const label = AQUIZ_STATE_LABEL[aquiz.state];
+  $('qNum').textContent = label ? label(aquiz.mainCount+1) : `Question ${aquiz.qIndex+1}`;
   const opts = Array.isArray(item.options) ? item.options : [];
   /* quiz_bank passes payload straight through in SQL (see supabase/migrations.sql) — same
      defensive re-sanitise on render as reviewItemHtml() already does for the same content,
@@ -5326,11 +5397,12 @@ async function recordAdaptiveAnswer(chosen){
   if(aquiz.answered) return;
   aquiz.answered = true;
   $('qArea').querySelectorAll('[data-opt]').forEach(b=>b.disabled=true);
+  const inReview = aquiz.state==='REVIEW_QUESTION' || aquiz.state==='REVIEW_REMEDIATION' || aquiz.state==='REVIEW_VERIFICATION';
   let res;
   try{
     const { data, error } = await sbClient.rpc('grade_quiz_answer', {
       p_question_id: aquiz.current.id, p_chosen: chosen, p_attempt_id: aquiz.attemptId,
-      p_q_index: aquiz.qIndex, p_phase: aquiz.qIndex < ADAPTIVE_START_COUNT ? 'starting' : 'adaptive'
+      p_q_index: aquiz.qIndex, p_phase: inReview ? 'review' : (aquiz.qIndex < ADAPTIVE_START_COUNT ? 'starting' : 'adaptive')
     });
     if(error) throw error;
     res = data;
@@ -5341,10 +5413,7 @@ async function recordAdaptiveAnswer(chosen){
     return;
   }
   aquiz.qIndex++; aquiz.totalAnswered++; if(res.correct) aquiz.totalCorrect++;
-  aquiz.lastWrong = !res.correct;
-  aquiz.lastMisconception = res.misconception_id || null;
-  aquiz.lastScaffoldLevel = res.scaffold_level || 0;
-  aquiz.lastGradeBand = aquiz.current.grade_band || aquiz.lastGradeBand;
+  aquiz.lastMainGradeBand = aquiz.current.grade_band || aquiz.lastMainGradeBand;
   if(res.objective_mastery_tier) aquiz.masteryByObjective[aquiz.currentObjective] = res.objective_mastery_tier;
   recomputeMyPoints();   /* F24/F44 — an adaptive answer feeds points/Energy exactly like the static quiz's quiz_results rows already do */
 
@@ -5352,6 +5421,32 @@ async function recordAdaptiveAnswer(chosen){
   opts.forEach((o,i)=>{ const b=$('qArea').querySelector(`[data-opt="${i}"]`); if(b && i===chosen) b.classList.add(res.correct?'picked-right':'picked-wrong'); });
   $('qArea').insertAdjacentHTML('beforeend', `<div class="fb ${res.correct?'right':'wrong'}"><b>${res.correct?'✅ Correct!':'❌ Not quite.'}</b>${res.feedback?' '+sanitizeHtml(res.feedback):''}</div>`);
   renderMathIn($('qArea'));
+
+  /* THE state transition — deterministic application logic per Ryan's spec, not the AI/engine
+     deciding. An instructional rung answered correctly moves toward VERIFICATION; it never by
+     itself resolves the main question. Only a correct VERIFICATION rung (or a first-try
+     correct main question) does. */
+  const kind = aquiz.current.scaffold_kind || 'instructional';   /* untagged = instructional, see the schema comment */
+  if(aquiz.state==='MAIN_QUESTION'){
+    if(aquiz.currentMainFirstTryCorrect===null) aquiz.currentMainFirstTryCorrect = !!res.correct;
+    if(res.correct) resolveMain('completed');
+    else { aquiz.currentMisconception = res.misconception_id; aquiz.currentRungLevel = 0; aquiz.state = 'REMEDIATION'; }
+  } else if(aquiz.state==='REMEDIATION' || aquiz.state==='REVIEW_REMEDIATION'){
+    aquiz.currentRungLevel = +(aquiz.current.scaffold_level||aquiz.currentRungLevel);
+    const isReview = aquiz.state==='REVIEW_REMEDIATION';
+    if(res.correct){
+      if(kind==='verification') (isReview?resolveReview:resolveMain)('completed_after_support');
+      else aquiz.state = isReview ? 'REVIEW_VERIFICATION' : 'VERIFICATION';   /* instructional-correct: stay in remediation, don't advance */
+    }   /* incorrect: stay in the same *_REMEDIATION state, pickRemediationRung climbs further next */
+  } else if(aquiz.state==='VERIFICATION' || aquiz.state==='REVIEW_VERIFICATION'){
+    const isReview = aquiz.state==='REVIEW_VERIFICATION';
+    if(res.correct) (isReview?resolveReview:resolveMain)('completed_after_support');
+    else aquiz.state = isReview ? 'REVIEW_REMEDIATION' : 'REMEDIATION';   /* verification failed: back to remediation */
+  } else if(aquiz.state==='REVIEW_QUESTION'){
+    if(res.correct) resolveReview('completed');
+    else { aquiz.currentMisconception = res.misconception_id || aquiz.currentReviewNeed.misconception; aquiz.currentRungLevel = 0; aquiz.state = 'REVIEW_REMEDIATION'; }
+  }
+
   $('qNext').disabled=false; $('qNext').textContent='Next Question →';
 }
 function renderAdaptiveQuizResult(){
@@ -5371,12 +5466,26 @@ function renderAdaptiveQuizResult(){
     const tier = aquiz.masteryByObjective[oid] || 'not_started';
     return `<li><b>${esc(o?(o.label||o.topic||o.id):oid)}</b> — ${esc(TIER_LABEL[tier]||tier)}</li>`;
   }).join('');
+  /* 2026-09-19 — scoring is DEFERRED, per Ryan: this shows the raw, honest breakdown of how
+     each main/review question actually resolved, never a guessed pass/fail verdict or a
+     percentage. content_exhausted is shown as its own line, distinct from both success
+     outcomes, precisely so it can never be mistaken for the student having demonstrated
+     mastery — see the plan for why an earlier draft of this got that conflated. */
+  const allOutcomes = aquiz.mainOutcomes.concat(aquiz.reviewOutcomes||[]);
+  const counts = { completed:0, completed_after_support:0, content_exhausted:0 };
+  allOutcomes.forEach(o=>{ counts[o.outcome] = (counts[o.outcome]||0)+1; });
+  const reviewCount = (aquiz.reviewOutcomes||[]).length;
   $('qArea').innerHTML = `<div class="quiz-result">
-    <div class="big" style="color:var(--green)">${aquiz.totalCorrect}/${aquiz.totalAnswered}</div>
-    <p>You answered ${aquiz.totalAnswered} question${aquiz.totalAnswered===1?'':'s'} across this lesson's learning objectives.</p>
+    <p>You worked through ${aquiz.mainOutcomes.length} main question${aquiz.mainOutcomes.length===1?'':'s'}${reviewCount?` and ${reviewCount} review question${reviewCount===1?'':'s'}`:''}.</p>
+    <ul style="text-align:left;max-width:420px;margin:10px auto">
+      <li>✅ Correct first try: <b>${counts.completed}</b></li>
+      <li>🪜 Correct after extra help: <b>${counts.completed_after_support}</b></li>
+      <li>⚠ Ended — no more practice questions available yet: <b>${counts.content_exhausted}</b></li>
+    </ul>
     <ul style="text-align:left;max-width:420px;margin:10px auto">${objRows}</ul>
+    <p class="ad-note" style="margin-top:10px">Scoring: pending — your tutor hasn't set the final marking weights yet, so this shows your results without a pass/fail grade.</p>
   </div>`;
-  completeStep('quiz');   /* Milestone 1 has no separate pass/fail rule yet — reaching the end of the adaptive loop is "done" */
+  completeStep('quiz');   /* no pass/fail rule exists yet (deliberately) — reaching the end of the loop is "done" */
 }
 
 $('quizBtn').addEventListener('click', ()=>{ openAct('secQuiz'); openQuiz(); });
@@ -5692,46 +5801,8 @@ function firstMatch(rows, predicates){
   for(const pred of predicates){ const hit=(rows||[]).find(pred); if(hit) return hit; }
   return null;
 }
-/* Pure: the adaptive step. quizState = { bank, served:Set<id>, objectiveIds, currentObjective,
-   lastWrong, lastMisconception, lastScaffoldLevel, lastGradeBand }. Mutates
-   quizState.currentObjective when it advances past a finished objective — the caller owns
-   quizState, so that mutation is visible to whoever asked for the next question, same as
-   quiz.i/_servedIds are mutated in place by the existing static-quiz code above.
-   Returns a bank row, or null when the engine has nothing left across every in-scope
-   objective (the caller ends the attempt). */
-function pickNextQuizQuestion(quizState){
-  const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id));
-  const sameObj = () => fresh.filter(r => r.objective_id===quizState.currentObjective);
-
-  if(quizState.lastWrong){
-    const mis = quizState.lastMisconception, lvl = quizState.lastScaffoldLevel||0;
-    const next = firstMatch(sameObj(), [
-      r => r.target_misconception===mis && +r.scaffold_level===lvl+1,   /* 1. escalate the SAME ladder */
-      r => r.target_misconception===mis && +r.scaffold_level>lvl,       /* 2. any higher rung */
-      r => r.target_misconception===mis,                                /* 3. any rung, same misconception */
-      r => +r.scaffold_level===0,                                        /* 4. fresh diagnostic, objective stays */
-    ]);
-    if(next) return next;
-  } else {
-    /* correct: step difficulty up within the objective first, else any fresh L0 on it. */
-    const next = firstMatch(sameObj(), [
-      r => +r.scaffold_level===0 && (r.grade_band||0) > (quizState.lastGradeBand||0),
-      r => +r.scaffold_level===0,
-    ]);
-    if(next) return next;
-  }
-  /* Nothing left on the current objective either way — advance to the next in-scope
-     objective that still has fresh content, starting it at L0 (no grade_band/misconception
-     carried over from the objective just finished). */
-  const nextObjective = (quizState.objectiveIds||[]).find(oid =>
-    oid!==quizState.currentObjective && fresh.some(r => r.objective_id===oid && +r.scaffold_level===0));
-  if(!nextObjective) return null;
-  quizState.currentObjective = nextObjective;
-  return firstMatch(fresh.filter(r=>r.objective_id===nextObjective), [ r => +r.scaffold_level===0 ]);
-}
-
-/* =========== F19 Milestone 2 — one pure function per state, replacing pickNextQuizQuestion's
-   single tangled rule set (still above, unused once the state-machine rewrite wires these in).
+/* =========== F19 Milestone 2 — one pure function per state, replacing the Milestone 1
+   pickNextQuizQuestion()'s single tangled rule set (removed — this fully supersedes it).
    "What happens in REMEDIATION" is now answerable by reading pickRemediationRung() alone — the
    deterministic, per-state logic Ryan explicitly asked for instead of one function improvising
    everything. Each returns null when the bank has nothing left for that specific ask — the
@@ -5769,8 +5840,8 @@ function pickMainQuestion(quizState){
    succeeds or content runs out; it never quietly turns into a different main question. */
 function pickRemediationRung(quizState){
   const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id) && +r.scaffold_level>0
-    && r.objective_id===quizState.currentObjective && r.target_misconception===quizState.currentMainMisconception);
-  const lvl = quizState.currentMainRungLevel||0;
+    && r.objective_id===quizState.currentObjective && r.target_misconception===quizState.currentMisconception);
+  const lvl = quizState.currentRungLevel||0;
   return firstMatch(fresh, [
     r => +r.scaffold_level===lvl+1,
     r => +r.scaffold_level>lvl,
@@ -5783,7 +5854,7 @@ function pickRemediationRung(quizState){
    whole reason content_exhausted is tracked as its own outcome rather than assumed success. */
 function pickVerificationRung(quizState){
   const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id) && +r.scaffold_level>0
-    && r.objective_id===quizState.currentObjective && r.target_misconception===quizState.currentMainMisconception
+    && r.objective_id===quizState.currentObjective && r.target_misconception===quizState.currentMisconception
     && r.scaffold_kind==='verification');
   return firstMatch(fresh, [ r=>true ]);
 }
