@@ -1664,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-19T21:24:31Z', ref:'807f6f2' };
+const BUILD = { at:'2026-09-19T22:00:27Z', ref:'563c450' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3682,7 +3682,7 @@ function renderMathIn(el){
    learns from, so it's stored deliberately, not as an audit trail. Teacher-only via RLS. */
 /* F34 — tables_html/parts/source_info only ever appear on source:'import' items; harmless
    no-ops for AI items (before/after both undefined, no diff entry). */
-const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints','tables_html','parts','source_info','options','correct_feedback'];
+const RV_EDIT_FIELDS = ['question_html','mark_scheme','marks','hints','tables_html','parts','source_info','options','correct_feedback','scaffold_level','target_misconception','scaffold_kind','scaffold_reminder'];
 async function loadReviewQueue(){
   try{
     const { data, error } = await sbClient.from('questions_review').select('*').eq('status','pending').order('created_at',{ascending:true});
@@ -3806,6 +3806,11 @@ function manualQuestionFormHtml(){
     </div>
     <label class="ad-lb" style="margin-top:8px">Targets this misconception <span class="ad-note">(only used when scaffold level is 1 or more — must match a misconception label above EXACTLY, so the engine can climb to this rung after that specific wrong answer)</span></label>
     <input class="ad-in rvm-target-misc">
+    <label class="ad-lb" style="margin-top:8px">Scaffold type <span class="ad-note">(only used when scaffold level is 1 or more — an Instructional rung teaches the step; getting it right does NOT end remediation on its own. Only a correct Verification rung — a fresh, less-supported, independent check — ends it.)</span></label>
+    <select class="ad-in rvm-scaffold-kind">
+      <option value="instructional">Instructional — teaches/breaks the concept down</option>
+      <option value="verification">Verification — checks independent understanding, ends remediation if correct</option>
+    </select>
     <label class="ad-lb" style="margin-top:8px">Reminder shown to the student on this rung <span class="ad-note">(optional — only shown at scaffold level 1+; never reveals the answer)</span></label>
     <input class="ad-in rvm-reminder">
     <label class="ad-lb" style="margin-top:8px">Ladder group <span class="ad-note">(optional — leave blank and every question tagged to the same learning objective below automatically joins the same diagram; only type something here if you want this to start a SEPARATE, unconnected diagnostic on that objective)</span></label>
@@ -3837,6 +3842,7 @@ async function saveManualQuestion(){
   const payload = { question_html: questionHtml, options, correct_feedback: q('.rvm-correct-fb').value.trim(), scaffold_level: scaffoldLevel };
   const targetMisc = q('.rvm-target-misc').value.trim();
   if(scaffoldLevel>0 && targetMisc) payload.target_misconception = targetMisc;
+  if(scaffoldLevel>0) payload.scaffold_kind = q('.rvm-scaffold-kind').value;   /* F19 Milestone 2 */
   const reminder = q('.rvm-reminder').value.trim();
   if(scaffoldLevel>0 && reminder) payload.scaffold = { reminder };
   const objectiveId = q('.rvm-objective').value || null;
@@ -4271,6 +4277,27 @@ function reviewEditFormHtml(it){
     <label class="ad-lb" style="margin-top:8px">Feedback for the correct answer</label>
     <input class="ad-in rvf-correct-fb" value="${esc(p.correct_feedback||'')}">`;
   })() : '';
+  /* 2026-09-19 — F19 Milestone 2: the Edit form couldn't touch scaffold fields at all before
+     this (only the "Write a new quiz question" form could) — a teacher fixing an already-
+     published rung's ladder/misconception/scaffold-type had no way to do it except reject and
+     re-author from scratch. Same fields as that form, pre-filled from the current payload. */
+  const scaffoldFields = isQuestion ? (()=>{
+    const lvl = +(p.scaffold_level||0);
+    const kind = p.scaffold_kind || 'instructional';
+    return `<div class="ad-grid2" style="margin-top:10px">
+      <div><label class="ad-lb">Scaffold level <span class="ad-note">(0 = a fresh diagnostic; 1+ = a rung climbed after a wrong answer)</span></label><input class="ad-in rvf-scaffold" type="number" min="0" max="9" value="${lvl}" style="width:90px"></div>
+      <div><label class="ad-lb">Ladder group</label><input class="ad-in rvf-variant" value="${esc(it.variant_group||'')}" style="width:160px"></div>
+    </div>
+    <label class="ad-lb" style="margin-top:8px">Targets this misconception <span class="ad-note">(only used when scaffold level is 1 or more)</span></label>
+    <input class="ad-in rvf-target-misc" value="${esc(p.target_misconception||'')}">
+    <label class="ad-lb" style="margin-top:8px">Scaffold type <span class="ad-note">(only used when scaffold level is 1 or more — Instructional getting it right does NOT end remediation on its own; only Verification does)</span></label>
+    <select class="ad-in rvf-scaffold-kind">
+      <option value="instructional" ${kind==='instructional'?'selected':''}>Instructional — teaches/breaks the concept down</option>
+      <option value="verification" ${kind==='verification'?'selected':''}>Verification — checks independent understanding, ends remediation if correct</option>
+    </select>
+    <label class="ad-lb" style="margin-top:8px">Reminder shown to the student on this rung <span class="ad-note">(optional — only shown at scaffold level 1+; never reveals the answer)</span></label>
+    <input class="ad-in rvf-reminder" value="${esc((p.scaffold&&p.scaffold.reminder)||'')}">`;
+  })() : '';
   const importFields = isImport ? `
     <label class="ad-lb" style="margin-top:10px">Table <span class="ad-note">(raw HTML — e.g. &lt;table&gt;…&lt;/table&gt;; leave blank if none)</span></label><textarea class="ad-in ad-ta rvf-tables">${esc(p.tables_html||'')}</textarea>
     <label class="ad-lb">Question parts <span class="ad-note">(one per line, e.g. "(a) …")</span></label><textarea class="ad-in ad-ta rvf-parts">${esc((Array.isArray(p.parts)?p.parts:[]).join('\n'))}</textarea>
@@ -4283,6 +4310,7 @@ function reviewEditFormHtml(it){
     <label class="ad-lb">Marks</label><input class="ad-in rvf-marks" type="number" value="${esc(p.marks!=null?p.marks:'')}" style="width:90px">
     <label class="ad-lb">Hints <span class="ad-note">(edit the wording; the stage order and any images are kept)</span></label>${hintRows}
     ${answerOptionsFields}
+    ${scaffoldFields}
     ${objectiveFields}
     ${importFields}
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn solid rv-savedit" data-id="${esc(it.id)}">Save &amp; mark edited</button><button class="btn ghost rv-canceledit" data-id="${esc(it.id)}">Cancel</button></div>`;
@@ -4304,6 +4332,19 @@ function reviewEdit(payload, edits){
      "undefined if not offered" guard as the F34 import-only fields above. */
   if(edits.options!==undefined){ before.options=(Array.isArray(p.options)?p.options:[]); after.options=edits.options; newPayload.options=edits.options; }
   if(edits.correct_feedback!==undefined){ before.correct_feedback=(p.correct_feedback||''); after.correct_feedback=edits.correct_feedback; newPayload.correct_feedback=edits.correct_feedback; }
+  /* F19 Milestone 2 — scaffold fields (scaffoldFields in reviewEditFormHtml), only present for
+     kind='question', same "undefined if not offered" guard as everything else above. */
+  if(edits.scaffold_level!==undefined){ before.scaffold_level=(p.scaffold_level||0); after.scaffold_level=edits.scaffold_level; newPayload.scaffold_level=edits.scaffold_level; }
+  if(edits.target_misconception!==undefined){
+    before.target_misconception=(p.target_misconception||''); after.target_misconception=edits.target_misconception;
+    if(edits.target_misconception) newPayload.target_misconception=edits.target_misconception; else delete newPayload.target_misconception;
+  }
+  if(edits.scaffold_kind!==undefined){ before.scaffold_kind=(p.scaffold_kind||''); after.scaffold_kind=edits.scaffold_kind; newPayload.scaffold_kind=edits.scaffold_kind; }
+  if(edits.scaffold_reminder!==undefined){
+    before.scaffold_reminder=((p.scaffold&&p.scaffold.reminder)||''); after.scaffold_reminder=edits.scaffold_reminder;
+    if(edits.scaffold_reminder) newPayload.scaffold=Object.assign({},newPayload.scaffold,{reminder:edits.scaffold_reminder});
+    else if(newPayload.scaffold){ newPayload.scaffold=Object.assign({},newPayload.scaffold); delete newPayload.scaffold.reminder; }
+  }
   const diff={};
   RV_EDIT_FIELDS.forEach(k=>{ if((k in before) && JSON.stringify(before[k])!==JSON.stringify(after[k])) diff[k]={ from:before[k], to:after[k] }; });
   return { newPayload, diff };
@@ -4370,14 +4411,26 @@ async function reviewSaveEdit(it, box){
     });
     const cfEl = box.querySelector('.rvf-correct-fb'); if(cfEl) edits.correct_feedback = cfEl.value;
   }
+  /* F19 Milestone 2 — only present in the form for kind='question' (scaffoldFields in
+     reviewEditFormHtml); leaving these undefined for every other kind is exactly what keeps
+     reviewEdit() from touching them. */
+  const scaffoldLevelEl = box.querySelector('.rvf-scaffold');
+  if(scaffoldLevelEl){
+    edits.scaffold_level = +scaffoldLevelEl.value || 0;
+    edits.target_misconception = (box.querySelector('.rvf-target-misc')||{}).value || '';
+    edits.scaffold_kind = (box.querySelector('.rvf-scaffold-kind')||{}).value || 'instructional';
+    edits.scaffold_reminder = (box.querySelector('.rvf-reminder')||{}).value || '';
+  }
   const { newPayload, diff } = reviewEdit(it.payload, edits);
-  /* F19 Milestone 1 — real columns, not payload; only present in the form for kind='question'
-     (objectiveFields in reviewEditFormHtml), same "undefined if not offered" guard as the F34
-     import-only fields above. */
+  /* F19 — real columns, not payload; only present in the form for kind='question'
+     (objectiveFields/scaffoldFields in reviewEditFormHtml), same "undefined if not offered"
+     guard as the F34 import-only fields above. */
   const update = { payload:newPayload, edited_diff:diff, status:'edited', approved_by:(authUser&&authUser.id)||null };
   const objSel = box.querySelector('.rvf-objective'), startChk = box.querySelector('.rvf-eligible-start');
   if(objSel) update.objective_id = objSel.value || null;
   if(startChk) update.eligible_start = startChk.checked;
+  const variantEl = box.querySelector('.rvf-variant');
+  if(variantEl) update.variant_group = variantEl.value.trim() || null;
   try{ const { error } = await sbClient.from('questions_review').update(update).eq('id', it.id); if(error) throw error;
     toast('Saved & marked edited ✓'); const el=document.querySelector('.rv-item[data-id="'+it.id+'"]'); if(el) el.remove(); reviewCheckEmpty();
   }catch(e){ toast('Couldn’t save the edit.'); }
