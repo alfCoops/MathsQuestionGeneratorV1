@@ -726,6 +726,11 @@ select
   qr.eligible_start,
   coalesce((qr.payload->>'scaffold_level')::int, 0) as scaffold_level,
   qr.payload->>'target_misconception' as target_misconception,
+  -- F19 Milestone 2 — 'instructional' (teaches/breaks the concept down, never by itself ends
+  -- remediation) vs 'verification' (a fresh, less-supported, independent check — only this
+  -- can end remediation). Untagged rungs (everything authored before this) default to
+  -- 'instructional' client-side, not here — this column is just the raw tag or null.
+  qr.payload->>'scaffold_kind' as scaffold_kind,
   jsonb_build_object(
     'question_html', qr.payload->'question_html',
     'options', (select coalesce(jsonb_agg(jsonb_build_object('text', o->'text')), '[]'::jsonb)
