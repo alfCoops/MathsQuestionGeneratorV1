@@ -1664,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-17T14:43:23Z', ref:'442f50a' };
+const BUILD = { at:'2026-09-19T21:24:31Z', ref:'807f6f2' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -3808,7 +3808,7 @@ function manualQuestionFormHtml(){
     <input class="ad-in rvm-target-misc">
     <label class="ad-lb" style="margin-top:8px">Reminder shown to the student on this rung <span class="ad-note">(optional — only shown at scaffold level 1+; never reveals the answer)</span></label>
     <input class="ad-in rvm-reminder">
-    <label class="ad-lb" style="margin-top:8px">Ladder group <span class="ad-note">(same value on every rung + the diagnostic they escalate from, so the Review queue reads them as one ladder — optional, leave blank for a standalone question)</span></label>
+    <label class="ad-lb" style="margin-top:8px">Ladder group <span class="ad-note">(optional — leave blank and every question tagged to the same learning objective below automatically joins the same diagram; only type something here if you want this to start a SEPARATE, unconnected diagnostic on that objective)</span></label>
     <input class="ad-in rvm-variant">
     <label class="ad-lb" style="margin-top:8px">Learning objective</label><select class="ad-in rvm-objective">${objOpts}</select>
     <label class="ad-lb" style="margin:8px 0 0;display:flex;align-items:center;gap:6px;font-weight:600">
@@ -3839,8 +3839,14 @@ async function saveManualQuestion(){
   if(scaffoldLevel>0 && targetMisc) payload.target_misconception = targetMisc;
   const reminder = q('.rvm-reminder').value.trim();
   if(scaffoldLevel>0 && reminder) payload.scaffold = { reminder };
-  const variantGroup = q('.rvm-variant').value.trim();
   const objectiveId = q('.rvm-objective').value || null;
+  /* 2026-09-17 — found live: the ladder diagram groups by variant_group, so a teacher who
+     forgot (or mistyped) it got a question that saved fine but never appeared connected on
+     the diagram — silently, no error. Defaulting an untyped ladder group to the objective's
+     own id means every question tagged to the SAME objective lands in the SAME diagram by
+     default; a teacher only needs to type something here at all when they deliberately want
+     a SECOND, separate diagnostic on that objective to stay unconnected from the first. */
+  const variantGroup = q('.rvm-variant').value.trim() || (objectiveId ? objectiveId+'-ladder' : '');
   const insertRow = {
     course_id: currentCourseId, lesson_id: (cur&&cur.id)||null, kind:'question', payload,
     grade_band: +q('.rvm-grade').value || null, source:'manual', status:'pending',
