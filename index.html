@@ -1664,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-19T22:11:36Z', ref:'4c3d22c+' };
+const BUILD = { at:'2026-09-19T22:14:22Z', ref:'6625713' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -2932,7 +2932,7 @@ async function loadTeacherData(){
     const [p,pr,qr] = await Promise.all([
       sbClient.from('profiles').select('user_id,display_name,role,comp_access,streak_emails_opt_in'),
       sbClient.from('progress').select('user_id,course_id,lesson_id,steps'),
-      sbClient.from('quiz_results').select('user_id,course_id,lesson_id,topic,misconception,correct,objective_id,scaffold_level,answered_at')
+      sbClient.from('quiz_results').select('user_id,course_id,lesson_id,topic,misconception,correct,objective_id,scaffold_level,answered_at,attempt_phase,meta')
     ]);
     if(p.error||pr.error||qr.error) throw (p.error||pr.error||qr.error);
     return { profiles:(p.data||[]), progress:(pr.data||[]), quiz:(qr.data||[]) };
@@ -2968,22 +2968,32 @@ function teacherStudentsHtml(d){
 /* F19 Milestone 1 — per-attempt breakdown for the adaptive quiz specifically (objective_id is
    only ever set on rows the new engine writes; the static quiz's rows have it null and are
    simply excluded here — this table answers Ryan's "why", not just "what score", per attempt). */
+/* F19 Milestone 2 — a content_exhausted row (recordContentExhausted()) is NOT a graded
+   answer — it's a sequence that ended because no next rung/verification/review question
+   existed, tagged via meta.outcome rather than a real q_id. Must read unmistakably as "ended,
+   no content" and never blend in with a genuine ✅/❌ — Ryan's explicit correction to an
+   earlier draft that conflated running out of content with the student succeeding. */
 function teacherObjectiveAttemptsHtml(d){
+  const PHASE_LABEL = { starting:'Starting', adaptive:'Main', review:'Review' };
   const rows = d.quiz.filter(r=>r.objective_id).slice().sort((a,b)=>String(b.answered_at||'').localeCompare(String(a.answered_at||''))).slice(0,50);
   if(!rows.length) return '<p class="auth-note">No adaptive quiz attempts yet.</p>';
   const nameFor = uid => { const p=d.profiles.find(x=>x.user_id===uid); return (p&&p.display_name) || '—'; };
   const objFor = r => { const c=courseById(r.course_id); const o=c && (c.OBJECTIVES||[]).find(x=>x.id===r.objective_id); return o ? (o.label||o.topic||o.id) : r.objective_id; };
-  const trs = rows.map(r=>`<tr class="${r.correct?'':'tch-warn'}">
+  const trs = rows.map(r=>{
+    const exhausted = r.meta && r.meta.outcome==='content_exhausted';
+    return `<tr class="${exhausted?'':(r.correct?'':'tch-warn')}" ${exhausted?'style="background:var(--surf2)"':''}>
       <td>${esc(nameFor(r.user_id))}</td>
+      <td>${PHASE_LABEL[r.attempt_phase]||'—'}</td>
       <td>${esc(r.topic||'—')}</td>
       <td>${esc(objFor(r))}</td>
-      <td>${r.correct?'✅ Correct':'❌ Incorrect'}</td>
+      <td>${exhausted?'⚠ Ended — no content available':(r.correct?'✅ Correct':'❌ Incorrect')}</td>
       <td>${r.misconception?esc(r.misconception):'—'}</td>
-      <td>${(!r.correct && r.scaffold_level!=null && +r.scaffold_level>0) ? 'Scaffold '+esc(r.scaffold_level) : '—'}</td>
-    </tr>`).join('');
-  return `<h3>Adaptive quiz attempts <span class="ad-note">(most recent 50)</span></h3>
+      <td>${(!exhausted && !r.correct && r.scaffold_level!=null && +r.scaffold_level>0) ? 'Scaffold '+esc(r.scaffold_level) : '—'}</td>
+    </tr>`;
+  }).join('');
+  return `<h3>Adaptive quiz attempts <span class="ad-note">(most recent 50 — "Ended, no content available" means the sequence stopped for lack of approved questions, not that the student demonstrated mastery)</span></h3>
     <table class="tch-table">
-      <thead><tr><th>Student</th><th>Topic</th><th>Learning objective</th><th>Result</th><th>Misconception</th><th>Support needed</th></tr></thead>
+      <thead><tr><th>Student</th><th>Phase</th><th>Topic</th><th>Learning objective</th><th>Result</th><th>Misconception</th><th>Support needed</th></tr></thead>
       <tbody>${trs}</tbody></table>`;
 }
 function teacherInsightsHtml(d){
@@ -5341,18 +5351,40 @@ function advanceAdaptiveQuiz(){
   aquiz.served.add(row.id);   /* marked served the moment it's shown, not on answer, so leaving mid-question can't re-serve it either */
   renderAdaptiveQuestion();
 }
+/* 2026-09-19 — content_exhausted is a conclusion about NOT getting another question, not a
+   property of any single graded answer, so unlike 'completed'/'completed_after_support' (which
+   already have a real, correct=true row from grade_quiz_answer's own insert) there's no
+   existing quiz_results row to represent it at all. Without this, the teacher dashboard could
+   never show that a sequence ended for lack of content rather than success. Best-effort, same
+   posture as recordQuizResults()'s own direct insert (own-row RLS already permits it — no new
+   policy needed) — tagged via meta.outcome so it never looks like a real, corr(ect/wrong)
+   graded answer with a fabricated q_id. */
+function recordContentExhausted(objectiveId, misconception, phase){
+  if(!sbClient || !authUser) return;
+  try{
+    sbClient.from('quiz_results').insert({
+      user_id: authUser.id, course_id: currentCourseId, lesson_id: (cur&&cur.id)||null,
+      attempt_id: aquiz.attemptId, q_index: aquiz.qIndex, q_id: 'content_exhausted',
+      topic: null, misconception: misconception||null, grade_band: null, variant_group: null,
+      objective_id: objectiveId||null, scaffold_level: null, attempt_phase: phase,
+      chosen: null, correct: false, meta: { outcome:'content_exhausted' }
+    });
+  }catch(e){}
+}
 /* Resolves the CURRENT main question with a final outcome, logs it, queues it for review if
    it wasn't a clean first-try correct, and hands control back to MAIN_QUESTION so the next
    advanceAdaptiveQuiz() call (on the student's own Next click) picks the next one. */
 function resolveMain(outcome){
   const entry = { objectiveId:aquiz.currentObjective, misconception:aquiz.currentMisconception, outcome };
   aquiz.mainOutcomes.push(entry);
+  if(outcome==='content_exhausted') recordContentExhausted(entry.objectiveId, entry.misconception, 'adaptive');
   if(outcome!=='completed') aquiz.mainQuestionsNeedingReview.push({ objectiveId:entry.objectiveId, misconception:entry.misconception });
   aquiz.mainCount++;
   aquiz.state = 'MAIN_QUESTION';
 }
 function resolveReview(outcome){
   aquiz.reviewOutcomes.push({ objectiveId:aquiz.currentReviewNeed.objectiveId, misconception:aquiz.currentReviewNeed.misconception, outcome });
+  if(outcome==='content_exhausted') recordContentExhausted(aquiz.currentReviewNeed.objectiveId, aquiz.currentReviewNeed.misconception, 'review');
   aquiz.reviewIndex++;
   aquiz.state = 'REVIEW_QUESTION';
 }
