@@ -1664,7 +1664,7 @@ const BACKEND = {
    commit HEAD was on when the stamp was written — one commit behind the deployed one, since
    stamping happens before committing. Regenerate with:  node test/stamp-build.mjs
    Also on `window.MM_BUILD`, so a script or a console one-liner can assert the live version. */
-const BUILD = { at:'2026-09-19T22:00:27Z', ref:'563c450' };
+const BUILD = { at:'2026-09-19T22:04:43Z', ref:'74731d8+' };
 window.MM_BUILD = BUILD;
 function renderBuildStamp(){
   try{
@@ -5728,6 +5728,73 @@ function pickNextQuizQuestion(quizState){
   if(!nextObjective) return null;
   quizState.currentObjective = nextObjective;
   return firstMatch(fresh.filter(r=>r.objective_id===nextObjective), [ r => +r.scaffold_level===0 ]);
+}
+
+/* =========== F19 Milestone 2 — one pure function per state, replacing pickNextQuizQuestion's
+   single tangled rule set (still above, unused once the state-machine rewrite wires these in).
+   "What happens in REMEDIATION" is now answerable by reading pickRemediationRung() alone — the
+   deterministic, per-state logic Ryan explicitly asked for instead of one function improvising
+   everything. Each returns null when the bank has nothing left for that specific ask — the
+   STATE MACHINE decides what null means (end the main phase early, or record this question's
+   outcome as content_exhausted), never the picker itself. */
+
+/* Next MAIN diagnostic question — starting queue first, else difficulty-step within the
+   current objective, else advance to the next in-scope objective's L0. Never returns a
+   scaffold rung (scaffold_level>0 rows are never main questions). */
+function pickMainQuestion(quizState){
+  if(quizState.startingQueue.length){
+    const row = quizState.startingQueue.shift();
+    if(row.objective_id!==quizState.currentObjective) quizState.lastMainGradeBand = 0;
+    quizState.currentObjective = row.objective_id;
+    return row;
+  }
+  const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id) && +r.scaffold_level===0);
+  const sameObj = fresh.filter(r => r.objective_id===quizState.currentObjective);
+  const next = firstMatch(sameObj, [
+    r => (r.grade_band||0) > (quizState.lastMainGradeBand||0),
+    r => true,
+  ]);
+  if(next) return next;
+  const nextObjective = (quizState.objectiveIds||[]).find(oid =>
+    oid!==quizState.currentObjective && fresh.some(r => r.objective_id===oid));
+  if(!nextObjective) return null;
+  quizState.currentObjective = nextObjective;
+  quizState.lastMainGradeBand = 0;
+  return firstMatch(fresh.filter(r=>r.objective_id===nextObjective), [ r=>true ]);
+}
+/* Next REMEDIATION rung for the misconception the current main question is stuck on — climbs
+   the SAME ladder (same target_misconception, next scaffold_level up) before falling back to
+   any higher/any rung on that misconception. Deliberately never falls back to a fresh L0
+   question — a main question already in remediation stays in remediation until verification
+   succeeds or content runs out; it never quietly turns into a different main question. */
+function pickRemediationRung(quizState){
+  const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id) && +r.scaffold_level>0
+    && r.objective_id===quizState.currentObjective && r.target_misconception===quizState.currentMainMisconception);
+  const lvl = quizState.currentMainRungLevel||0;
+  return firstMatch(fresh, [
+    r => +r.scaffold_level===lvl+1,
+    r => +r.scaffold_level>lvl,
+    r => true,
+  ]);
+}
+/* Next VERIFICATION rung for the same misconception — strictly scaffold_kind==='verification'.
+   Returns null (never falls back to an instructional rung) when none exists, so the caller can
+   tell "no verification content exists" apart from "here's a rung" — that distinction is the
+   whole reason content_exhausted is tracked as its own outcome rather than assumed success. */
+function pickVerificationRung(quizState){
+  const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id) && +r.scaffold_level>0
+    && r.objective_id===quizState.currentObjective && r.target_misconception===quizState.currentMainMisconception
+    && r.scaffold_kind==='verification');
+  return firstMatch(fresh, [ r=>true ]);
+}
+/* Next REVIEW item for an objective/misconception that needed support during the main phase.
+   Prefers an unserved L0 question on that objective (a genuinely fresh main-style check);
+   falls back to any unserved question on it at all, since a thin bank may only have
+   scaffold-level content left once the main phase has used up the L0 questions. */
+function pickReviewItem(quizState, need){
+  if(!need) return null;
+  const fresh = (quizState.bank||[]).filter(r => !quizState.served.has(r.id) && r.objective_id===need.objectiveId);
+  return firstMatch(fresh, [ r => +r.scaffold_level===0, r => true ]);
 }
 
 /* =============================== worksheet =============================== */
